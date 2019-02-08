@@ -1,0 +1,64 @@
+{
+    "name": "Second map",
+    "objects": [
+        {
+            "resId": "marble_ground",
+            "position": [
+                0,
+                0
+            ],
+            "angle": 0
+        },
+        {
+            "resId": "castle_door",
+            "position": [
+                10,
+                -5.5
+            ],
+            "angle": 0,
+            "use": {
+                "leadsTo": "first"
+            }
+        },
+        {
+            "resId": "marble_ground",
+            "position": [
+                0,
+                -25
+            ],
+            "angle": 0
+        },
+        {
+            "resId": "wooden_crate",
+            "position": [
+                -10,
+                -10
+            ],
+            "angle": 0.1
+        },
+        {
+            "resId": "wooden_crate",
+            "position": [
+                10,
+                -10
+            ],
+            "angle": 0.2
+        },
+        {
+            "resId": "wooden_crate",
+            "position": [
+                -5,
+                -20
+            ],
+            "angle": 0.3
+        },
+        {
+            "resId": "wooden_crate",
+            "position": [
+                5,
+                -20
+            ],
+            "angle": 0.4
+        }
+    ]
+}

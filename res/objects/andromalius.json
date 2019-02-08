@@ -1,0 +1,20 @@
+{
+    "resId": "andromalius",
+    "type": "box2d",
+    "flags": [
+        "controlled"
+    ],
+    "box2d": {
+        "type": "dynamic",
+        "dimensions": [
+            1,
+            2
+        ],
+        "density": 11,
+        "friction": 1
+    },
+    "render": {
+        "type": "rect",
+        "image": "andromalius.png"
+    }
+}

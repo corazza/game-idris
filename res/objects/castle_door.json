@@ -1,0 +1,15 @@
+{
+    "resId": "castle_door",
+    "type": "background",
+    "flags": [],
+    "physical": {
+        "dimensions": [
+            2,
+            3
+        ]
+    },
+    "render": {
+        "type": "rect",
+        "image": "castledoors.png"
+    }
+}

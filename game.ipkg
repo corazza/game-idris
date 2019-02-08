@@ -1,0 +1,13 @@
+package game
+
+pkgs = sdl2, contrib
+
+--makefile = Makefile
+
+sourcedir = src
+
+modules = Resources, ProcessLib
+
+main = game
+
+executable = game
