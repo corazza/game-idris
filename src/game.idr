@@ -1,51 +1,84 @@
 module Main
 
-import Graphics.SDL2
+import Graphics.SDL2 as SDL2
+import System as System
 
 import Resources
+
+record GameState where
+  constructor MkGameState
+  f : Int
+  x, y : Int
+  mx, my : Int
+
+initState : GameState
+initState = MkGameState 0 320 200 0 0
+
+abort : (msg: String) -> IO ()
+abort msg = do
+  err <- getError
+  fPutStr stderr $ msg ++ " failed:" ++ err
+  fflush stderr
+  System.exit 1
 
 main : IO ()
 main = (do
   renderer <- SDL2.init 640 480
   renderPresent renderer
-  eventLoop renderer 0 320 200 0 0)
+
+  let imageCache = emptyImageCache
+
+  (disciple, imageCache) <- getImage renderer imageCache "disciple"
+
+
+  eventLoop renderer initState disciple)
     where
-      eventLoop : Renderer -> Integer -> Int -> Int -> Int -> Int -> IO ()
-      processEvent : Renderer -> Integer -> Int -> Int -> Int -> Int -> Maybe Event -> IO ()
+      eventLoop : Renderer -> GameState -> Image -> IO ()
+      processEvent : Renderer -> GameState -> Image -> Maybe Event -> IO ()
 
-      eventLoop r f x y mx my = do
+      eventLoop renderer state image = do
         event <- pollEvent
-        filledRect r 0 0 640 480 0 0 0 128
-        filledRect r 100 100 50 50 255 0 0 128
-        filledEllipse r x y 20 20 0 255 0 128
-        when ((f `mod` 100) == 0) $ print f
-        renderPresent r
-        processEvent r (f+1) (x+mx) (y+my) mx my event
 
-      processEvent r f x y mx my (Just (KeyDown KeyLeftArrow)) =
-        eventLoop r f x y (-1) my
-      processEvent r f x y mx my (Just (KeyUp KeyLeftArrow)) =
-        eventLoop r f x y 0 my
-      processEvent r f x y mx my (Just (KeyDown KeyRightArrow)) =
-        eventLoop r f x y 1 my
-      processEvent r f x y mx my (Just (KeyUp KeyRightArrow)) =
-        eventLoop r f x y 0 my
-      processEvent r f x y mx my (Just (KeyDown KeyUpArrow)) =
-        eventLoop r f x y mx (-1)
-      processEvent r f x y mx my (Just (KeyUp KeyUpArrow)) =
-        eventLoop r f x y mx 0
-      processEvent r f x y mx my (Just (KeyDown KeyDownArrow)) =
-        eventLoop r f x y mx 1
-      processEvent r f x y mx my (Just (KeyUp KeyDownArrow)) =
-        eventLoop r f x y mx 0
-      processEvent r f x y mx my (Just AppQuit) = pure ()
-      processEvent r f x y mx my (Just (KeyDown (KeyAny k))) = do
+        True <- SDL2.setRendererDrawColor renderer 0 0 0 0
+          | abort "setRendererDrawColor"
+        SDL2.renderClear renderer
+
+
+        filledRect renderer 100 100 50 50 255 0 0 128
+        filledEllipse renderer (x state) (y state) 20 20 0 255 0 128
+        when (((f state) `mod` 100) == 0) $ print (f state)
+
+        rc <- SDL2.renderCopy renderer (texture image) -- draw texture
+        when (rc /= 0) $ abort "renderCopy"
+        SDL2.renderPresent renderer -- update screen
+
+        -- processEvent renderer ((f state) + 1) ((x state) + (mx state)) (y state + my state) (mx state) (my state) event
+        processEvent renderer (record {x $= (+ mx state), y $= (+ my state)} state) image event
+
+      processEvent r state image (Just (KeyDown KeyLeftArrow)) =
+        eventLoop r (record {mx = -1} state) image
+      processEvent r state image (Just (KeyUp KeyLeftArrow)) =
+        eventLoop r (record {mx = 0} state) image
+      processEvent r state image (Just (KeyDown KeyRightArrow)) =
+        eventLoop r (record {mx = 1} state) image
+      processEvent r state image (Just (KeyUp KeyRightArrow)) =
+        eventLoop r (record {mx = 0} state) image
+      processEvent r state image (Just (KeyDown KeyUpArrow)) =
+        eventLoop r (record {my = -1} state) image
+      processEvent r state image (Just (KeyUp KeyUpArrow)) =
+        eventLoop r (record {my = 0} state) image
+      processEvent r state image (Just (KeyDown KeyDownArrow)) =
+        eventLoop r (record {my = 1} state) image
+      processEvent r state image (Just (KeyUp KeyDownArrow)) =
+        eventLoop r (record {my = 0} state) image
+      processEvent r state image (Just AppQuit) = pure ()
+      processEvent r state image (Just (KeyDown (KeyAny k))) = do
         print k
-        eventLoop r f x y mx my
-      processEvent r f x y mx my (Just (MouseMotion mousex mousey _ _)) = do
+        eventLoop r state image
+      processEvent r state image (Just (MouseMotion mousex mousey _ _)) = do
         print (mousex, mousey)
-        eventLoop r f x y mx my
-      processEvent r f x y mx my (Just (MouseButtonUp Left mousex mousey)) = do
+        eventLoop r state image
+      processEvent r state image (Just (MouseButtonUp Left mousex mousey)) = do
         print (mousex, mousey)
-        eventLoop r f mousex mousey mx my
-      processEvent r f x y mx my _ = eventLoop r f x y mx my
+        eventLoop r (record {x=mousex, y=mousey} state) image
+      processEvent r state image _ = eventLoop r state image

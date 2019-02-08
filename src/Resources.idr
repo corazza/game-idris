@@ -4,6 +4,7 @@ import Data.SortedMap
 
 import Graphics.SDL2
 
+-- for width/height https://wiki.libsdl.org/SDL_QueryTexture
 public export
 record Image where
   constructor MkImage
