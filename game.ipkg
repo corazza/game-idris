@@ -6,7 +6,7 @@ pkgs = sdl2, contrib
 
 sourcedir = src
 
-modules = Resources, ProcessLib
+modules = Resources, ProcessLib, Draw
 
 main = game
 

@@ -8,11 +8,12 @@ import Resources
 record GameState where
   constructor MkGameState
   f : Int
+  dst : SDLRect
   x, y : Int
   mx, my : Int
 
 initState : GameState
-initState = MkGameState 0 320 200 0 0
+initState = MkGameState 0 (MkSDLRect 20 20 40 40) 320 200 0 0
 
 abort : (msg: String) -> IO ()
 abort msg = do
@@ -30,7 +31,6 @@ main = (do
 
   (disciple, imageCache) <- getImage renderer imageCache "disciple"
 
-
   eventLoop renderer initState disciple)
     where
       eventLoop : Renderer -> GameState -> Image -> IO ()
@@ -41,19 +41,22 @@ main = (do
 
         True <- SDL2.setRendererDrawColor renderer 0 0 0 0
           | abort "setRendererDrawColor"
-        SDL2.renderClear renderer
 
+        SDL2.renderClear renderer
 
         filledRect renderer 100 100 50 50 255 0 0 128
         filledEllipse renderer (x state) (y state) 20 20 0 255 0 128
         when (((f state) `mod` 100) == 0) $ print (f state)
 
-        rc <- SDL2.renderCopy renderer (texture image) -- draw texture
+        rc <- SDL2.renderCopy' renderer (texture image) Nothing (Just (dst state))
+
         when (rc /= 0) $ abort "renderCopy"
+
         SDL2.renderPresent renderer -- update screen
 
-        -- processEvent renderer ((f state) + 1) ((x state) + (mx state)) (y state + my state) (mx state) (my state) event
-        processEvent renderer (record {x $= (+ mx state), y $= (+ my state)} state) image event
+        processEvent renderer (record { dst $= translate (mx state) (my state) } state) image event
+
+        -- processEvent renderer (record {x $= (+ mx state), y $= (+ my state)} state) image event
 
       processEvent r state image (Just (KeyDown KeyLeftArrow)) =
         eventLoop r (record {mx = -1} state) image
