@@ -1,80 +1,115 @@
+import Data.SortedMap
 import Control.ST
 import Graphics.SDL2 as SDL2
 
-data Col = MkCol Int Int Int Int
+import Col
 
-black : Col
-black = MkCol 0 0 0 255
+%access public export
 
-red : Col
-red = MkCol 255 0 0 255
+ImageCache : Type
+ImageCache = SortedMap String Texture
 
-green : Col
-green = MkCol 0 255 0 255
-
-blue : Col
-blue = MkCol 0 0 255 255
-
-cyan : Col
-cyan = MkCol 0 255 255 255
-
-magenta : Col
-magenta = MkCol 255 0 255 255
-
-yellow : Col
-yellow = MkCol 255 255 0 255
-
-white : Col
-white = MkCol 255 255 255 255
+emptyImageCache : ImageCache
+emptyImageCache = empty
 
 interface Draw (m : Type -> Type) where
-  SRenderer : Type
+  SDraw : Type
 
-  init : Int -> Int -> ST m Var [add SRenderer]
-  quit : (srenderer : Var) -> ST m () [remove srenderer SRenderer]
+  initDraw : Int -> Int -> ST m Var [add SDraw]
+  quitDraw : (draw : Var) -> ST m () [remove draw SDraw]
 
   poll : ST m (Maybe Event) []
 
-  clear : (renderer : Var) -> ST m Int [renderer ::: SRenderer]
-  present : (renderer : Var) -> ST m () [renderer ::: SRenderer]
+  clear : (draw : Var) -> ST m Int [draw ::: SDraw]
+  present : (draw : Var) -> ST m () [draw ::: SDraw]
 
-  filledRectangle : (win : Var) -> (Int, Int) -> (Int, Int) -> Col -> ST m () [win ::: SRenderer]
-  drawLine : (win : Var) -> (Int, Int) -> (Int, Int) -> Col -> ST m () [win ::: SRenderer]
+  filledRectangle : (draw : Var) -> (Int, Int) -> (Int, Int) -> Col -> ST m () [draw ::: SDraw]
+  filledEllipse : (draw : Var) -> (Int, Int) -> (Int, Int) -> Col -> ST m () [draw ::: SDraw]
+  drawLine : (draw : Var) -> (Int, Int) -> (Int, Int) -> Col -> ST m () [draw ::: SDraw]
 
-  drawTexture : (renderer : Var) ->
+  getTexture : (draw : Var) -> (name : String) -> ST m Texture [draw ::: SDraw]
+
+  drawTexture : (draw : Var) ->
                 (texture : Texture) ->
                 Maybe SDLRect ->
                 Maybe SDLRect ->
-                ST m Int [renderer ::: SRenderer]
+                ST m Int [draw ::: SDraw]
+
 
 implementation Draw IO where
-  SRenderer = State Renderer
+  SDraw = Composite [State Renderer, State ImageCache]
 
-  init x y = do renderer <- lift $ init x y
-                var <- new renderer
-                pure var
+  initDraw x y = with ST do
+              renderer <- new $ !(lift (init x y))
+              imageCache <- new emptyImageCache
+              draw <- new ()
+              combine draw [renderer, imageCache]
+              pure draw
 
-  quit win = do lift quit
-                delete win
+  -- TODO: free images?
+  quitDraw draw = with ST do
+                [renderer, imageCache] <- split draw
+                lift quit
+                delete renderer; delete imageCache; delete draw
 
   poll = lift pollEvent
 
-  clear srenderer = do renderer <- read srenderer
-                       True <- lift $ SDL2.setRendererDrawColor renderer 0 0 0 0
-                            | pure (-1)
-                       lift $ SDL2.renderClear renderer
+  clear draw = with ST do
+                [srenderer, imageCache] <- split draw
+                renderer <- read srenderer
+                lift $ SDL2.setRendererDrawColor renderer 0 0 0 0
+                lift $ SDL2.renderClear renderer
+                combine draw [srenderer, imageCache]
+                pure 1 -- TODO: should process SDL2 errors
 
-  present srenderer = do renderer <- read srenderer
-                         lift $ SDL2.renderPresent renderer
+  present draw = with ST do
+                  [renderer, imageCache] <- split draw
+                  lift $ SDL2.renderPresent !(read renderer)
+                  combine draw [renderer, imageCache]
 
-  filledRectangle win (x, y) (ex, ey) (MkCol r g b a)
-       = do srf <- read win
-            lift $ filledRect srf x y ex ey r g b a
+  filledRectangle draw (x, y) (ex, ey) (MkCol r g b a)
+    = with ST do [renderer, imageCache] <- split draw
+                 lift $ filledRect !(read renderer) x y ex ey r g b a
+                 combine draw [renderer, imageCache]
 
-  drawLine win (x, y) (ex, ey) (MkCol r g b a)
-       = do srf <- read win
-            lift $ drawLine srf x y ex ey r g b a
+  filledEllipse draw (x, y) (rx, ry) (MkCol r g b a)
+    = with ST do [renderer, imageCache] <- split draw
+                 lift $ filledEllipse !(read renderer) x y rx ry r g b a
+                 combine draw [renderer, imageCache]
 
-  drawTexture srenderer texture src dst
-    = do renderer <- read srenderer
-         lift $ SDL2.renderCopy' renderer texture src dst
+  drawLine draw (x, y) (ex, ey) (MkCol r g b a)
+    = with ST do [renderer, imageCache] <- split draw
+                 lift $ drawLine !(read renderer) x y ex ey r g b a
+                 combine draw [renderer, imageCache]
+
+  getTexture draw name
+    = with ST do [renderer, imageCache] <- split draw
+                 (texture, cache) <- lift $
+                      cachedLoad !(read renderer) !(read imageCache) name
+                 write imageCache cache
+                 combine draw [renderer, imageCache]
+                 pure texture
+       where
+         nameToFilepath : String -> String
+         nameToFilepath s = "res/images/" ++ s ++ ".bmp"
+
+         -- TODO: handle errors
+         loadTexture : Renderer -> (filepath : String) -> IO Texture
+         loadTexture renderer filepath = do
+           bmp <- SDL2.loadBMP  filepath
+           texture <- SDL2.createTextureFromSurface renderer bmp
+           SDL2.freeSurface bmp
+           pure $ texture
+
+         cachedLoad : Renderer -> ImageCache -> String -> IO (Texture, ImageCache)
+         cachedLoad renderer cache name'
+           = case lookup name' cache of
+                  Nothing => do image <- loadTexture renderer (nameToFilepath name')
+                                pure (image, insert name' image cache)
+                  Just image => pure (image, cache)
+
+  drawTexture draw texture src dst
+    = with ST do [renderer, imageCache] <- split draw
+                 res <- lift $ SDL2.renderCopy' !(read renderer) texture src dst
+                 combine draw [renderer, imageCache]
+                 pure res

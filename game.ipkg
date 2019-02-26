@@ -1,13 +1,13 @@
 package game
 
-pkgs = sdl2, contrib
+pkgs = sdl2, contrib, containers
 
 --makefile = Makefile
 
 sourcedir = src
 
-modules = Resources, ProcessLib, Draw
+modules = Draw, Col, Scene, Events, Objects
 
-main = game
+main = Main
 
 executable = game
