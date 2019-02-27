@@ -6,5 +6,10 @@ import Objects
 
 data MoveDirection = MoveLeft | MoveRight
 
-data Event = MovementStart MoveDirection Object
-           | Attack
+%name MoveDirection direction
+
+data Event = MovementStart MoveDirection String
+           | MovementStop String
+           | Attack String
+
+%name Events.Event event

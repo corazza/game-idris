@@ -2,6 +2,10 @@ import Data.SortedMap
 import Control.ST
 import Graphics.SDL2 as SDL2
 
+import Events
+import Scene
+import Objects
+
 import Col
 
 %access public export
@@ -18,7 +22,7 @@ interface Draw (m : Type -> Type) where
   initDraw : Int -> Int -> ST m Var [add SDraw]
   quitDraw : (draw : Var) -> ST m () [remove draw SDraw]
 
-  poll : ST m (Maybe Event) []
+  poll : ST m (Maybe SDL2.Event) []
 
   clear : (draw : Var) -> ST m Int [draw ::: SDraw]
   present : (draw : Var) -> ST m () [draw ::: SDraw]
@@ -31,8 +35,8 @@ interface Draw (m : Type -> Type) where
 
   drawTexture : (draw : Var) ->
                 (texture : Texture) ->
-                Maybe SDLRect ->
-                Maybe SDLRect ->
+                (src : Maybe SDLRect) ->
+                (dst : Maybe SDLRect) ->
                 ST m Int [draw ::: SDraw]
 
 
