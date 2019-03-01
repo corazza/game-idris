@@ -6,7 +6,7 @@ pkgs = sdl2, contrib, containers
 
 sourcedir = src
 
-modules = Draw, Col, Scene, Events, Objects, Input
+modules = Draw, Col, Scene, Events, Objects, Input, Physics, Vector2D, Util
 
 main = Main
 
