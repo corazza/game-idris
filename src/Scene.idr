@@ -8,6 +8,7 @@ import Graphics.SDL2
 
 import Events
 import Objects
+import Input
 
 public export
 SScene : Type
@@ -32,12 +33,6 @@ endScene scene = with ST do
   delete idCounter; delete objects; delete events
   delete scene
 
-export
-registerEvent : (scene : Var) -> Events.Event -> ST m () [scene ::: SScene]
-registerEvent scene event = with ST do
-  [idCounter, objects, events] <- split scene
-  write events (event :: !(read events))
-  combine scene [idCounter, objects, events]
 
 addWithId : (scene : Var) -> (object : Object) -> ST m String [scene ::: SScene]
 addWithId scene object = with ST do
@@ -58,6 +53,23 @@ addObject scene (MkObject "" x y dx dy w h texture) = with ST do
   addWithId scene (MkObject idString x y dx dy w h texture)
 
 addObject scene object = addWithId scene object
+
+
+registerEvent : (scene : Var) -> Events.Event -> ST m () [scene ::: SScene]
+registerEvent scene event = with ST do
+  [idCounter, objects, events] <- split scene
+  write events (event :: !(read events))
+  combine scene [idCounter, objects, events]
+
+export
+controlEvent : (scene : Var) ->
+               (id : String) ->
+               Maybe InputEvent ->
+               ST m () [scene ::: SScene]
+controlEvent scene id Nothing = pure ()
+controlEvent scene id (Just input) = case inputToEvent id input of
+                                          Nothing => pure ()
+                                          Just event => registerEvent scene event
 
 
 -- TODO generate events
@@ -86,6 +98,8 @@ handleEvents scene (x::xs) = handle scene x >>= \_=> handleEvents scene xs where
     pure []
 
   handle scene (Attack id) = pure []
+
+  handle scene (Jump id) = pure []
 
 iterateEvents : (scene : Var) -> ST m (List Events.Event) [scene ::: SScene]
 iterateEvents scene = with ST do

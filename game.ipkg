@@ -6,7 +6,7 @@ pkgs = sdl2, contrib, containers
 
 sourcedir = src
 
-modules = Draw, Col, Scene, Events, Objects
+modules = Draw, Col, Scene, Events, Objects, Input
 
 main = Main
 

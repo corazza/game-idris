@@ -5,6 +5,7 @@ import Graphics.SDL2 as SDL2
 import Events
 import Scene
 import Objects
+import Input
 
 import Col
 
@@ -22,7 +23,7 @@ interface Draw (m : Type -> Type) where
   initDraw : Int -> Int -> ST m Var [add SDraw]
   quitDraw : (draw : Var) -> ST m () [remove draw SDraw]
 
-  poll : ST m (Maybe SDL2.Event) []
+  poll : ST m (Either () (Maybe InputEvent)) []
 
   clear : (draw : Var) -> ST m Int [draw ::: SDraw]
   present : (draw : Var) -> ST m () [draw ::: SDraw]
@@ -56,7 +57,12 @@ implementation Draw IO where
                 lift quit
                 delete renderer; delete imageCache; delete draw
 
-  poll = lift pollEvent
+  -- poll = with ST do
+  --   event <- lift pollEvent
+  --   pure (processEvent event)
+
+  -- poll = (lift pollEvent) >>= (pure . processEvent)
+  poll = lift pollEvent >>= (\event => pure (processEvent event))
 
   clear draw = with ST do
                 [srenderer, imageCache] <- split draw
