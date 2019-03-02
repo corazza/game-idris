@@ -40,7 +40,6 @@ interface Draw (m : Type -> Type) where
                 (dst : Maybe SDLRect) ->
                 ST m Int [draw ::: SDraw]
 
-
 implementation Draw IO where
   SDraw = Composite [State Renderer, State ImageCache]
 

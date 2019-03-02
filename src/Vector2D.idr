@@ -11,8 +11,15 @@ Num Vector2D where
   fromInteger a = (cast a, cast a)
 
 export
+Neg Vector2D where
+  negate (x, y) = (-x, -y)
+  (x2, y2) - (x1, y1) = (x2-x1, y2-y1)
+
+export
 scale : Double -> Vector2D -> Vector2D
 scale a (x, y) = (a*x, a*y)
+
+infix 7 `scale`
 
 public export
 Cast (Integer, Integer) Vector2D where

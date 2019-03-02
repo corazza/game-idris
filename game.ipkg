@@ -1,6 +1,6 @@
 package game
 
-pkgs = sdl2, contrib, containers
+pkgs = sdl2, contrib, containers, box2d
 
 --makefile = Makefile
 

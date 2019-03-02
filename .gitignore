@@ -2,3 +2,4 @@ src/game
 /game
 *.ibc
 *.o
+*.a

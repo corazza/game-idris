@@ -22,12 +22,16 @@ ObjectDict = Dict String Object
 %name ObjectDict objectDict
 
 export
+dim : Object -> Vector2D
+dim = dim . boxDescription
+
+export
 w : Object -> Double
-w = fst . dim . boxDescription
+w = fst . dim
 
 export
 h : Object -> Double
-h = snd . dim . boxDescription
+h = snd . dim
 
 export
 x : Object -> Double

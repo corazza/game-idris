@@ -26,9 +26,8 @@ startScene x y = with ST do
   objects <- new empty
   events <- new []
   idCounter <- new Z
+  physics <- initPhysics (MkParameters (-10.0) (Just (Floor (-10.0))))
   scene <- new ()
-  physics <- initPhysics (HardBounds 100 100)
-  -- setGlobalForce physics "dumb gravity" (0, -5)
   combine scene [idCounter, objects, events, physics]
   pure scene
 
@@ -49,6 +48,7 @@ addWithId scene object = with ST do
   addBox physics (MkBox (id object)
                         (boxDescription object)
                         (position object)
+                        nullVector
                         nullVector
                         (insert "movement" nullVector empty))
   combine scene [idCounter, objects, events, physics]
@@ -125,11 +125,11 @@ iterateEvents scene = with ST do
   pure nextEvents
 
 export
-iterate : ConsoleIO m => (scene : Var) -> ST m () [scene ::: SScene]
-iterate scene = (with ST do
+iterate : ConsoleIO m => (scene : Var) -> (ticks : Int) -> ST m () [scene ::: SScene]
+iterate scene ticks = (with ST do
   nextEvents <- iterateEvents scene
   [idCounter, objects, events, physics] <- split scene
-  (positionUpdates, collisionEvents) <- iterate physics 0.1
+  (positionUpdates, collisionEvents) <- iterate physics (0.001 * cast ticks)
   write objects (updatePositions !(read objects) positionUpdates)
   combine scene [idCounter, objects, events, physics]) where
     updatePositions : Dict String Object -> List PositionUpdate -> Dict String Object
