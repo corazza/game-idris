@@ -3,7 +3,7 @@ module Physics
 import Control.ST
 import Data.AVL.Dict
 
-import Vector2D
+import Physics.Vector2D
 
 public export
 Force : Type

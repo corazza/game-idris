@@ -21,8 +21,6 @@ interface Scene (m : Type -> Type) where
   startScene : Int -> Int -> ST m Var [add SScene]
   endScene : (scene : Var) -> ST m () [remove scene SScene]
 
-  private
-  addWithId : (scene : Var) -> (object : Object) -> ST m String [scene ::: SScene]
   addObject : (scene : Var) -> (object : Object) -> ST m String [scene ::: SScene]
 
   registerEvent : (scene : Var) -> Events.Event -> ST m () [scene ::: SScene]
@@ -33,12 +31,10 @@ interface Scene (m : Type -> Type) where
 
   iterate : (scene : Var) -> (ticks : Int) -> ST m () [scene ::: SScene]
 
-  getObjects : (scene : Var) -> ST m (List Object) [scene ::: SScene]
-
 export
-(ConsoleIO m, Box2DPhysics m,  Monad m) => Scene m where
+(ConsoleIO m, Box2DPhysics m) => Scene m where
   SScene = Composite [State Nat, -- id counter
-                      State (Dict String (Object, Body)),
+                      State (Dict String Object),
                       State (List Events.Event),
                       SBox2D {m}]
 
@@ -59,28 +55,27 @@ export
     delete idCounter; delete objects; delete events
     delete scene
 
-  getObjects scene = with ST do
-    [idCounter, objects, events, physics] <- split scene
-    let objectList = map fst (values !(read objects))
-    combine scene [idCounter, objects, events, physics]
-    pure objectList
-
-
-  addWithId scene object = with ST do
-    [idCounter, objects, events, physics] <- split scene
-    objectDict <- read objects
-    body <- createBox physics (position object) (dim object) 1.0 0.3
-    write objects (insert (id object) (object, body) objectDict)
-    combine scene [idCounter, objects, events, physics]
-    pure (id object)
-
-  addObject scene (MkObject "" position boxDescription texture) = with ST do
+  addObject scene (MkObject "" position boxDescription texture) = (with ST do
     [idCounter, objects, events, physics] <- split scene
     let idNum = !(read idCounter)
     let idString = "autoid_" ++ show idNum
     write idCounter (idNum + 1)
     combine scene [idCounter, objects, events, physics]
-    addWithId scene (MkObject idString position boxDescription texture)
+    addWithId scene (MkObject idString position boxDescription texture)) where
+      addWithId : Scene m => (scene : Var) -> (object : Object) -> ST m String [scene ::: SScene {m}]
+      addWithId scene object = with ST do
+        [idCounter, objects, events, physics] <- split scene
+        objectDict <- read objects
+        write objects (insert (id object) object objectDict)
+        addBox physics (MkBox (id object)
+                              (boxDescription object)
+                              (position object)
+                              nullVector
+                              nullVector
+                              (insert "movement" nullVector empty))
+        combine scene [idCounter, objects, events, physics]
+        pure (id object)
+
 
   addObject scene object = addWithId scene object
 
@@ -95,47 +90,37 @@ export
                                             Nothing => pure ()
                                             Just event => registerEvent scene event
 
-
-  -- -- updateObject (object, body) = ?sdgf
-  --
-  -- updatePositions = traverse updateObject
-
-  -- updatePositions = updatePositions' [] where
-    -- updatePositions' : (acc : List (Object, Body)) ->
-    --                    (objects : List (Object, Body)) ->
-    --                    STrans m (List (Object, Body)) xs (const xs)
-    -- updatePositions' acc [] = pure acc
-    -- updatePositions' acc (x :: xs) = ?updatePositions'_rhs_2
-
   iterate scene ticks = (with ST do
     nextEvents <- iterateEvents scene
     [idCounter, objects, events, physics] <- split scene
-    step physics (0.001 * cast ticks) 6 2
-    write objects !(lift ( (traverse updateFromBody) (!(read objects))))
+    -- (positionUpdates, collisionEvents) <- iterate physics (0.001 * cast ticks)
+    -- write objects (updatePositions !(read objects) positionUpdates)
     combine scene [idCounter, objects, events, physics]) where
-      updateFromBody : (Object, Body) -> m (Object, Body)
-      updateFromBody (object, body) = pure
-        (record { position = !(getPosition body) } object, body)
-      handleEvents : (scene : Var) ->
+      updatePositions : Dict String Object -> List PositionUpdate -> Dict String Object
+      updatePositions x [] = x
+      updatePositions x ((id, pos) :: xs)
+        = updatePositions (update id (record {position = pos}) x) xs
+
+      handleEvents : Scene m => (scene : Var) ->
                      List Events.Event ->
                      ST m (List Events.Event) [scene ::: SScene {m}]
       handleEvents scene [] = pure []
       handleEvents scene (x::xs) = handle scene x >>= \_=> handleEvents scene xs where
-        handle : (scene : Var) -> Events.Event ->
+        handle : Scene m => (scene : Var) -> Events.Event ->
                  ST m (List Events.Event) [scene ::: SScene {m}]
         handle scene (MovementStart direction id) = with ST do
           [idCounter, objects, events, physics] <- split scene
           objectDict <- read objects
-          -- setForce physics id "movement" (case direction of
-          --                                      MoveLeft => (-0.3, 0)
-          --                                      MoveRight => (0.3, 0))
+          setForce physics id "movement" (case direction of
+                                               MoveLeft => (-0.3, 0)
+                                               MoveRight => (0.3, 0))
           combine scene [idCounter, objects, events, physics]
           pure [] -- TODO
 
         handle scene (MovementStop id) = with ST do
           [idCounter, objects, events, physics] <- split scene
           objectDict <- read objects
-          -- setForce physics id "movement" nullVector
+          setForce physics id "movement" nullVector
           combine scene [idCounter, objects, events, physics]
           pure []
 
@@ -143,7 +128,8 @@ export
 
         handle scene (Jump id) = pure []
 
-      iterateEvents : (scene : Var) -> ST m (List Events.Event) [scene ::: SScene {m}]
+      iterateEvents : Scene m => (scene : Var) ->
+                      ST m (List Events.Event) [scene ::: SScene {m}]
       iterateEvents scene = with ST do
         [idCounter, objects, events, physics] <- split scene
         eventList <- read events

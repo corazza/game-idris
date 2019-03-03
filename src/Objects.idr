@@ -3,7 +3,7 @@ module Objects
 import Graphics.SDL2
 import Data.AVL.Dict
 
-import Vector2D
+import Physics.Vector2D
 import Physics
 
 %access public export
@@ -16,10 +16,6 @@ record Object where
   texture : Texture
 
 %name Object object
-
-ObjectDict : Type
-ObjectDict = Dict String Object
-%name ObjectDict objectDict
 
 export
 dim : Object -> Vector2D

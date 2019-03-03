@@ -13,8 +13,9 @@ import Scene
 import Objects
 import Events
 import Input
-import Vector2D
+import Physics.Vector2D
 import Physics
+import Physics.Box2D
 
 interface GameIO (m : Type -> Type) where
   ticks : STrans m Int xs (const xs)
@@ -22,8 +23,9 @@ interface GameIO (m : Type -> Type) where
 GameIO IO where
   ticks = lift getTicks
 
-GameState : Draw m => Type
-GameState {m} = Composite [SDraw {m}, SScene,
+GameState : (Draw m, ConsoleIO m, Box2DPhysics m, Scene m) => Type
+GameState {m} = Composite [SDraw {m},
+                           SScene {m},
                            State Vector2D,
                            State Int]
 
@@ -47,15 +49,12 @@ positionToScreen (cx, cy) (ox, oy)
 dimToScreen : (dim : Vector2D) -> (Int, Int)
 dimToScreen (x, y) = cast $ (screenScale * x, screenScale * y)
 
-drawScene : Draw m => (state : Var) ->
+drawScene : (Draw m, ConsoleIO m, Box2DPhysics m, Scene m) => (state : Var) ->
             ST m () [state ::: GameState {m}]
 drawScene state = (with ST do
   [draw, scene, camera, lastms] <- split state
-  [idCounter, objects, events, physics] <- split scene
   clear draw
-  objectDict <- read objects
-  combine scene [idCounter, objects, events, physics]
-  drawObjects draw !(read camera) (toList objectDict)
+  drawObjects draw !(read camera) !(getObjects scene)
   present draw
   combine state [draw, scene, camera, lastms]) where
     drawObjects : Draw m => (draw : Var) -> (camera : Vector2D) -> List Object ->
@@ -68,7 +67,7 @@ drawScene state = (with ST do
       drawTexture draw (texture object) Nothing (Just dst)
       drawObjects draw camera xs
 
-loop : (ConsoleIO m, Draw m, GameIO m) => (state : Var) ->
+loop : (ConsoleIO m, Draw m, GameIO m, Box2DPhysics m, Scene m) => (state : Var) ->
        ST m () [state ::: GameState {m}]
 loop state = with ST do
   Right event <- poll
@@ -82,7 +81,7 @@ loop state = with ST do
   drawScene state
   loop state
 
-game : (ConsoleIO m, Draw m, GameIO m) => ST m () []
+game : (ConsoleIO m, Draw m, GameIO m, Box2DPhysics m, Scene m) => ST m () []
 game = with ST do
   draw <- initDraw (fst resolution) (snd resolution)
   scene <- startScene (snd resolution) (snd resolution)
@@ -102,5 +101,5 @@ game = with ST do
   delete state
 
 main : IO ()
--- main = run game
-main = print !test
+main = run game
+-- main = print !test
