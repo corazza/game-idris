@@ -10,7 +10,6 @@ import Control.ST.ImplicitCall
 import Events
 import Objects
 import Input
-import Physics
 import Physics.Box2D
 import Physics.Vector2D
 
@@ -46,8 +45,7 @@ export
     objects <- new empty
     events <- new []
     idCounter <- new Z
-    -- physics <- initPhysics (MkParameters (-10.0) (Just (Floor (-10.0))))
-    physics <- createWorld (0, -10.0)
+    physics <- createWorld (0, -8.0)
     createGroundBody physics (0, 0) (10, 1)
     scene <- new ()
     combine scene [idCounter, objects, events, physics]
@@ -55,10 +53,10 @@ export
 
   endScene scene = with ST do
     [idCounter, objects, events, physics] <- split scene
-    -- quitPhysics physics
     destroyWorld physics
     delete idCounter; delete objects; delete events
     delete scene
+
 
   getObjects scene = with ST do
     [idCounter, objects, events, physics] <- split scene
@@ -66,22 +64,21 @@ export
     combine scene [idCounter, objects, events, physics]
     pure objectList
 
-
   addWithId scene object = with ST do
     [idCounter, objects, events, physics] <- split scene
     objectDict <- read objects
-    body <- createBox physics (position object) (dim object) 1.0 0.3
+    body <- createBox physics (position object) (dim object) (angle object) 1.0 0.3
     write objects (insert (id object) (object, body) objectDict)
     combine scene [idCounter, objects, events, physics]
     pure (id object)
 
-  addObject scene (MkObject "" position boxDescription texture) = with ST do
+  addObject scene (MkObject "" position angle boxDescription texture) = with ST do
     [idCounter, objects, events, physics] <- split scene
     let idNum = !(read idCounter)
     let idString = "autoid_" ++ show idNum
     write idCounter (idNum + 1)
     combine scene [idCounter, objects, events, physics]
-    addWithId scene (MkObject idString position boxDescription texture)
+    addWithId scene (MkObject idString position angle boxDescription texture)
 
   addObject scene object = addWithId scene object
 
@@ -97,17 +94,6 @@ export
                                             Just event => registerEvent scene event
 
 
-  -- -- updateObject (object, body) = ?sdgf
-  --
-  -- updatePositions = traverse updateObject
-
-  -- updatePositions = updatePositions' [] where
-    -- updatePositions' : (acc : List (Object, Body)) ->
-    --                    (objects : List (Object, Body)) ->
-    --                    STrans m (List (Object, Body)) xs (const xs)
-    -- updatePositions' acc [] = pure acc
-    -- updatePositions' acc (x :: xs) = ?updatePositions'_rhs_2
-
   iterate scene ticks = (with ST do
     nextEvents <- iterateEvents scene
     [idCounter, objects, events, physics] <- split scene
@@ -116,7 +102,9 @@ export
     combine scene [idCounter, objects, events, physics]) where
       updateFromBody : (Object, Body) -> m (Object, Body)
       updateFromBody (object, body) = pure
-        (record { position = !(getPosition body) } object, body)
+        (record { position = !(getPosition body),
+                  angle = !(getAngle body) } object, body)
+
       handleEvents : (scene : Var) ->
                      List Events.Event ->
                      ST m (List Events.Event) [scene ::: SScene {m}]

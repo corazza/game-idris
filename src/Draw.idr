@@ -40,6 +40,13 @@ interface Draw (m : Type -> Type) where
                 (dst : Maybe SDLRect) ->
                 ST m Int [draw ::: SDraw]
 
+  drawWholeCenter : (draw : Var) ->
+                    (texture : Texture) ->
+                    (dst : SDLRect) ->
+                    (angle : Double) ->
+                    ST m () [draw ::: SDraw]
+
+
 implementation Draw IO where
   SDraw = Composite [State Renderer, State ImageCache]
 
@@ -122,3 +129,8 @@ implementation Draw IO where
                  res <- lift $ SDL2.renderCopy' !(read renderer) texture src dst
                  combine draw [renderer, imageCache]
                  pure res
+
+  drawWholeCenter draw texture dst angle = with ST do
+    [renderer, imageCache] <- split draw
+    lift $ SDL2.drawWholeCenter !(read renderer) texture dst angle
+    combine draw [renderer, imageCache]

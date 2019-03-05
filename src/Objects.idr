@@ -4,14 +4,23 @@ import Graphics.SDL2
 import Data.AVL.Dict
 
 import Physics.Vector2D
-import Physics
 
 %access public export
+
+
+data BoxType = Static | Dynamic
+
+record BoxDescription where
+  constructor MkBoxDescription
+  mass : Double
+  type : BoxType
+  dim : Vector2D
 
 record Object where
   constructor MkObject
   id : String
   position : Vector2D
+  angle : Double
   boxDescription : BoxDescription
   texture : Texture
 

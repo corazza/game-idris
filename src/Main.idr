@@ -14,7 +14,6 @@ import Objects
 import Events
 import Input
 import Physics.Vector2D
-import Physics
 import Physics.Box2D
 
 interface GameIO (m : Type -> Type) where
@@ -57,14 +56,17 @@ drawScene state = (with ST do
   drawObjects draw !(read camera) !(getObjects scene)
   present draw
   combine state [draw, scene, camera, lastms]) where
-    drawObjects : Draw m => (draw : Var) -> (camera : Vector2D) -> List Object ->
+    drawObjects : (Draw m, ConsoleIO m) =>
+                  (draw : Var) -> (camera : Vector2D) -> List Object ->
                   ST m () [draw ::: SDraw {m}]
     drawObjects draw camera [] = pure ()
     drawObjects draw camera (object :: xs) = with ST do
       let (x, y) = positionToScreen camera ((position object) - (dim object))
       let (w, h) = dimToScreen (2 `scale` dim object)
       let dst = MkSDLRect x y w h
-      drawTexture draw (texture object) Nothing (Just dst)
+      let deg_angle = (angle object) / (2*pi) * 360.0
+      drawWholeCenter draw (texture object) dst deg_angle
+      printLn (angle object)
       drawObjects draw camera xs
 
 loop : (ConsoleIO m, Draw m, GameIO m, Box2DPhysics m, Scene m) => (state : Var) ->
@@ -87,7 +89,7 @@ game = with ST do
   scene <- startScene (snd resolution) (snd resolution)
   playerTexture <- getTexture draw "disciple"
   let playerBoxDesc = MkBoxDescription 5 Dynamic (0.5, 48.0/33.0/2.0)
-  let player = MkObject "player" (0, 20) playerBoxDesc playerTexture
+  let player = MkObject "player" (0, 20) (pi/4 + 0.1) playerBoxDesc playerTexture
   addObject scene player
   state <- new ()
   camera <- new (0, 0)
