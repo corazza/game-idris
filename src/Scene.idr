@@ -48,6 +48,7 @@ export
     idCounter <- new Z
     -- physics <- initPhysics (MkParameters (-10.0) (Just (Floor (-10.0))))
     physics <- createWorld (0, -10.0)
+    createGroundBody physics (0, 0) (10, 1)
     scene <- new ()
     combine scene [idCounter, objects, events, physics]
     pure scene

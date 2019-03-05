@@ -87,7 +87,7 @@ game = with ST do
   scene <- startScene (snd resolution) (snd resolution)
   playerTexture <- getTexture draw "disciple"
   let playerBoxDesc = MkBoxDescription 5 Dynamic (0.5, 48.0/33.0/2.0)
-  let player = MkObject "player" (0, 10) playerBoxDesc playerTexture
+  let player = MkObject "player" (0, 20) playerBoxDesc playerTexture
   addObject scene player
   state <- new ()
   camera <- new (0, 0)
