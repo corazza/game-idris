@@ -6,6 +6,7 @@ import Control.ST
 import Control.ST.ImplicitCall
 import Data.AVL.Dict
 import Physics.Box2D
+import Language.JSON
 
 import Draw
 import Col
@@ -66,7 +67,6 @@ drawScene state = (with ST do
       let dst = MkSDLRect x y w h
       let deg_angle = (angle object) / (2*pi) * 360.0
       drawWholeCenter draw (texture object) dst deg_angle
-      printLn (angle object)
       drawObjects draw camera xs
 
 loop : (ConsoleIO m, Draw m, GameIO m, Box2DPhysics m, Scene m) => (state : Var) ->
