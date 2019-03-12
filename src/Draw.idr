@@ -7,8 +7,6 @@ import Scene
 import Objects
 import Input
 
-import Col
-
 %access public export
 
 ImageCache : Type
@@ -23,14 +21,10 @@ interface Draw (m : Type -> Type) where
   initDraw : Int -> Int -> ST m Var [add SDraw]
   quitDraw : (draw : Var) -> ST m () [remove draw SDraw]
 
-  poll : ST m (Either () (Maybe InputEvent)) []
+  poll : ST m (Either () (List InputEvent)) []
 
   clear : (draw : Var) -> ST m Int [draw ::: SDraw]
   present : (draw : Var) -> ST m () [draw ::: SDraw]
-
-  filledRectangle : (draw : Var) -> (Int, Int) -> (Int, Int) -> Col -> ST m () [draw ::: SDraw]
-  filledEllipse : (draw : Var) -> (Int, Int) -> (Int, Int) -> Col -> ST m () [draw ::: SDraw]
-  drawLine : (draw : Var) -> (Int, Int) -> (Int, Int) -> Col -> ST m () [draw ::: SDraw]
 
   getTexture : (draw : Var) -> (name : String) -> ST m Texture [draw ::: SDraw]
 
@@ -63,12 +57,7 @@ implementation Draw IO where
                 lift quit
                 delete renderer; delete imageCache; delete draw
 
-  -- poll = with ST do
-  --   event <- lift pollEvent
-  --   pure (processEvent event)
-
-  -- poll = (lift pollEvent) >>= (pure . processEvent)
-  poll = lift pollEvent >>= (\event => pure (processEvent event))
+  poll = lift pollEvents >>= pure . processEvents
 
   clear draw = with ST do
                 [srenderer, imageCache] <- split draw
@@ -82,21 +71,6 @@ implementation Draw IO where
                   [renderer, imageCache] <- split draw
                   lift $ SDL2.renderPresent !(read renderer)
                   combine draw [renderer, imageCache]
-
-  filledRectangle draw (x, y) (ex, ey) (MkCol r g b a)
-    = with ST do [renderer, imageCache] <- split draw
-                 lift $ filledRect !(read renderer) x y ex ey r g b a
-                 combine draw [renderer, imageCache]
-
-  filledEllipse draw (x, y) (rx, ry) (MkCol r g b a)
-    = with ST do [renderer, imageCache] <- split draw
-                 lift $ filledEllipse !(read renderer) x y rx ry r g b a
-                 combine draw [renderer, imageCache]
-
-  drawLine draw (x, y) (ex, ey) (MkCol r g b a)
-    = with ST do [renderer, imageCache] <- split draw
-                 lift $ drawLine !(read renderer) x y ex ey r g b a
-                 combine draw [renderer, imageCache]
 
   getTexture draw name
     = with ST do [renderer, imageCache] <- split draw

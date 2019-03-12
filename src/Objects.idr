@@ -16,6 +16,47 @@ record BoxDescription where
   type : BoxType
   dim : Vector2D
 
+data MoveDirection = Leftward | Rightward
+%name MoveDirection direction
+
+Show MoveDirection where
+  show Leftward = "left"
+  show Rightward = "right"
+
+record ControlState where
+  constructor MkControlState
+  moving : Maybe MoveDirection
+  jumping : Bool
+  attacking : Bool
+%name ControlState controlState
+
+Show ControlState where
+  show (MkControlState moving jumping attacking)
+    = "(moving: " ++ (show moving) ++ "," ++
+      " jumping: " ++ (show jumping) ++ "," ++
+      " attacking: " ++ (show attacking) ++ ")"
+
+noControl : ControlState
+noControl = MkControlState Nothing False False
+
+startMoving : (direction : MoveDirection) -> ControlState -> ControlState
+startMoving direction = record { moving = Just direction }
+
+stopMoving : ControlState -> ControlState
+stopMoving = record { moving = Nothing }
+
+startJumping : ControlState -> ControlState
+startJumping = record { jumping = True }
+
+stopJumping : ControlState -> ControlState
+stopJumping = record { jumping = False }
+
+startAttacking : ControlState -> ControlState
+startAttacking = record { attacking = True }
+
+stopAttacking : ControlState -> ControlState
+stopAttacking = record { attacking = False }
+
 record Object where
   constructor MkObject
   id : String
@@ -23,6 +64,7 @@ record Object where
   angle : Double
   boxDescription : BoxDescription
   texture : Texture
+  controlState : ControlState
 
 %name Object object
 

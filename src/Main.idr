@@ -9,7 +9,6 @@ import Physics.Box2D
 import Language.JSON
 
 import Draw
-import Col
 import Scene
 import Objects
 import Events
@@ -19,9 +18,13 @@ import Physics.Box2D
 
 interface GameIO (m : Type -> Type) where
   ticks : STrans m Int xs (const xs)
+  readMap : (id : String) -> ST m (Maybe JSON) []
 
 GameIO IO where
   ticks = lift getTicks
+  readMap id = do Right mapJSON <- lift $ readFile $ "res/maps/" ++ id ++ ".json"
+                                | Left err => pure Nothing
+                  pure (parse mapJSON)
 
 GameState : (Draw m, ConsoleIO m, Box2DPhysics m, Scene m) => Type
 GameState {m} = Composite [SDraw {m},
@@ -69,13 +72,21 @@ drawScene state = (with ST do
       drawWholeCenter draw (texture object) dst deg_angle
       drawObjects draw camera xs
 
-loop : (ConsoleIO m, Draw m, GameIO m, Box2DPhysics m, Scene m) => (state : Var) ->
-       ST m () [state ::: GameState {m}]
+loop : (Monad m,
+        ConsoleIO m,
+        Box2DPhysics m,
+        GameIO m,
+        Scene m,
+        Draw m) =>
+        (state : Var) ->
+        ST m () [state ::: GameState {m}]
 loop state = with ST do
-  Right event <- poll
-              | pure ()
+  Right events <- poll
+               | pure ()
   [draw, scene, camera, lastms] <- split state
-  controlEvent scene "player" event
+  controlEvent scene "player" (case events of
+                                    [] => Nothing
+                                    (x :: xs) => Just x)
   beforems <- ticks
   iterate scene (beforems - !(read lastms))
   write lastms beforems
@@ -83,13 +94,15 @@ loop state = with ST do
   drawScene state
   loop state
 
-game : (ConsoleIO m, Draw m, GameIO m, Box2DPhysics m, Scene m) => ST m () []
+game : (Monad m, ConsoleIO m, Draw m, GameIO m, Box2DPhysics m, Scene m) => ST m () []
 game = with ST do
+  Just map <- readMap "likert"
+           | Nothing => printLn "loading level failed"
   draw <- initDraw (fst resolution) (snd resolution)
-  scene <- startScene (snd resolution) (snd resolution)
+  scene <- startScene map
   playerTexture <- getTexture draw "disciple"
   let playerBoxDesc = MkBoxDescription 5 Dynamic (0.5, 48.0/33.0/2.0)
-  let player = MkObject "player" (0, 20) (pi/4 + 0.1) playerBoxDesc playerTexture
+  let player = MkObject "player" (11, 20) (pi/4 + 0.1) playerBoxDesc playerTexture noControl
   addObject scene player
   state <- new ()
   camera <- new (0, 0)

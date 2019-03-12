@@ -1,0 +1,23 @@
+{
+  "name": "Likert Forest",
+
+  "objects": [
+    {
+      "id": "marble_ground",
+      "position": [0, -0.5],
+      "dimensions": [10, 1]
+    },
+    {
+      "id": "wooden_crate",
+      "position": [-5, 1]
+    },
+    {
+      "id": "wooden_crate",
+      "position": [5, 1]
+    },
+    {
+      "id": "spawn",
+      "position": [0, 0]
+    }
+  ]
+}

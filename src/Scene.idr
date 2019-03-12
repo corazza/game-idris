@@ -6,6 +6,7 @@ import Data.Queue
 import Data.AVL.Dict
 import Graphics.SDL2
 import Control.ST.ImplicitCall
+import Language.JSON
 
 import Events
 import Objects
@@ -13,11 +14,22 @@ import Input
 import Physics.Box2D
 import Physics.Vector2D
 
+
+SceneObjects : Type
+SceneObjects = Dict String (Object, Body)
+
+updateObject : (id : String) ->
+               (f : Object -> Object) ->
+               (dict : SceneObjects) ->
+               SceneObjects
+updateObject id f = update id (\(obj, body) => (f obj, body))
+
+
 public export
 interface Scene (m : Type -> Type) where
   SScene : Type
 
-  startScene : Int -> Int -> ST m Var [add SScene]
+  startScene : (descriptor : JSON) -> ST m Var [add SScene]
   endScene : (scene : Var) -> ST m () [remove scene SScene]
 
   private
@@ -37,11 +49,12 @@ interface Scene (m : Type -> Type) where
 export
 (ConsoleIO m, Box2DPhysics m,  Monad m) => Scene m where
   SScene = Composite [State Nat, -- id counter
-                      State (Dict String (Object, Body)),
+                      State SceneObjects,
                       State (List Events.Event),
                       SBox2D {m}]
 
-  startScene x y = with ST do
+  startScene descriptor = with ST do
+    printLn descriptor
     objects <- new empty
     events <- new []
     idCounter <- new Z
@@ -72,13 +85,13 @@ export
     combine scene [idCounter, objects, events, physics]
     pure (id object)
 
-  addObject scene (MkObject "" position angle boxDescription texture) = with ST do
+  addObject scene (MkObject "" position angle boxDescription texture ctst) = with ST do
     [idCounter, objects, events, physics] <- split scene
     let idNum = !(read idCounter)
     let idString = "autoid_" ++ show idNum
     write idCounter (idNum + 1)
     combine scene [idCounter, objects, events, physics]
-    addWithId scene (MkObject idString position angle boxDescription texture)
+    addWithId scene (MkObject idString position angle boxDescription texture ctst)
 
   addObject scene object = addWithId scene object
 
@@ -96,14 +109,28 @@ export
 
   iterate scene ticks = (with ST do
     nextEvents <- iterateEvents scene
-    [idCounter, objects, events, physics] <- split scene
+    [idCounter, sobjects, events, physics] <- split scene
+    objects <- read sobjects
+    commitControl physics (values objects)
     step physics (0.001 * cast ticks) 6 2
-    write objects !(lift ( (traverse updateFromBody) (!(read objects))))
-    combine scene [idCounter, objects, events, physics]) where
+    write sobjects !(lift ((traverse updateFromBody) objects))
+    combine scene [idCounter, sobjects, events, physics]) where
       updateFromBody : (Object, Body) -> m (Object, Body)
       updateFromBody (object, body) = pure
         (record { position = !(getPosition body),
                   angle = !(getAngle body) } object, body)
+
+      commitControl : (physics : Var) -> List (Object, Body) -> ST m () [physics ::: SBox2D {m}]
+      commitControl physics [] = pure ()
+      commitControl physics ((obj, body) :: xs) = with ST do
+        (x, y) <- lift $ getVelocity body
+        mass <- lift $ getMass body
+        let x' = case moving (controlState obj) of
+                      Nothing => 0
+                      Just Leftward => -1.5
+                      Just Rightward => 1.5
+        let impulse = mass `scale` (x'-x, 0)
+        applyImpulse physics body impulse
 
       handleEvents : (scene : Var) ->
                      List Events.Event ->
@@ -114,17 +141,15 @@ export
                  ST m (List Events.Event) [scene ::: SScene {m}]
         handle scene (MovementStart direction id) = with ST do
           [idCounter, objects, events, physics] <- split scene
-          objectDict <- read objects
-          -- setForce physics id "movement" (case direction of
-          --                                      MoveLeft => (-0.3, 0)
-          --                                      MoveRight => (0.3, 0))
+          write objects (updateObject id (record {
+            controlState $= startMoving direction }) !(read objects))
           combine scene [idCounter, objects, events, physics]
           pure [] -- TODO
 
         handle scene (MovementStop id) = with ST do
           [idCounter, objects, events, physics] <- split scene
-          objectDict <- read objects
-          -- setForce physics id "movement" nullVector
+          write objects (updateObject id (record {
+            controlState $= stopMoving }) !(read objects))
           combine scene [idCounter, objects, events, physics]
           pure []
 
