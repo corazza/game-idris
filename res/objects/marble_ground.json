@@ -1,10 +1,11 @@
 {
-    "id": "marble_ground",
-    "type": "ground",
-
-    "render": {
-        "type": "tiled",
-        "tiledWith": "BrightPurpleMarble_256.png",
-        "tileDim": [1, 1]
-    }
+  "name": "Marble ground",
+  "tags": [],
+  "box2d": {
+    "type": "wall"
+  },
+  "render": {
+    "type": "tile",
+    "image": "BrightPurpleMarble_256.png"
+  }
 }

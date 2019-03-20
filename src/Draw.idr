@@ -6,6 +6,7 @@ import Events
 import Scene
 import Objects
 import Input
+import Resources
 
 %access public export
 
@@ -27,6 +28,8 @@ interface Draw (m : Type -> Type) where
   present : (draw : Var) -> ST m () [draw ::: SDraw]
 
   getTexture : (draw : Var) -> (name : String) -> ST m Texture [draw ::: SDraw]
+  loadTexture : (draw : Var) -> (name : String) -> ST m Texture [draw ::: SDraw]
+  destroyTexture : Texture -> STrans m () xs (const xs)
 
   drawTexture : (draw : Var) ->
                 (texture : Texture) ->
@@ -40,16 +43,25 @@ interface Draw (m : Type -> Type) where
                     (angle : Double) ->
                     ST m () [draw ::: SDraw]
 
+public export
+Draw m => Loader m Texture where
+  Context {m} = SDraw {m}
+  idToFilepath id = "res/images/" ++ id ++ ".bmp"
+  loadFilepath ctx filepath = with ST do
+    texture <- loadTexture ctx filepath
+    pure (Just texture)
+  destroy = destroyTexture
 
-implementation Draw IO where
+export
+Draw IO where
   SDraw = Composite [State Renderer, State ImageCache]
 
   initDraw x y = with ST do
-              renderer <- new $ !(lift (init x y))
-              imageCache <- new emptyImageCache
-              draw <- new ()
-              combine draw [renderer, imageCache]
-              pure draw
+    renderer <- new $ !(lift (init x y))
+    imageCache <- new emptyImageCache
+    draw <- new ()
+    combine draw [renderer, imageCache]
+    pure draw
 
   -- TODO: free images?
   quitDraw draw = with ST do
@@ -71,6 +83,16 @@ implementation Draw IO where
                   [renderer, imageCache] <- split draw
                   lift $ SDL2.renderPresent !(read renderer)
                   combine draw [renderer, imageCache]
+
+  loadTexture draw filepath = with ST do
+    [renderer, imageCache] <- split draw
+    bmp <- lift $ SDL2.loadBMP filepath
+    texture <- lift $ SDL2.createTextureFromSurface !(read renderer) bmp
+    lift $ SDL2.freeSurface bmp
+    combine draw [renderer, imageCache]
+    pure texture
+
+  destroyTexture texture = lift $ SDL2.destroyTexture texture
 
   getTexture draw name
     = with ST do [renderer, imageCache] <- split draw

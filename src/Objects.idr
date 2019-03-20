@@ -2,19 +2,12 @@ module Objects
 
 import Graphics.SDL2
 import Data.AVL.Dict
-
 import Physics.Vector2D
+
+import Descriptors
 
 %access public export
 
-
-data BoxType = Static | Dynamic
-
-record BoxDescription where
-  constructor MkBoxDescription
-  mass : Double
-  type : BoxType
-  dim : Vector2D
 
 data MoveDirection = Leftward | Rightward
 %name MoveDirection direction
@@ -57,28 +50,57 @@ startAttacking = record { attacking = True }
 stopAttacking : ControlState -> ControlState
 stopAttacking = record { attacking = False }
 
+
+record PhysicsProperties where
+  constructor MkPhysicsProperties
+  position : Vector2D
+  dimensions : Vector2D
+  angle : Double
+  mass : Double
+  type : BodyType
+
+-- all changes -> physics, physics -> objects
 record Object where
   constructor MkObject
   id : String
-  position : Vector2D
-  angle : Double
-  boxDescription : BoxDescription
-  texture : Texture
+  physicsProperties : PhysicsProperties
   controlState : ControlState
+  tags : List ObjectTag
 
 %name Object object
 
+
+export
+physicsUpdate : (PhysicsProperties -> PhysicsProperties) -> Object -> Object
+physicsUpdate f = record { physicsProperties $= f }
+
+export
+angle : Object -> Double
+angle = angle . physicsProperties
+
+export
+mass : Object -> Double
+mass = mass . physicsProperties
+
+export
+dimensions : Object -> Vector2D
+dimensions = dimensions . physicsProperties
+
 export
 dim : Object -> Vector2D
-dim = dim . boxDescription
+dim = dimensions
+
+export
+position : Object -> Vector2D
+position = position . physicsProperties
 
 export
 w : Object -> Double
-w = fst . dim
+w = fst . dimensions
 
 export
 h : Object -> Double
-h = snd . dim
+h = snd . dimensions
 
 export
 x : Object -> Double
