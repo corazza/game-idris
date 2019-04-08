@@ -27,7 +27,7 @@ interface Draw (m : Type -> Type) where
   clear : (draw : Var) -> ST m Int [draw ::: SDraw]
   present : (draw : Var) -> ST m () [draw ::: SDraw]
 
-  getTexture : (draw : Var) -> (name : String) -> ST m Texture [draw ::: SDraw]
+  -- getTexture : (draw : Var) -> (name : String) -> ST m Texture [draw ::: SDraw]
   loadTexture : (draw : Var) -> (name : String) -> ST m Texture [draw ::: SDraw]
   destroyTexture : Texture -> STrans m () xs (const xs)
 
@@ -93,32 +93,6 @@ Draw IO where
     pure texture
 
   destroyTexture texture = lift $ SDL2.destroyTexture texture
-
-  getTexture draw name
-    = with ST do [renderer, imageCache] <- split draw
-                 (texture, cache) <- lift $
-                      cachedLoad !(read renderer) !(read imageCache) name
-                 write imageCache cache
-                 combine draw [renderer, imageCache]
-                 pure texture
-       where
-         nameToFilepath : String -> String
-         nameToFilepath s = "res/images/" ++ s ++ ".bmp"
-
-         -- TODO: handle errors
-         loadTexture : Renderer -> (filepath : String) -> IO Texture
-         loadTexture renderer filepath = do
-           bmp <- SDL2.loadBMP  filepath
-           texture <- SDL2.createTextureFromSurface renderer bmp
-           SDL2.freeSurface bmp
-           pure $ texture
-
-         cachedLoad : Renderer -> ImageCache -> String -> IO (Texture, ImageCache)
-         cachedLoad renderer cache name'
-           = case lookup name' cache of
-                  Nothing => do image <- loadTexture renderer (nameToFilepath name')
-                                pure (image, insert name' image cache)
-                  Just image => pure (image, cache)
 
   drawTexture draw texture src dst
     = with ST do [renderer, imageCache] <- split draw

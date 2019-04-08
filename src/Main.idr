@@ -93,6 +93,9 @@ dimToScreen (x, y) = cast $ (screenScale * x, screenScale * y)
 --   loop state
 
 
+-- TODO all resources are loaded w/ IO, use that information
+
+
 game : (Monad m, ConsoleIO m, Draw m, GameIO m, Box2DPhysics m, Scene m) => ST m () []
 game {m} = with ST do
   draw <- initDraw (fst resolution) (snd resolution)
@@ -104,7 +107,6 @@ game {m} = with ST do
   Just map <- get {m} {r=MapDescriptor} mapCache emptyContext "likert"
            | Nothing => ?oops1
 
-  -- HERE move textureCache to Draw
 
   Just playerTexture <- get {m} {r=Texture} textureCache draw "disciple"
                      | Nothing => ?oops2
