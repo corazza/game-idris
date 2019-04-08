@@ -1,0 +1,41 @@
+{
+  "name": "Likert Forest",
+  "background": "jungle",
+  "creations": [
+    {
+      "ref": "marble_ground",
+      "position": [
+        0,
+        -0.5
+      ],
+      "dimensions": [
+        10,
+        1
+      ]
+    },
+    {
+      "ref": "wooden_crate",
+      "position": [
+        -5,
+        1
+      ]
+    },
+    {
+      "ref": "wooden_crate",
+      "position": [
+        5,
+        1
+      ]
+    },
+    {
+      "ref": "spawn_point",
+      "position": [
+        0,
+        0
+      ],
+      "tags": [
+        "spawn"
+      ]
+    }
+  ]
+}

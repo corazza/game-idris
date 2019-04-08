@@ -2,32 +2,105 @@ module Objects
 
 import Graphics.SDL2
 import Data.AVL.Dict
-
 import Physics.Vector2D
-import Physics
+
+import Descriptors
 
 %access public export
 
+
+data MoveDirection = Leftward | Rightward
+%name MoveDirection direction
+
+Show MoveDirection where
+  show Leftward = "left"
+  show Rightward = "right"
+
+record ControlState where
+  constructor MkControlState
+  moving : Maybe MoveDirection
+  jumping : Bool
+  attacking : Bool
+%name ControlState controlState
+
+Show ControlState where
+  show (MkControlState moving jumping attacking)
+    = "(moving: " ++ (show moving) ++ "," ++
+      " jumping: " ++ (show jumping) ++ "," ++
+      " attacking: " ++ (show attacking) ++ ")"
+
+noControl : ControlState
+noControl = MkControlState Nothing False False
+
+startMoving : (direction : MoveDirection) -> ControlState -> ControlState
+startMoving direction = record { moving = Just direction }
+
+stopMoving : ControlState -> ControlState
+stopMoving = record { moving = Nothing }
+
+startJumping : ControlState -> ControlState
+startJumping = record { jumping = True }
+
+stopJumping : ControlState -> ControlState
+stopJumping = record { jumping = False }
+
+startAttacking : ControlState -> ControlState
+startAttacking = record { attacking = True }
+
+stopAttacking : ControlState -> ControlState
+stopAttacking = record { attacking = False }
+
+
+record PhysicsProperties where
+  constructor MkPhysicsProperties
+  position : Vector2D
+  dimensions : Vector2D
+  angle : Double
+  mass : Double
+  type : BodyType
+
+-- all changes -> physics, physics -> objects
 record Object where
   constructor MkObject
   id : String
-  position : Vector2D
-  boxDescription : BoxDescription
-  texture : Texture
+  physicsProperties : PhysicsProperties
+  controlState : ControlState
+  tags : List ObjectTag
 
 %name Object object
 
+
+export
+physicsUpdate : (PhysicsProperties -> PhysicsProperties) -> Object -> Object
+physicsUpdate f = record { physicsProperties $= f }
+
+export
+angle : Object -> Double
+angle = angle . physicsProperties
+
+export
+mass : Object -> Double
+mass = mass . physicsProperties
+
+export
+dimensions : Object -> Vector2D
+dimensions = dimensions . physicsProperties
+
 export
 dim : Object -> Vector2D
-dim = dim . boxDescription
+dim = dimensions
+
+export
+position : Object -> Vector2D
+position = position . physicsProperties
 
 export
 w : Object -> Double
-w = fst . dim
+w = fst . dimensions
 
 export
 h : Object -> Double
-h = snd . dim
+h = snd . dimensions
 
 export
 x : Object -> Double

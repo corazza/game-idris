@@ -1,6 +1,6 @@
 {
-  "name": "Wooden create",
-  "tags": [],
+  "name": "Spawn",
+  "tags": ["spawn"],
   "box2d": {
       "type": "box",
       "mass": 1,
