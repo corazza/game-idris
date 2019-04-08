@@ -1,5 +1,6 @@
 src/game
 /game
+*.exe
 *.ibc
 *.o
 *.a
