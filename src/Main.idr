@@ -118,7 +118,7 @@ game {m} = with ST do
   endScene scene
   quitCache {r=Texture} textureCache
   quitCache {r=MapDescriptor} mapCache
-  deleteEmptyContext emptyContext
+  deleteEmptyContext emptyContext  
 
 
   -- let playerBoxDesc = MkBoxDescription 5 Dynamic (0.5, 48.0/33.0/2.0)
