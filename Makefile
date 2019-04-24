@@ -9,4 +9,4 @@ game:
 
 .PHONY: clean
 clean:
-	rm -f *.ibc $(PROGRAMS)
+	idris --clean game.ipkg
