@@ -120,13 +120,13 @@ export
     combine scene [spscene, physics, emptyContext, objectCache]
     pure (id object)
 
-  addObject scene (MkObject "" physicsProperties ctrl tags) = with ST do
+  addObject scene (MkObject "" name physicsProperties ctrl render tags) = with ST do
     [spscene, physics, emptyContext, objectCache] <- split scene
     pscene <- read spscene
     let idString = "autoid_" ++ (show (idCounter pscene))
     write spscene (record {idCounter $= (+1)} pscene)
     combine scene [spscene, physics, emptyContext, objectCache]
-    addWithId scene (MkObject idString physicsProperties ctrl tags)
+    addWithId scene (MkObject idString name physicsProperties ctrl render tags)
 
   addObject scene object = addWithId scene object
 
@@ -136,6 +136,7 @@ export
               | with ST do combine scene [spscene, physics, emptyContext, objectCache]
                            putStrLn $ "couldn't get descriptor of " ++ ref
                            pure Nothing
+    putStrLn $ "Creating from description: " ++ show desc
     combine scene [spscene, physics, emptyContext, objectCache]
     let descriptionDim = (dimensions . bodyDescription) desc
     case decideDimensions creationDim descriptionDim of
@@ -145,7 +146,14 @@ export
            let mass' = physicsMass (bodyDescription desc)
            let type' = (type . bodyDescription) desc
            let physicsProperties = MkPhysicsProperties position dimensions 0.0 mass' type'
-           let object = MkObject (decideId id) physicsProperties noControl tags
+           let object = MkObject (decideId id)
+                                 (name desc)
+                                 physicsProperties
+                                 noControl
+                                 -- tiled objects don't have dimensions specified in their object descriptors,
+                                 -- but in the creation, so the IncompleteRenderDescriptor must be processed
+                                 (decideRenderDescriptor dimensions (renderDescription desc))
+                                 tags
            sceneId <- addObject scene object
            pure (Just sceneId)) where
       decideDimensions : Maybe Vector2D -> Maybe Vector2D -> Maybe Vector2D
@@ -153,6 +161,15 @@ export
       decideDimensions Nothing x = x
       decideDimensions x Nothing = x
       decideDimensions (Just x) (Just y) = Nothing
+
+      decideRenderDescriptor : (dimensions : Vector2D) ->
+                               (desc : IncompleteRenderDescriptor) ->
+                               CompleteRenderDescriptor
+      decideRenderDescriptor dimensions (DrawBox x) = DrawBox x
+      decideRenderDescriptor dimensions (TileWith textureRef Nothing)
+        = TileWith textureRef dimensions
+      decideRenderDescriptor dimensions (TileWith textureRef (Just dimensions'))
+        = TileWith textureRef dimensions'
 
       decideId : Maybe String -> String
       decideId Nothing = ""

@@ -1,0 +1,20 @@
+{
+    "resId": "disciple",
+    "type": "box2d",
+    "flags": [
+        "controlled"
+    ],
+    "box2d": {
+        "type": "dynamic",
+        "dimensions": [
+            1,
+            1.5
+        ],
+        "density": 10,
+        "friction": 1
+    },
+    "render": {
+        "type": "rect",
+        "image": "disciple.png"
+    }
+}

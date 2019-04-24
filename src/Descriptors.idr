@@ -24,18 +24,19 @@ getVector name dict = with Maybe do
   pure (x, y)
 
 
+-- potentially incomplete render data (tiling dimensions can be filled in later)
 public export
-data RenderDescriptor
+data IncompleteRenderDescriptor
   = DrawBox ResourceReference
-  | TileWith ResourceReference Int Int
+  | TileWith ResourceReference (Maybe Vector2D)
 
-ObjectCaster RenderDescriptor where
+ObjectCaster IncompleteRenderDescriptor where
   objectCast dict = with Maybe do
     JString type <- lookup "type" dict | Nothing
     JString image <- lookup "image" dict | Nothing
     case type of
          "single" => pure $ DrawBox image
-         "tile" => pure $ TileWith image 0 0 -- TODO read two ints
+         "tile" => pure $ TileWith image (getVector "dimensions" dict)
          _ => Nothing
 
 public export
@@ -51,7 +52,7 @@ record BodyDescriptor where
   constructor MkBodyDescriptor
   type : BodyType
   mass : Maybe Double
-  dimensions : Maybe Vector2D -- for walls, added later
+  dimensions : Maybe Vector2D -- for walls, added later TODO if Incomplete- would apply here
 
 %name BodyDescriptor desc
 
@@ -75,9 +76,14 @@ ObjectCaster BodyDescriptor where
         pure mass
 
 
-
+-- TODO shouldn't be here, but in Objects
+-- descriptors
 public export
 data ObjectTag = Spawn
+
+export
+Show ObjectTag where
+  show Spawn = "spawn"
 
 Cast String (Maybe ObjectTag) where
   cast "spawn" = Just Spawn
@@ -100,9 +106,14 @@ record ObjectDescriptor where
   constructor MkObjectDescriptor
   name : String
   bodyDescription : BodyDescriptor
-  renderDescription : RenderDescriptor
+  renderDescription : IncompleteRenderDescriptor
   tags : List ObjectTag
 
+export
+Show ObjectDescriptor where
+  show (MkObjectDescriptor name bodyDescription renderDescription tags) = "{ descriptor | "
+    ++ "name: " ++ name
+    ++ " }"
 
 -- all objects are created equally / flat, by passing a Creation with a ResourceReference
 -- to the scene, which then loads the required ObjectDescriptor and instantiates
@@ -129,10 +140,12 @@ record MapDescriptor where
 ObjectCaster Creation where
   objectCast dict = with Maybe do
     JString ref <- lookup "ref" dict | Nothing
-    JArray [JNumber x, JNumber y] <- lookup "position" dict | Nothing
+    -- TODO if pos <- ... works, remove the following comment
+    -- JArray [JNumber x, JNumber y] <- lookup "position" dict | Nothing
+    pos <- getVector "position" dict | Nothing
     pure $ MkCreation Nothing
                       ref
-                      (x, y)
+                      pos
                       (getTags dict)
                       (getVector "velocity" dict)
                       (getVector "dimensions" dict)
@@ -145,16 +158,13 @@ ObjectCaster MapDescriptor where
     pure $ MkMapDescriptor name background (catMaybes (map cast creations))
 
 
-randomRender : RenderDescriptor
-randomRender = DrawBox "a"
-
 ObjectCaster ObjectDescriptor where
   objectCast dict = with Maybe do
     JString name <- lookup "name" dict | Nothing
     box2dJson <- lookup "box2d" dict | Nothing
     box2d <- (the (Maybe BodyDescriptor) (cast box2dJson)) | Nothing
     renderJson <- lookup "render" dict | Nothing
-    render <- (the (Maybe RenderDescriptor) (cast renderJson)) | Nothing
+    render <- (the (Maybe IncompleteRenderDescriptor) (cast renderJson)) | Nothing
     pure $ MkObjectDescriptor name box2d render (getTags dict)
 
 public export

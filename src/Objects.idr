@@ -5,6 +5,7 @@ import Data.AVL.Dict
 import Physics.Vector2D
 
 import Descriptors
+import Resources
 
 %access public export
 
@@ -59,16 +60,30 @@ record PhysicsProperties where
   mass : Double
   type : BodyType
 
+public export
+data CompleteRenderDescriptor
+  = DrawBox ResourceReference
+  | TileWith ResourceReference Vector2D
+
 -- all changes -> physics, physics -> objects
 record Object where
   constructor MkObject
   id : String
+  name : String
   physicsProperties : PhysicsProperties
   controlState : ControlState
+  renderDescription : CompleteRenderDescriptor
   tags : List ObjectTag
 
 %name Object object
 
+Show Object where
+  show (MkObject id name physicsProperties controlState renderDescription tags) = "{ object | "
+    ++   "id: " ++ id
+    ++ ", name: " ++ name
+    ++ ", controlState: " ++ show controlState
+    ++ ", tags: " ++ show tags
+    ++ " }"
 
 export
 physicsUpdate : (PhysicsProperties -> PhysicsProperties) -> Object -> Object

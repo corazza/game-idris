@@ -28,7 +28,7 @@ interface Draw (m : Type -> Type) where
   present : (draw : Var) -> ST m () [draw ::: SDraw]
 
   -- getTexture : (draw : Var) -> (name : String) -> ST m Texture [draw ::: SDraw]
-  loadTexture : (draw : Var) -> (name : String) -> ST m Texture [draw ::: SDraw]
+  loadTexture : (draw : Var) -> (name : String) -> ST m (Maybe Texture) [draw ::: SDraw]
   destroyTexture : Texture -> STrans m () xs (const xs)
 
   drawTexture : (draw : Var) ->
@@ -46,10 +46,10 @@ interface Draw (m : Type -> Type) where
 public export
 Draw m => Loader m Texture where
   Context {m} = SDraw {m}
-  idToFilepath id = "res/images/" ++ id ++ ".bmp"
+  idToFilepath id = "res/images/" ++ id
   loadFilepath ctx filepath = with ST do
     texture <- loadTexture ctx filepath
-    pure (Just texture)
+    pure texture
   destroy = destroyTexture
 
 export
@@ -85,12 +85,12 @@ Draw IO where
                   combine draw [renderer, imageCache]
 
   loadTexture draw filepath = with ST do
+    Just surface <- lift $ SDL2.loadImage filepath | pure Nothing
     [renderer, imageCache] <- split draw
-    bmp <- lift $ SDL2.loadBMP filepath
-    texture <- lift $ SDL2.createTextureFromSurface !(read renderer) bmp
-    lift $ SDL2.freeSurface bmp
+    texture <- lift $ SDL2.createTextureFromSurface !(read renderer) surface
+    lift $ SDL2.freeSurface surface
     combine draw [renderer, imageCache]
-    pure texture
+    pure (Just texture)
 
   destroyTexture texture = lift $ SDL2.destroyTexture texture
 
