@@ -130,46 +130,40 @@ export
 
   addObject scene object = addWithId scene object
 
-  create scene (MkCreation id ref position tags velocity creationDim) = (with ST do
+  create scene (MkCreation id ref position tags creationData) = (with ST do
     [spscene, physics, emptyContext, objectCache] <- split scene
     Just desc <- get {m} {r=ObjectDescriptor} objectCache emptyContext ref
               | with ST do combine scene [spscene, physics, emptyContext, objectCache]
                            putStrLn $ "couldn't get descriptor of " ++ ref
                            pure Nothing
-    putStrLn $ "Creating from description: " ++ show desc
+    putStrLn $ "creating " ++ show desc
     combine scene [spscene, physics, emptyContext, objectCache]
-    let descriptionDim = (dimensions . bodyDescription) desc
-    case decideDimensions creationDim descriptionDim of
-         Nothing => with ST do putStrLn $ "wrong dimensions on " ++ ref
-                               pure Nothing
-         Just dimensions => with ST do
-           let mass' = physicsMass (bodyDescription desc)
-           let type' = (type . bodyDescription) desc
-           let physicsProperties = MkPhysicsProperties position dimensions 0.0 mass' type'
-           let object = MkObject (decideId id)
-                                 (name desc)
-                                 physicsProperties
-                                 noControl
-                                 -- tiled objects don't have dimensions specified in their object descriptors,
-                                 -- but in the creation, so the IncompleteRenderDescriptor must be processed
-                                 (decideRenderDescriptor dimensions (renderDescription desc))
-                                 tags
-           sceneId <- addObject scene object
-           pure (Just sceneId)) where
+
+    ?works
+    -- let descriptionDim = (dimensions . bodyDescription) desc
+    -- case decideDimensions creationDim descriptionDim of
+    --      Nothing => with ST do putStrLn $ "wrong dimensions on " ++ ref
+    --                            pure Nothing
+    --      Just dimensions => with ST do
+    --        let mass' = physicsMass (bodyDescription desc)
+    --        let type' = (type . bodyDescription) desc
+    --        let physicsProperties = MkPhysicsProperties position dimensions 0.0 mass' type'
+    --        let object = MkObject (decideId id)
+    --                              (name desc)
+    --                              physicsProperties
+    --                              noControl
+    --                              -- tiled objects don't have dimensions specified in their object descriptors,
+    --                              -- but in the creation, so the IncompleteRenderDescriptor must be processed
+    --                              (renderDescription desc)
+    --                              tags
+    --        sceneId <- addObject scene object
+    --        pure (Just sceneId)) where
+            ) where
       decideDimensions : Maybe Vector2D -> Maybe Vector2D -> Maybe Vector2D
       decideDimensions Nothing Nothing = Nothing
       decideDimensions Nothing x = x
       decideDimensions x Nothing = x
       decideDimensions (Just x) (Just y) = Nothing
-
-      decideRenderDescriptor : (dimensions : Vector2D) ->
-                               (desc : IncompleteRenderDescriptor) ->
-                               CompleteRenderDescriptor
-      decideRenderDescriptor dimensions (DrawBox x) = DrawBox x
-      decideRenderDescriptor dimensions (TileWith textureRef Nothing)
-        = TileWith textureRef dimensions
-      decideRenderDescriptor dimensions (TileWith textureRef (Just dimensions'))
-        = TileWith textureRef dimensions'
 
       decideId : Maybe String -> String
       decideId Nothing = ""

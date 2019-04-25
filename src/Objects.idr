@@ -60,11 +60,6 @@ record PhysicsProperties where
   mass : Double
   type : BodyType
 
-public export
-data CompleteRenderDescriptor
-  = DrawBox ResourceReference
-  | TileWith ResourceReference Vector2D
-
 -- all changes -> physics, physics -> objects
 record Object where
   constructor MkObject
@@ -72,7 +67,7 @@ record Object where
   name : String
   physicsProperties : PhysicsProperties
   controlState : ControlState
-  renderDescription : CompleteRenderDescriptor
+  renderDescription : RenderDescriptor
   tags : List ObjectTag
 
 %name Object object

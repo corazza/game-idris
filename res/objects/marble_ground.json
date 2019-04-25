@@ -6,6 +6,7 @@
   },
   "render": {
     "type": "tile",
-    "image": "BrightPurpleMarble_256.png"
+    "image": "BrightPurpleMarble_256.png",
+    "tileDims": [0.5, 0.5]
   }
 }

@@ -9,7 +9,6 @@ import Resources
 import GameIO
 
 
-
 interface ObjectCaster a where
   objectCast : Dict String JSON -> Maybe a
 
@@ -24,20 +23,27 @@ getVector name dict = with Maybe do
   pure (x, y)
 
 
--- potentially incomplete render data (tiling dimensions can be filled in later)
+-- HERE the RenderDescriptor should contain the dimensions of the tile, and the
+-- number of the tiles in the object. however, the tile dimensions are stored in
+-- the ObjectDescriptor, while the tileNumbers are stored in the Creation. so,
+-- a RenderDescriptor cannot be made from either one of these, but must be
+-- reconstructed from both
 public export
-data IncompleteRenderDescriptor
+data RenderDescriptor
   = DrawBox ResourceReference
-  | TileWith ResourceReference (Maybe Vector2D)
+  | TileWith ResourceReference Vector2D
 
-ObjectCaster IncompleteRenderDescriptor where
+ObjectCaster RenderDescriptor where
   objectCast dict = with Maybe do
     JString type <- lookup "type" dict | Nothing
     JString image <- lookup "image" dict | Nothing
     case type of
          "single" => pure $ DrawBox image
-         "tile" => pure $ TileWith image (getVector "dimensions" dict)
+         "tile" => with Maybe do
+                      tileDims <- getVector "tileDims" dict | Nothing
+                      pure $ TileWith image tileDims
          _ => Nothing
+
 
 public export
 data BodyType = Wall | Box
@@ -100,13 +106,12 @@ getTags dict = (case lookup "tags" dict of
     getStrings (_ :: xs) = getStrings xs
 
 
-
 public export
 record ObjectDescriptor where
   constructor MkObjectDescriptor
   name : String
   bodyDescription : BodyDescriptor
-  renderDescription : IncompleteRenderDescriptor
+  renderDescription : RenderDescriptor
   tags : List ObjectTag
 
 export
@@ -115,9 +120,19 @@ Show ObjectDescriptor where
     ++ "name: " ++ name
     ++ " }"
 
--- all objects are created equally / flat, by passing a Creation with a ResourceReference
--- to the scene, which then loads the required ObjectDescriptor and instantiates
--- the object
+ObjectCaster ObjectDescriptor where
+  objectCast dict = with Maybe do
+    JString name <- lookup "name" dict | Nothing
+    box2dJson <- lookup "box2d" dict | Nothing
+    box2d <- (the (Maybe BodyDescriptor) (cast box2dJson)) | Nothing
+    renderJson <- lookup "render" dict | Nothing
+    render <- (the (Maybe RenderDescriptor) (cast renderJson)) | Nothing
+    pure $ MkObjectDescriptor name box2d render (getTags dict)
+
+
+public export
+data CreationData = BoxData (Maybe Vector2D)
+                  | WallData (Int, Int)
 
 ||| Collects a flat description of a scene object creation for later processing
 public export
@@ -127,8 +142,26 @@ record Creation where
   ref : ResourceReference
   position : Vector2D
   tags : List ObjectTag
-  velocity : Maybe Vector2D
-  dimensions : Maybe Vector2D
+  creationData : CreationData
+
+ObjectCaster Creation where
+  objectCast dict = (with Maybe do
+    let id = getId dict
+    JString ref <- lookup "ref" dict | Nothing
+    pos <- getVector "position" dict | Nothing
+    creationData <- getCreationData dict | Nothing
+    pure $ MkCreation id ref pos (getTags dict) creationData) where
+      getId : Dict String JSON -> Maybe String
+      getId dict = with Maybe do
+        JString id <- lookup "id" dict | Nothing
+        Just id
+
+      getCreationData : Dict String JSON -> Maybe CreationData
+      getCreationData x = case lookup "repeat" dict of
+        Nothing => Just $ BoxData (getVector "velocity" dict)
+        Just (JArray [JNumber xn, JNumber yn]) => Just $ WallData (xn, yn)
+        Just _ => Nothing
+
 
 public export
 record MapDescriptor where
@@ -137,19 +170,6 @@ record MapDescriptor where
   background : ResourceReference
   creations : List Creation
 
-ObjectCaster Creation where
-  objectCast dict = with Maybe do
-    JString ref <- lookup "ref" dict | Nothing
-    -- TODO if pos <- ... works, remove the following comment
-    -- JArray [JNumber x, JNumber y] <- lookup "position" dict | Nothing
-    pos <- getVector "position" dict | Nothing
-    pure $ MkCreation Nothing
-                      ref
-                      pos
-                      (getTags dict)
-                      (getVector "velocity" dict)
-                      (getVector "dimensions" dict)
-
 ObjectCaster MapDescriptor where
   objectCast dict = with Maybe do
     JString name <- lookup "name" dict | Nothing
@@ -157,15 +177,6 @@ ObjectCaster MapDescriptor where
     JArray creations <- lookup "creations" dict | Nothing
     pure $ MkMapDescriptor name background (catMaybes (map cast creations))
 
-
-ObjectCaster ObjectDescriptor where
-  objectCast dict = with Maybe do
-    JString name <- lookup "name" dict | Nothing
-    box2dJson <- lookup "box2d" dict | Nothing
-    box2d <- (the (Maybe BodyDescriptor) (cast box2dJson)) | Nothing
-    renderJson <- lookup "render" dict | Nothing
-    render <- (the (Maybe IncompleteRenderDescriptor) (cast renderJson)) | Nothing
-    pure $ MkObjectDescriptor name box2d render (getTags dict)
 
 public export
 jsonloadFilepath : (Monad m, Cast JSON (Maybe r), GameIO m, ConsoleIO m) =>

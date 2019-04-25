@@ -4,7 +4,7 @@
   "box2d": {
       "type": "box",
       "mass": 1,
-      "dimensions": [1, 1],
+      "dimensions": [0.5, 0.5],
       "density": 5,
       "friction": 1
   },

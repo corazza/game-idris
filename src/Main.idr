@@ -46,7 +46,6 @@ positionToScreen (cx, cy) (ox, oy)
 dimToScreen : (dim : Vector2D) -> (Int, Int)
 dimToScreen (x, y) = cast $ (screenScale * x, screenScale * y)
 
-
 drawScene : (Monad m,
              ConsoleIO m,
              Box2DPhysics m,
@@ -65,19 +64,23 @@ drawScene state = (with ST do
                   (draw : Var) -> (camera : Vector2D) -> List Object -> (cache : Var) ->
                   ST m () [cache ::: SCache {m} {r=Texture}, draw ::: SDraw {m}]
     drawObjects draw camera [] cache = pure ()
-    drawObjects {m} draw camera (object :: xs) cache = with ST do
-      let (x, y) = positionToScreen camera ((position object) - (dim object))
-      let (w, h) = dimToScreen (2 `scale` dim object)
-      let dst = MkSDLRect x y w h
+    drawObjects {m} draw camera (object :: xs) cache = (with ST do
+      let (w, h) = dimToScreen $ 2 `scale` (dim object)
+      let (x, y) = positionToScreen camera (position object)
       let deg_angle = (angle object) / (2*pi) * 360.0
       case renderDescription object of
         DrawBox textureRef => with ST do
           Just texture <- get {m} {r=Texture} cache draw textureRef | Nothing => ?noTextureDrawBox
-          drawWholeCenter draw texture dst deg_angle
+          let (w', h') = dimToScreen (dim object)
+          drawWholeCenter draw texture (MkSDLRect (x - w') (y - h') w h) deg_angle
+          -- drawWholeCenter draw texture (MkSDLRect x y w h) deg_angle -- TODO why doesn't this work?
           drawObjects draw camera xs cache
-        TileWith textureRef dims => with ST do
+        TileWith textureRef tileDims => with ST do
+          let (tw, th) = dimToScreen $ 2 `scale` tileDims
           Just texture <- get {m} {r=Texture} cache draw textureRef | Nothing => ?noTexture
-          drawObjects draw camera xs cache
+          putStrLn $ "tile at " ++ show (x, y) ++ ", whole dim " ++ show (w, h) ++ ", tile dim " ++ show (tw, th)
+
+          drawObjects draw camera xs cache)
 
 loop : (Monad m,
         ConsoleIO m,
@@ -111,18 +114,13 @@ game {m} = with ST do
 
   Just map <- get {m} {r=MapDescriptor} mapCache emptyContext "likert" | Nothing => ?noLikert
   scene <- startScene map
-
-  -- let playerBoxDesc = MkBoxDescription 5 Dynamic (0.5, 48.0/33.0/2.0)
-  -- let player = MkObject "player" (11, 20) (pi/4 + 0.1) playerBoxDesc playerTexture noControl
-  -- addObject scene player
-
   let playerCreation = MkCreation (Just "player")
                                   "disciple"
                                   (0, 20)
                                   []
                                   Nothing
                                   Nothing
-
+                                  Nothing
   create scene playerCreation
 
   state <- new ()
