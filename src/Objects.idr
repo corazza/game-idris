@@ -59,7 +59,7 @@ record PhysicsProperties where
   angle : Double
   density : Double
   friction : Double
-  mass : Double -- overwritten on Scene.addBody
+  mass : Double -- overwritten on Scene.addWithId
   type : BodyType
 
 data CompleteRenderDescriptor

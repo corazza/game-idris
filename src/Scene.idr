@@ -102,25 +102,25 @@ export
     combine scene [spscene, physics, emptyContext, objectCache]
     pure objectList
 
-  -- HERE mass needs to be set correctly
   addBody scene object = (with ST do
     [spscene, physics, emptyContext, objectCache] <- split scene
     body <- addBody' physics object
-    -- body <- case (type . physicsProperties) object of
-    --      Wall => createWall physics (position object) (dim object)
-    --      Box => createBox physics (position object) (dim object) (angle object) 1.0 0.3
     combine scene [spscene, physics, emptyContext, objectCache]
     pure body) where
-      addBody' : (physics : Var) -> Object -> ST m Body [physics ::: SBox2D {m}]
-
+      addBody' : (physics' : Var) -> Object -> ST m Body [physics' ::: SBox2D {m}]
+      addBody' physics' object' = case (type . physicsProperties) object of
+        Wall => createWall physics' (position object') (dim object')
+        Box => createBox physics' (position object') (dim object') (angle object') 1.0 0.3
 
   addWithId scene object = with ST do
     body <- addBody scene object
+    mass' <- lift $ getMass body
+    let object' = physicsUpdate (record { mass=mass' }) object
     [spscene, physics, emptyContext, objectCache] <- split scene
     pscene <- read spscene
-    write spscene (record {objects $= insert (id object) (object, body)} pscene)
+    write spscene (record {objects $= insert (id object') (object', body)} pscene)
     combine scene [spscene, physics, emptyContext, objectCache]
-    pure (id object)
+    pure (id object')
 
   addObject scene (MkObject "" name physicsProperties ctrl render tags) = with ST do
     [spscene, physics, emptyContext, objectCache] <- split scene
@@ -196,6 +196,7 @@ export
 
   createMany scene [] = pure () -- TODO return list of id's
   createMany scene (x :: xs) = with ST do create scene x; createMany scene xs
+
 
   registerEvent scene event = with ST do
     [spscene, physics, emptyContext, objectCache] <- split scene
