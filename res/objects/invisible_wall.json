@@ -1,0 +1,10 @@
+{
+  "name": "Wall",
+  "tags": [],
+  "box2d": {
+    "type": "wall"
+  },
+  "render": {
+    "type": "invisible"
+  }
+}

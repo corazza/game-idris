@@ -29,20 +29,24 @@ getVector name dict = with Maybe do
 -- a RenderDescriptor cannot be made from either one of these, but must be
 -- reconstructed from both
 public export
-data RenderDescriptor
+data IncompleteRenderDescriptor
   = DrawBox ResourceReference
   | TileWith ResourceReference Vector2D
+  | Invisible
 
-ObjectCaster RenderDescriptor where
+ObjectCaster IncompleteRenderDescriptor where
   objectCast dict = with Maybe do
     JString type <- lookup "type" dict | Nothing
-    JString image <- lookup "image" dict | Nothing
     case type of
-         "single" => pure $ DrawBox image
-         "tile" => with Maybe do
-                      tileDims <- getVector "tileDims" dict | Nothing
-                      pure $ TileWith image tileDims
-         _ => Nothing
+      "invisible" => pure Invisible
+      "single" => with Maybe do
+        JString image <- lookup "image" dict | Nothing
+        pure $ DrawBox image
+      "tile" => with Maybe do
+        JString image <- lookup "image" dict | Nothing
+        tileDims <- getVector "tileDims" dict | Nothing
+        pure $ TileWith image tileDims
+      _ => Nothing
 
 
 public export
@@ -57,30 +61,36 @@ public export
 record BodyDescriptor where
   constructor MkBodyDescriptor
   type : BodyType
-  mass : Maybe Double
-  dimensions : Maybe Vector2D -- for walls, added later TODO if Incomplete- would apply here
+  density : Double
+  friction : Double
+  dimensions : Maybe Vector2D -- nonexistent for walls
 
 %name BodyDescriptor desc
 
-public export
-physicsMass : BodyDescriptor -> Double
-physicsMass desc = case mass desc of
-  Nothing => 0
-  Just x => x
+-- public export
+-- physicsMass : BodyDescriptor -> Double
+-- physicsMass desc = case mass desc of
+--   Nothing => 0
+--   Just x => x
+--
+-- public export
+-- physicsDensity : BodyDescriptor -> Double
+
+getDoubleOrDefault : String -> Double -> Dict String JSON -> Double
+getDoubleOrDefault key default dict = case lookup key dict of
+  Just (JNumber x) => x
+  _ => default
 
 ObjectCaster BodyDescriptor where
   objectCast dict = (with Maybe do
     JString typeString <- lookup "type" dict | Nothing
     type <- getType typeString | Nothing
-    pure $ MkBodyDescriptor type (getMass dict) (getVector "dimensions" dict)) where
+    pure $ MkBodyDescriptor type
+                            (getDoubleOrDefault "density" 1 dict)
+                            (getDoubleOrDefault "friction" 1 dict)
+                            (getVector "dimensions" dict)) where
       getType : String -> Maybe BodyType
       getType = cast
-
-      getMass : Dict String JSON -> Maybe Double
-      getMass x = with Maybe do
-        JNumber mass <- lookup "mass" x | Nothing
-        pure mass
-
 
 -- TODO shouldn't be here, but in Objects
 -- descriptors
@@ -111,7 +121,7 @@ record ObjectDescriptor where
   constructor MkObjectDescriptor
   name : String
   bodyDescription : BodyDescriptor
-  renderDescription : RenderDescriptor
+  renderDescription : IncompleteRenderDescriptor
   tags : List ObjectTag
 
 export
@@ -126,13 +136,14 @@ ObjectCaster ObjectDescriptor where
     box2dJson <- lookup "box2d" dict | Nothing
     box2d <- (the (Maybe BodyDescriptor) (cast box2dJson)) | Nothing
     renderJson <- lookup "render" dict | Nothing
-    render <- (the (Maybe RenderDescriptor) (cast renderJson)) | Nothing
+    render <- (the (Maybe IncompleteRenderDescriptor) (cast renderJson)) | Nothing
     pure $ MkObjectDescriptor name box2d render (getTags dict)
 
 
 public export
 data CreationData = BoxData (Maybe Vector2D)
                   | WallData (Int, Int)
+                  | InvisibleWallData Vector2D
 
 ||| Collects a flat description of a scene object creation for later processing
 public export
@@ -156,12 +167,27 @@ ObjectCaster Creation where
         JString id <- lookup "id" dict | Nothing
         Just id
 
-      getCreationData : Dict String JSON -> Maybe CreationData
-      getCreationData x = case lookup "repeat" dict of
-        Nothing => Just $ BoxData (getVector "velocity" dict)
-        Just (JArray [JNumber xn, JNumber yn]) => Just $ WallData (xn, yn)
-        Just _ => Nothing
+      extractWallData : Dict String JSON -> Maybe CreationData
+      extractWallData dict = let repeat = lookup "repeat" dict
+                                 dimensions = lookup "dimensions" dict in
+                  case (repeat, dimensions) of
+                    (Just (JArray [JNumber xn, JNumber yn]), Nothing) =>
+                      Just $ WallData (cast xn, cast yn)
+                    (Nothing, Just (JArray [JNumber x, JNumber y])) =>
+                      Just $ InvisibleWallData (x, y)
+                    _ => Nothing
 
+      -- extractBoxData : Dict String JSON -> Maybe CreationData
+      -- extractBoxData dict =
+
+      getCreationData : Dict String JSON -> Maybe CreationData
+      -- getCreationData x = case lookup "repeat" dict of
+      --   Nothing => Just $ BoxData (getVector "velocity" dict)
+      --   Just (JArray [JNumber xn, JNumber yn]) => Just $ WallData (cast xn, cast yn)
+      --   Just _ => Nothing
+      getCreationData dict = case extractWallData dict of
+        Nothing => Just $ BoxData (getVector "velocity" dict)
+        Just x => Just x
 
 public export
 record MapDescriptor where

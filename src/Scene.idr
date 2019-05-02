@@ -102,15 +102,17 @@ export
     combine scene [spscene, physics, emptyContext, objectCache]
     pure objectList
 
-  addBody scene object = with ST do
+  -- HERE mass needs to be set correctly
+  addBody scene object = (with ST do
     [spscene, physics, emptyContext, objectCache] <- split scene
-    case (type . physicsProperties) object of
-         Wall => do body <- createWall physics (position object) (dim object)
-                    combine scene [spscene, physics, emptyContext, objectCache]
-                    pure body
-         Box => do body <- createBox physics (position object) (dim object) (angle object) 1.0 0.3
-                   combine scene [spscene, physics, emptyContext, objectCache]
-                   pure body
+    body <- addBody' physics object
+    -- body <- case (type . physicsProperties) object of
+    --      Wall => createWall physics (position object) (dim object)
+    --      Box => createBox physics (position object) (dim object) (angle object) 1.0 0.3
+    combine scene [spscene, physics, emptyContext, objectCache]
+    pure body) where
+      addBody' : (physics : Var) -> Object -> ST m Body [physics ::: SBox2D {m}]
+
 
   addWithId scene object = with ST do
     body <- addBody scene object
@@ -138,32 +140,55 @@ export
                            pure Nothing
     putStrLn $ "creating " ++ show desc
     combine scene [spscene, physics, emptyContext, objectCache]
+    case decideFallible (renderDescription desc) creationData (bodyDescription desc) of
+      Nothing => ?decideFallibleError
+      Just (dimensions, angle, crd) => with ST do
+        let physicsProperties = MkPhysicsProperties
+          position dimensions angle
+          ((BodyDescriptor.density . bodyDescription) desc)
+          ((BodyDescriptor.friction . bodyDescription) desc)
+          (-1) -- mass is overwritten on addBody
+          ((BodyDescriptor.type . bodyDescription) desc)
+        let object = MkObject
+          (decideId id)
+          (name desc)
+          physicsProperties noControl
+          -- tiled objects don't have dimensions specified in their object descriptors,
+          -- but in the creation, so the IncompleteRenderDescriptor must be processed
+          crd tags
+        sceneId <- addObject scene object
+        pure (Just sceneId)) where
+      decideRenderDescription : IncompleteRenderDescriptor ->
+                                CreationData ->
+                                Maybe CompleteRenderDescriptor
+      decideRenderDescription Invisible cdata = Just Invisible
+      decideRenderDescription (DrawBox x) (BoxData y) = Just $ DrawBox x
+      decideRenderDescription (DrawBox x) (WallData y) = Nothing
+      decideRenderDescription (TileWith x y) (BoxData z) = Nothing
+      decideRenderDescription (TileWith tileRef (x, y)) (WallData (nx, ny))
+        = Just $ TileWith tileRef (x, y) (cast nx, cast ny)
 
-    ?works
-    -- let descriptionDim = (dimensions . bodyDescription) desc
-    -- case decideDimensions creationDim descriptionDim of
-    --      Nothing => with ST do putStrLn $ "wrong dimensions on " ++ ref
-    --                            pure Nothing
-    --      Just dimensions => with ST do
-    --        let mass' = physicsMass (bodyDescription desc)
-    --        let type' = (type . bodyDescription) desc
-    --        let physicsProperties = MkPhysicsProperties position dimensions 0.0 mass' type'
-    --        let object = MkObject (decideId id)
-    --                              (name desc)
-    --                              physicsProperties
-    --                              noControl
-    --                              -- tiled objects don't have dimensions specified in their object descriptors,
-    --                              -- but in the creation, so the IncompleteRenderDescriptor must be processed
-    --                              (renderDescription desc)
-    --                              tags
-    --        sceneId <- addObject scene object
-    --        pure (Just sceneId)) where
-            ) where
-      decideDimensions : Maybe Vector2D -> Maybe Vector2D -> Maybe Vector2D
-      decideDimensions Nothing Nothing = Nothing
-      decideDimensions Nothing x = x
-      decideDimensions x Nothing = x
-      decideDimensions (Just x) (Just y) = Nothing
+      decideDimensions : IncompleteRenderDescriptor ->
+                         CreationData ->
+                         BodyDescriptor ->
+                         Maybe Vector2D
+      decideDimensions (DrawBox x) (BoxData y) (MkBodyDescriptor type density friction dimensions) = dimensions
+      decideDimensions (DrawBox x) (WallData y) desc = Nothing
+      decideDimensions (TileWith tileRef (x, y)) (BoxData z) desc = Nothing
+      decideDimensions (TileWith tileRef (x, y)) (WallData (nx, ny)) desc = Just ((cast nx)*x, (cast ny)*y)
+      decideDimensions Invisible (BoxData z) desc = Nothing
+      decideDimensions Invisible (WallData (nx, ny)) desc = Nothing
+      decideDimensions Invisible (InvisibleWallData dims) desc = Just dims
+
+      -- TODO this should return an Either String (...) with the description of what failed
+      decideFallible : IncompleteRenderDescriptor ->
+                       CreationData ->
+                       BodyDescriptor ->
+                       Maybe (Vector2D, Double, CompleteRenderDescriptor)
+      decideFallible ird cdata desc = with Maybe do
+        dimensions <- decideDimensions ird cdata desc | Nothing
+        crd <- decideRenderDescription ird cdata | Nothing
+        pure (dimensions, 0.0, crd)
 
       decideId : Maybe String -> String
       decideId Nothing = ""
@@ -171,7 +196,6 @@ export
 
   createMany scene [] = pure () -- TODO return list of id's
   createMany scene (x :: xs) = with ST do create scene x; createMany scene xs
-
 
   registerEvent scene event = with ST do
     [spscene, physics, emptyContext, objectCache] <- split scene
@@ -210,6 +234,7 @@ export
                       Just Rightward => 1.5
         let impulse = mass `scale` (x'-x, 0)
         applyImpulse physics body impulse
+        commitControl physics xs
 
       handleEvents : (scene : Var) ->
                      List Events.Event ->

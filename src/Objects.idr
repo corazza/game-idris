@@ -57,8 +57,15 @@ record PhysicsProperties where
   position : Vector2D
   dimensions : Vector2D
   angle : Double
-  mass : Double
+  density : Double
+  friction : Double
+  mass : Double -- overwritten on Scene.addBody
   type : BodyType
+
+data CompleteRenderDescriptor
+  = DrawBox ResourceReference
+  | TileWith ResourceReference Vector2D (Nat, Nat)
+  | Invisible
 
 -- all changes -> physics, physics -> objects
 record Object where
@@ -67,7 +74,7 @@ record Object where
   name : String
   physicsProperties : PhysicsProperties
   controlState : ControlState
-  renderDescription : RenderDescriptor
+  renderDescription : CompleteRenderDescriptor
   tags : List ObjectTag
 
 %name Object object

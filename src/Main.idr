@@ -64,23 +64,37 @@ drawScene state = (with ST do
                   (draw : Var) -> (camera : Vector2D) -> List Object -> (cache : Var) ->
                   ST m () [cache ::: SCache {m} {r=Texture}, draw ::: SDraw {m}]
     drawObjects draw camera [] cache = pure ()
+    -- w = full width on screen, w' = half width on screen
     drawObjects {m} draw camera (object :: xs) cache = (with ST do
       let (w, h) = dimToScreen $ 2 `scale` (dim object)
+      let (w', h') = dimToScreen (dim object)
       let (x, y) = positionToScreen camera (position object)
-      let deg_angle = (angle object) / (2*pi) * 360.0
+      let deg_angle = -(angle object) / (2.0*pi) * 360.0
       case renderDescription object of
+        Invisible => drawObjects draw camera xs cache
         DrawBox textureRef => with ST do
           Just texture <- get {m} {r=Texture} cache draw textureRef | Nothing => ?noTextureDrawBox
-          let (w', h') = dimToScreen (dim object)
           drawWholeCenter draw texture (MkSDLRect (x - w') (y - h') w h) deg_angle
           -- drawWholeCenter draw texture (MkSDLRect x y w h) deg_angle -- TODO why doesn't this work?
           drawObjects draw camera xs cache
-        TileWith textureRef tileDims => with ST do
+        TileWith textureRef tileDims (nx, ny) => with ST do -- TODO totality in nx, ny
           let (tw, th) = dimToScreen $ 2 `scale` tileDims
+          let (tw', th') = dimToScreen tileDims
           Just texture <- get {m} {r=Texture} cache draw textureRef | Nothing => ?noTexture
-          putStrLn $ "tile at " ++ show (x, y) ++ ", whole dim " ++ show (w, h) ++ ", tile dim " ++ show (tw, th)
-
-          drawObjects draw camera xs cache)
+          tile texture (x, y) (w, h) (w', h') (tw, th) (tw', th') (nx, ny) nx
+          drawObjects draw camera xs cache) where
+            tile : Texture -> (Int, Int) ->
+                   (Int, Int) -> (Int, Int) ->
+                   (Int, Int) -> (Int, Int) ->
+                   (Nat, Nat) -> Nat ->
+                   ST m () [draw ::: SDraw {m}]
+            tile texture _ _ _ _ _ (nx , Z) nx' = pure ()
+            tile texture (x, y) (w, h) (w', h') (tw, th) (tw', th') (Z, S ny) nx'
+              = tile texture (x, y) (w, h) (w', h') (tw, th) (tw', th') (nx', ny) nx'
+            tile texture (x, y) (w, h) (w', h') (tw, th) (tw', th') (S nx, S ny) nx' = with ST do
+              drawWholeCenter draw texture (MkSDLRect (x - w' + (cast nx)*tw) (y - h' + (cast ny)*th) tw th) 0.0
+              -- only x remains deincremented
+              tile texture (x, y) (w, h) (w', h') (tw, th) (tw', th') (nx, S ny) nx'
 
 loop : (Monad m,
         ConsoleIO m,
@@ -118,9 +132,7 @@ game {m} = with ST do
                                   "disciple"
                                   (0, 20)
                                   []
-                                  Nothing
-                                  Nothing
-                                  Nothing
+                                  (BoxData Nothing)
   create scene playerCreation
 
   state <- new ()
@@ -141,4 +153,6 @@ game {m} = with ST do
 
 
 main : IO ()
-main = run game
+main = do
+  disableBuffering
+  run game
