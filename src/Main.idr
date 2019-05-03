@@ -30,7 +30,7 @@ screenScale : Double
 screenScale = 33
 
 resolution : (Int, Int)
-resolution = (1280, 960)
+resolution = (1280, 800)
 
 Cast (Int, Int) (Double, Double) where
   cast (x, y) = (cast x, cast y)
@@ -57,9 +57,20 @@ drawScene : (Monad m,
 drawScene state = (with ST do
   [draw, scene, camera, textureCache, lastms] <- split state
   clear draw
+  drawBackground draw !(read camera) !(getBackground scene) textureCache
   drawObjects draw !(read camera) !(getObjects scene) textureCache
   present draw
   combine state [draw, scene, camera, textureCache, lastms]) where
+    drawBackground : (Draw m, ConsoleIO m) =>
+                     (draw : Var) -> (camera : Vector2D) -> (background : Background) -> (cache : Var) ->
+                     ST m () [cache ::: SCache {m} {r=Texture}, draw ::: SDraw {m}]
+    drawBackground {m = m} draw camera (MkBackground image dim) cache = with ST do
+      Just texture <- get {m} {r=Texture} cache draw image | Nothing => ?noTextureDrawBackground
+      let (w, h) = dimToScreen $ 2 `scale` dim
+      let (w', h') = dimToScreen dim
+      let (x, y) = positionToScreen camera (0, 0)
+      drawWholeCenter draw texture (MkSDLRect (x - w') (y - h') w h) 0.0
+
     drawObjects : (Draw m, ConsoleIO m) =>
                   (draw : Var) -> (camera : Vector2D) -> List Object -> (cache : Var) ->
                   ST m () [cache ::: SCache {m} {r=Texture}, draw ::: SDraw {m}]
@@ -150,7 +161,6 @@ game {m} = with ST do
   deleteEmptyContext emptyContext
   delete camera; delete lastms
   delete state
-
 
 main : IO ()
 main = do

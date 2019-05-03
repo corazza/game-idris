@@ -92,6 +92,14 @@ physicsUpdate : (PhysicsProperties -> PhysicsProperties) -> Object -> Object
 physicsUpdate f = record { physicsProperties $= f }
 
 export
+density : Object -> Double
+density = density . physicsProperties
+
+export
+friction : Object -> Double
+friction = friction . physicsProperties
+
+export
 angle : Object -> Double
 angle = angle . physicsProperties
 

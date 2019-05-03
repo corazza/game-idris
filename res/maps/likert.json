@@ -1,16 +1,19 @@
 {
   "name": "Likert Forest",
-  "background": "jungle",
+  "background": {
+    "image": "backgrounds/jungle.jpg",
+    "dimensions": [20.9091, 12.4242]
+  },
   "creations": [
     {
       "ref": "invisible_wall",
       "position": [
-        0,
-        0
+        -4,
+        -9
       ],
       "dimensions": [
-        5,
-        1
+        12.5,
+        0.5
       ]
     },
 
@@ -18,21 +21,21 @@
       "ref": "wooden_crate",
       "position": [
         -4,
-        2
+        0
       ]
     },
     {
       "ref": "wooden_crate",
       "position": [
         -4.2,
-        4
+        2
       ]
     },
     {
       "ref": "wooden_crate",
       "position": [
         -4.1,
-        6
+        4
       ]
     },
 
@@ -40,14 +43,14 @@
       "ref": "wooden_crate",
       "position": [
         5.5,
-        10
+        1
       ]
     },
     {
       "ref": "spawn_point",
       "position": [
         2,
-        10
+        1
       ],
       "tags": [
         "spawn"

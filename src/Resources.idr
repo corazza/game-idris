@@ -41,7 +41,7 @@ interface Cache (m : Type -> Type) r where
         ST m (Maybe r) [cache ::: SCache, context ::: LoadContext]
 
 public export
-Loader m r => Cache m r where
+(Loader m r, ConsoleIO m) => Cache m r where
   -- SCache = ?what
   SCache {r} = State $ CacheType r
   LoadContext {m} {r} = Context {m} {r}
@@ -62,5 +62,7 @@ Loader m r => Cache m r where
     dict <- read cache
     case lookup id dict of
       Nothing => do let filepath = idToFilepath {m} {r} id
-                    call $ loadFilepath {m} {r} ctx filepath
+                    Just result <- call $ loadFilepath {m} {r} ctx filepath | pure Nothing
+                    write cache (insert id result dict)
+                    pure (Just result)
       x => pure x

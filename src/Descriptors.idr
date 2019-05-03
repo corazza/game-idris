@@ -81,16 +81,17 @@ getDoubleOrDefault key default dict = case lookup key dict of
   Just (JNumber x) => x
   _ => default
 
+getType : String -> Maybe BodyType
+getType = cast
+
 ObjectCaster BodyDescriptor where
-  objectCast dict = (with Maybe do
+  objectCast dict = with Maybe do
     JString typeString <- lookup "type" dict | Nothing
     type <- getType typeString | Nothing
     pure $ MkBodyDescriptor type
                             (getDoubleOrDefault "density" 1 dict)
                             (getDoubleOrDefault "friction" 1 dict)
-                            (getVector "dimensions" dict)) where
-      getType : String -> Maybe BodyType
-      getType = cast
+                            (getVector "dimensions" dict)
 
 -- TODO shouldn't be here, but in Objects
 -- descriptors
@@ -127,7 +128,9 @@ record ObjectDescriptor where
 export
 Show ObjectDescriptor where
   show (MkObjectDescriptor name bodyDescription renderDescription tags) = "{ descriptor | "
-    ++ "name: " ++ name
+    ++   "name: " ++ name
+    ++ ", friction: " ++ show (friction bodyDescription)
+    ++ ", density: " ++ show (density bodyDescription)
     ++ " }"
 
 ObjectCaster ObjectDescriptor where
@@ -190,16 +193,29 @@ ObjectCaster Creation where
         Just x => Just x
 
 public export
+record Background where
+  constructor MkBackground
+  image : ResourceReference
+  dimensions : Vector2D
+
+ObjectCaster Background where
+  objectCast dict = with Maybe do
+    JString ref <- lookup "image" dict | Nothing
+    dimensions <- getVector "dimensions" dict | Nothing
+    pure $ MkBackground ref dimensions
+
+public export
 record MapDescriptor where
   constructor MkMapDescriptor
   name : String
-  background : ResourceReference
+  background : Background
   creations : List Creation
 
 ObjectCaster MapDescriptor where
   objectCast dict = with Maybe do
     JString name <- lookup "name" dict | Nothing
-    JString background <- lookup "background" dict | Nothing
+    background' <- lookup "background" dict | Nothing
+    background <- the (Maybe Background) (cast background') | Nothing
     JArray creations <- lookup "creations" dict | Nothing
     pure $ MkMapDescriptor name background (catMaybes (map cast creations))
 

@@ -3,10 +3,9 @@
   "tags": [],
   "box2d": {
       "type": "box",
-      "mass": 1,
       "dimensions": [0.5, 0.5],
-      "density": 5,
-      "friction": 1
+      "density": 1,
+      "friction": 0.3
   },
   "render": {
       "type": "single",

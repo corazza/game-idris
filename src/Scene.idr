@@ -43,6 +43,7 @@ interface Scene (m : Type -> Type) where
   addWithId : (scene : Var) -> (object : Object) -> ST m String [scene ::: SScene]
   private
   addBody : (scene : Var) -> (object : Object) -> ST m Body [scene ::: SScene]
+  private
   addObject : (scene : Var) -> (object : Object) -> ST m String [scene ::: SScene]
 
   create : (scene : Var) -> (creation : Creation) -> ST m (Maybe String) [scene ::: SScene]
@@ -54,9 +55,10 @@ interface Scene (m : Type -> Type) where
                  Maybe InputEvent ->
                  ST m () [scene ::: SScene]
 
-  iterate : (scene : Var) -> (ticks : Int) -> ST m () [scene ::: SScene]
-
   getObjects : (scene : Var) -> ST m (List Object) [scene ::: SScene]
+  getBackground : (scene : Var) -> ST m Background [scene ::: SScene]
+
+  iterate : (scene : Var) -> (ticks : Int) -> ST m () [scene ::: SScene]
 
 -- TODO make SceneState record
 
@@ -65,7 +67,7 @@ record PScene where
   idCounter : Nat
   objects : SceneObjects
   events : SceneEvents
-
+  background : Background
 
 -- WRITEUP here, omitting GameIO causes the SCache not to be found. The error message
 -- just referred to "can't find implementation for SCache m ObjectDescriptor"
@@ -77,7 +79,7 @@ export
                       SCache {m} {r=ObjectDescriptor}]
 
   startScene (MkMapDescriptor name background creations) = with ST do
-    pscene <- new $ MkPScene Z empty []
+    pscene <- new $ MkPScene Z empty empty background
     physics <- createWorld (0, -8.0)
     objectCache <- initCache {r=ObjectDescriptor}
     emptyContext <- createEmptyContext
@@ -110,7 +112,7 @@ export
       addBody' : (physics' : Var) -> Object -> ST m Body [physics' ::: SBox2D {m}]
       addBody' physics' object' = case (type . physicsProperties) object of
         Wall => createWall physics' (position object') (dim object')
-        Box => createBox physics' (position object') (dim object') (angle object') 1.0 0.3
+        Box => createBox physics' (position object') (dim object') (angle object') (density object') (friction object')
 
   addWithId scene object = with ST do
     body <- addBody scene object
@@ -208,6 +210,9 @@ export
                                             Nothing => pure ()
                                             Just event => registerEvent scene event
 
+
+
+
   iterate scene ticks = (with ST do
     nextEvents <- iterateEvents scene
     [spscene, physics, emptyContext, objectCache] <- split scene
@@ -231,8 +236,8 @@ export
         mass <- lift $ getMass body
         let x' = case moving (controlState obj) of
                       Nothing => 0
-                      Just Leftward => -1.5
-                      Just Rightward => 1.5
+                      Just Leftward => -3.5
+                      Just Rightward => 3.5
         let impulse = mass `scale` (x'-x, 0)
         applyImpulse physics body impulse
         commitControl physics xs
@@ -242,27 +247,22 @@ export
                      ST m (List Events.Event) [scene ::: SScene {m}]
       handleEvents scene [] = pure []
       handleEvents scene (x::xs) = handle scene x >>= \_=> handleEvents scene xs where
-        handle : (scene : Var) -> Events.Event ->
-                 ST m (List Events.Event) [scene ::: SScene {m}]
-        handle scene (MovementStart direction id) = with ST do
+        handleControl : (scene : Var) -> String -> (ControlState -> ControlState) ->
+                        ST m (List Events.Event) [scene ::: SScene {m}]
+        handleControl scene id f = with ST do
           [pscene, physics, emptyContext, objectCache] <- split scene
           write pscene (record { objects $=
-            updateObject id (record { controlState $= startMoving direction })
-          } !(read pscene))
-          combine scene [pscene, physics, emptyContext, objectCache]
-          pure [] -- TODO
-
-        handle scene (MovementStop id) = with ST do
-          [pscene, physics, emptyContext, objectCache] <- split scene
-          write pscene (record { objects $=
-            updateObject id (record { controlState $= stopMoving })
+            updateObject id (record { controlState $= f })
           } !(read pscene))
           combine scene [pscene, physics, emptyContext, objectCache]
           pure []
 
-        handle scene (Attack id) = pure []
-
-        handle scene (Jump id) = pure []
+        handle : (scene : Var) -> Events.Event ->
+                 ST m (List Events.Event) [scene ::: SScene {m}]
+        handle scene (MovementStart direction id) = handleControl scene id (startMoving direction)
+        handle scene (MovementStop id) = handleControl scene id stopMoving
+        handle scene (Attack id) = handleControl scene id startAttacking
+        handle scene (Jump id) = handleControl scene id startJumping
 
       iterateEvents : (scene : Var) -> ST m (List Events.Event) [scene ::: SScene {m}]
       iterateEvents scene = with ST do
@@ -276,3 +276,9 @@ export
         write spscene (record {events=nextEvents} !(read spscene))
         combine scene [spscene, physics, emptyContext, objectCache]
         pure nextEvents
+
+  getBackground scene = with ST do
+    [spscene, physics, emptyContext, objectCache] <- split scene
+    let background' = background !(read spscene)
+    combine scene [spscene, physics, emptyContext, objectCache]
+    pure background'

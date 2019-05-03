@@ -4,10 +4,9 @@
 
   "box2d": {
     "type": "box",
-    "mass": 12,
     "dimensions": [0.5, 0.727273],
-    "density": 5,
-    "friction": 1
+    "density": 1,
+    "friction": 0.3
   },
 
   "render": {
