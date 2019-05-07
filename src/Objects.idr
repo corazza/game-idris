@@ -9,6 +9,10 @@ import Resources
 
 %access public export
 
+ObjectId : Type
+ObjectId = String
+
+%name ObjectId id
 
 data MoveDirection = Leftward | Rightward
 %name MoveDirection direction

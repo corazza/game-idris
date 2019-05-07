@@ -16,6 +16,7 @@ import Physics.Vector2D
 import Descriptors
 import Resources
 import GameIO
+import Script
 
 
 
@@ -58,9 +59,9 @@ interface Scene (m : Type -> Type) where
   getObjects : (scene : Var) -> ST m (List Object) [scene ::: SScene]
   getBackground : (scene : Var) -> ST m Background [scene ::: SScene]
 
+  -- iteratePhysics : (scene : Var) -> (ticks : Int) -> ST m () [scene ::: SScene]
   iterate : (scene : Var) -> (ticks : Int) -> ST m () [scene ::: SScene]
 
--- TODO make SceneState record
 
 record PScene where
   constructor MkPScene
@@ -209,9 +210,6 @@ export
   controlEvent scene id (Just input) = case inputToEvent id input of
                                             Nothing => pure ()
                                             Just event => registerEvent scene event
-
-
-
 
   iterate scene ticks = (with ST do
     nextEvents <- iterateEvents scene

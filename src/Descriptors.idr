@@ -23,11 +23,6 @@ getVector name dict = with Maybe do
   pure (x, y)
 
 
--- HERE the RenderDescriptor should contain the dimensions of the tile, and the
--- number of the tiles in the object. however, the tile dimensions are stored in
--- the ObjectDescriptor, while the tileNumbers are stored in the Creation. so,
--- a RenderDescriptor cannot be made from either one of these, but must be
--- reconstructed from both
 public export
 data IncompleteRenderDescriptor
   = DrawBox ResourceReference
