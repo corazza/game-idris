@@ -16,12 +16,20 @@ ObjectCaster a => Cast JSON (Maybe a) where
   cast (JObject xs) = objectCast (fromList xs)
   cast _ = Nothing
 
-
 getVector : (name : String) -> (dict : Dict String JSON) -> Maybe Vector2D
 getVector name dict = with Maybe do
   JArray [JNumber x, JNumber y] <- lookup name dict | Nothing
   pure (x, y)
 
+getDouble : String -> Dict String JSON -> Maybe Double
+getDouble key dict = case lookup key dict of
+  Just (JNumber x) => Just x
+  _ => Nothing
+
+getDoubleOrDefault : String -> Double -> Dict String JSON -> Double
+getDoubleOrDefault key default dict = case lookup key dict of
+  Just (JNumber x) => x
+  _ => default
 
 public export
 data IncompleteRenderDescriptor
@@ -71,11 +79,6 @@ record BodyDescriptor where
 -- public export
 -- physicsDensity : BodyDescriptor -> Double
 
-getDoubleOrDefault : String -> Double -> Dict String JSON -> Double
-getDoubleOrDefault key default dict = case lookup key dict of
-  Just (JNumber x) => x
-  _ => default
-
 getType : String -> Maybe BodyType
 getType = cast
 
@@ -119,13 +122,15 @@ record ObjectDescriptor where
   bodyDescription : BodyDescriptor
   renderDescription : IncompleteRenderDescriptor
   tags : List ObjectTag
+  health : Maybe Double
 
 export
 Show ObjectDescriptor where
-  show (MkObjectDescriptor name bodyDescription renderDescription tags) = "{ descriptor | "
+  show (MkObjectDescriptor name bodyDescription renderDescription tags health) = "{ descriptor | "
     ++   "name: " ++ name
     ++ ", friction: " ++ show (friction bodyDescription)
     ++ ", density: " ++ show (density bodyDescription)
+    ++ ", health: " ++ show health
     ++ " }"
 
 ObjectCaster ObjectDescriptor where
@@ -135,7 +140,7 @@ ObjectCaster ObjectDescriptor where
     box2d <- (the (Maybe BodyDescriptor) (cast box2dJson)) | Nothing
     renderJson <- lookup "render" dict | Nothing
     render <- (the (Maybe IncompleteRenderDescriptor) (cast renderJson)) | Nothing
-    pure $ MkObjectDescriptor name box2d render (getTags dict)
+    pure $ MkObjectDescriptor name box2d render (getTags dict) (getDouble "health" dict)
 
 
 public export

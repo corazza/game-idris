@@ -3,33 +3,38 @@ module Script
 import Objects
 import Physics.Vector2D
 
+-- HERE now Box2D events have to be polled
+
 public export
-data Script : a -> Type where
-  Damage : Double -> ObjectId -> Script ()
-  GetVelocity : ObjectId -> Script Vector2D
-  GetMass : ObjectId -> Script Double
+data Script : Type -> Type where
+  Damage : Double -> (id : ObjectId) -> Script ()
+  GetVelocity : (id : ObjectId) -> Script (Maybe Vector2D)
+  GetMass : (id : ObjectId) -> Script (Maybe Double)
 
   Pure : (res : a) -> Script a
   (>>=) : Script a -> (a -> Script b) -> Script b
 
+export
 Functor Script where
   map f x = do res <- x
                Pure (f res)
 
+export
 Applicative Script where
   pure = Pure
   sf <*> sa = do f <- sf
                  a <- sa
                  pure (f a)
 
+export
 Monad Script where
   (>>=) = Script.(>>=)
 
-energy : ObjectId -> Script Double
+energy : ObjectId -> Script (Maybe Double)
 energy id = with Script do
-  let velocity = magnitude !(GetVelocity id)
-  mass <- GetMass id
-  pure (0.5*mass*(Doubles.pow velocity 2))
+  Just velocity <- GetVelocity id | pure Nothing
+  Just mass <- GetMass id | pure Nothing
+  pure $ Just (0.5*mass*(Doubles.pow (magnitude velocity) 2))
 
 public export
 record CollisionData where
@@ -38,5 +43,6 @@ record CollisionData where
   other : ObjectId
 
 projectileDamage : (factor : Double) -> CollisionData -> Script ()
-projectileDamage factor (MkCollisionData self other) =
-  Damage (factor * !(energy self)) other
+projectileDamage factor (MkCollisionData self other) = with Script do
+  Just energy <- energy self | pure ()
+  Damage (factor * energy) other

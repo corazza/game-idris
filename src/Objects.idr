@@ -14,6 +14,11 @@ ObjectId = String
 
 %name ObjectId id
 
+data CompleteRenderDescriptor
+  = DrawBox ResourceReference
+  | TileWith ResourceReference Vector2D (Nat, Nat)
+  | Invisible
+
 data MoveDirection = Leftward | Rightward
 %name MoveDirection direction
 
@@ -55,21 +60,16 @@ startAttacking = record { attacking = True }
 stopAttacking : ControlState -> ControlState
 stopAttacking = record { attacking = False }
 
-
 record PhysicsProperties where
   constructor MkPhysicsProperties
   position : Vector2D
+  velocity : Vector2D
   dimensions : Vector2D
   angle : Double
   density : Double
   friction : Double
   mass : Double -- overwritten on Scene.addWithId
   type : BodyType
-
-data CompleteRenderDescriptor
-  = DrawBox ResourceReference
-  | TileWith ResourceReference Vector2D (Nat, Nat)
-  | Invisible
 
 -- all changes -> physics, physics -> objects
 record Object where
@@ -80,16 +80,22 @@ record Object where
   controlState : ControlState
   renderDescription : CompleteRenderDescriptor
   tags : List ObjectTag
+  health : Maybe Double -- TODO move health, controlState, and tegs into components
 
 %name Object object
 
 Show Object where
-  show (MkObject id name physicsProperties controlState renderDescription tags) = "{ object | "
+  show (MkObject id name physicsProperties controlState renderDescription tags health) = "{ object | "
     ++   "id: " ++ id
     ++ ", name: " ++ name
     ++ ", controlState: " ++ show controlState
     ++ ", tags: " ++ show tags
+    ++ ", health: " ++ show health
     ++ " }"
+
+export
+takeDamage : Double -> Object -> Object
+takeDamage x = record { health $= map ((-) x) }
 
 export
 physicsUpdate : (PhysicsProperties -> PhysicsProperties) -> Object -> Object
@@ -122,6 +128,10 @@ dim = dimensions
 export
 position : Object -> Vector2D
 position = position . physicsProperties
+
+export
+velocity : Object -> Vector2D
+velocity = velocity . physicsProperties
 
 export
 w : Object -> Double

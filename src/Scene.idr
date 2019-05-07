@@ -18,20 +18,13 @@ import Resources
 import GameIO
 import Script
 
-
+-- TODO MAJOR mess! cleanup!
 
 SceneObjects : Type
 SceneObjects = Dict String (Object, Body)
 
 SceneEvents : Type
 SceneEvents = List Events.Event
-
-updateObject : (id : String) ->
-               (f : Object -> Object) ->
-               (dict : SceneObjects) ->
-               SceneObjects
-updateObject id f = update id (\(obj, body) => (f obj, body))
-
 
 public export
 interface Scene (m : Type -> Type) where
@@ -46,6 +39,13 @@ interface Scene (m : Type -> Type) where
   addBody : (scene : Var) -> (object : Object) -> ST m Body [scene ::: SScene]
   private
   addObject : (scene : Var) -> (object : Object) -> ST m String [scene ::: SScene]
+  private
+  updateObject : (scene : Var) -> (id : ObjectId) -> (f : Object -> Object) -> ST m () [scene ::: SScene]
+  private
+  queryObject : (scene : Var) -> (id : ObjectId) -> (f : Object -> a) -> ST m (Maybe a) [scene ::: SScene]
+
+  private
+  runScript : (scene : Var) -> (script : Script a) -> ST m a [scene ::: SScene]
 
   create : (scene : Var) -> (creation : Creation) -> ST m (Maybe String) [scene ::: SScene]
   createMany : (scene : Var) -> (creations : List Creation) -> ST m () [scene ::: SScene]
@@ -56,6 +56,7 @@ interface Scene (m : Type -> Type) where
                  Maybe InputEvent ->
                  ST m () [scene ::: SScene]
 
+  getObject : (scene : Var) -> (id : ObjectId) -> ST m (Maybe Object) [scene ::: SScene]
   getObjects : (scene : Var) -> ST m (List Object) [scene ::: SScene]
   getBackground : (scene : Var) -> ST m Background [scene ::: SScene]
 
@@ -97,13 +98,19 @@ export
     deleteEmptyContext emptyContext
     delete scene
 
-
   getObjects scene = with ST do
     [spscene, physics, emptyContext, objectCache] <- split scene
     pscene <- read spscene
     let objectList = map fst (values (objects pscene))
     combine scene [spscene, physics, emptyContext, objectCache]
     pure objectList
+
+  getObject scene id = with ST do
+    [spscene, physics, emptyContext, objectCache] <- split scene
+    pscene <- read spscene
+    let object = map fst (lookup id (objects pscene))
+    combine scene [spscene, physics, emptyContext, objectCache]
+    pure object
 
   addBody scene object = (with ST do
     [spscene, physics, emptyContext, objectCache] <- split scene
@@ -125,15 +132,29 @@ export
     combine scene [spscene, physics, emptyContext, objectCache]
     pure (id object')
 
-  addObject scene (MkObject "" name physicsProperties ctrl render tags) = with ST do
+  addObject scene (MkObject "" name physicsProperties ctrl render tags health) = with ST do
     [spscene, physics, emptyContext, objectCache] <- split scene
     pscene <- read spscene
     let idString = "autoid_" ++ (show (idCounter pscene))
     write spscene (record {idCounter $= (+1)} pscene)
     combine scene [spscene, physics, emptyContext, objectCache]
-    addWithId scene (MkObject idString name physicsProperties ctrl render tags)
+    addWithId scene (MkObject idString name physicsProperties ctrl render tags health)
 
   addObject scene object = addWithId scene object
+
+  queryObject scene id f = pure $ map f !(getObject scene id)
+
+  updateObject scene id f = with ST do
+    [pscene, physics, emptyContext, objectCache] <- split scene
+    write pscene (record { objects $=
+      Dict.update id (\(obj, body) => (f obj, body)) } !(read pscene))
+    combine scene [pscene, physics, emptyContext, objectCache]
+
+  runScript scene (Damage x id) = updateObject scene id (takeDamage x)
+  runScript scene (GetVelocity id) = queryObject scene id velocity
+  runScript scene (GetMass id) = queryObject scene id mass
+  runScript scene (Pure res) = pure res
+  runScript scene (x >>= f) = runScript scene x >>= (runScript scene) . f
 
   create scene (MkCreation id ref position tags creationData) = (with ST do
     [spscene, physics, emptyContext, objectCache] <- split scene
@@ -147,7 +168,7 @@ export
       Nothing => ?decideFallibleError
       Just (dimensions, angle, crd) => with ST do
         let physicsProperties = MkPhysicsProperties
-          position dimensions angle
+          position nullVector dimensions angle
           ((BodyDescriptor.density . bodyDescription) desc)
           ((BodyDescriptor.friction . bodyDescription) desc)
           (-1) -- mass is overwritten on addBody
@@ -158,7 +179,7 @@ export
           physicsProperties noControl
           -- tiled objects don't have dimensions specified in their object descriptors,
           -- but in the creation, so the IncompleteRenderDescriptor must be processed
-          crd tags
+          crd tags (health desc)
         sceneId <- addObject scene object
         pure (Just sceneId)) where
       decideRenderDescription : IncompleteRenderDescriptor ->
@@ -224,8 +245,10 @@ export
       updateFromBody (object, body) = do
         newPosition <- getPosition body -- idk why !(getPosition body) doesn't work in record
         newAngle <- getAngle body
+        newVelocity <- getVelocity body
         pure (physicsUpdate (record { position = newPosition,
-                                        angle = newAngle }) object, body)
+                                        angle = newAngle,
+                                        velocity = newVelocity}) object, body)
 
       commitControl : (physics : Var) -> List (Object, Body) -> ST m () [physics ::: SBox2D {m}]
       commitControl physics [] = pure ()
@@ -248,11 +271,7 @@ export
         handleControl : (scene : Var) -> String -> (ControlState -> ControlState) ->
                         ST m (List Events.Event) [scene ::: SScene {m}]
         handleControl scene id f = with ST do
-          [pscene, physics, emptyContext, objectCache] <- split scene
-          write pscene (record { objects $=
-            updateObject id (record { controlState $= f })
-          } !(read pscene))
-          combine scene [pscene, physics, emptyContext, objectCache]
+          updateObject scene id (record { controlState $= f })
           pure []
 
         handle : (scene : Var) -> Events.Event ->
