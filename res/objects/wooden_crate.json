@@ -1,12 +1,15 @@
 {
   "name": "Wooden crate",
+  "health": 20,
   "tags": [],
+
   "box2d": {
       "type": "box",
       "dimensions": [0.5, 0.5],
       "density": 1,
       "friction": 0.3
   },
+
   "render": {
       "type": "single",
       "image": "wooden_crate.png"

@@ -1,5 +1,6 @@
 {
   "name": "Disciple",
+  "health": 100,
   "tags": [],
 
   "box2d": {

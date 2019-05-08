@@ -2,6 +2,7 @@ module Objects
 
 import Graphics.SDL2
 import Data.AVL.Dict
+import Data.AVL.Set
 import Physics.Vector2D
 
 import Descriptors
@@ -30,17 +31,19 @@ record ControlState where
   constructor MkControlState
   moving : Maybe MoveDirection
   jumping : Bool
+  canJump : Bool
   attacking : Bool
+
 %name ControlState controlState
 
 Show ControlState where
-  show (MkControlState moving jumping attacking)
+  show (MkControlState moving jumping canJump attacking)
     = "(moving: " ++ (show moving) ++ "," ++
       " jumping: " ++ (show jumping) ++ "," ++
       " attacking: " ++ (show attacking) ++ ")"
 
 noControl : ControlState
-noControl = MkControlState Nothing False False
+noControl = MkControlState Nothing False False False
 
 startMoving : (direction : MoveDirection) -> ControlState -> ControlState
 startMoving direction = record { moving = Just direction }
@@ -52,7 +55,7 @@ startJumping : ControlState -> ControlState
 startJumping = record { jumping = True }
 
 stopJumping : ControlState -> ControlState
-stopJumping = record { jumping = False }
+stopJumping = record { jumping = False, canJump = True }
 
 startAttacking : ControlState -> ControlState
 startAttacking = record { attacking = True }
@@ -70,6 +73,7 @@ record PhysicsProperties where
   friction : Double
   mass : Double -- overwritten on Scene.addWithId
   type : BodyType
+  touching : Set ObjectId
 
 -- all changes -> physics, physics -> objects
 record Object where
@@ -80,7 +84,7 @@ record Object where
   controlState : ControlState
   renderDescription : CompleteRenderDescriptor
   tags : List ObjectTag
-  health : Maybe Double -- TODO move health, controlState, and tegs into components
+  health : Maybe Double -- TODO move health, controlState, and tags into components
 
 %name Object object
 
@@ -98,8 +102,26 @@ takeDamage : Double -> Object -> Object
 takeDamage x = record { health $= map ((-) x) }
 
 export
+resetControl : Object -> Object
+resetControl = record { controlState $=
+  record { canJump = False } }
+
+export
 physicsUpdate : (PhysicsProperties -> PhysicsProperties) -> Object -> Object
 physicsUpdate f = record { physicsProperties $= f }
+
+export
+touching : Object -> Set ObjectId
+touching = touching . physicsProperties
+
+export
+addTouching : ObjectId -> Object -> Object
+addTouching id = physicsUpdate $ record { touching $= insert id }
+
+export
+removeTouching : ObjectId -> Object -> Object
+removeTouching id = let to_remove = insert id empty in
+  physicsUpdate $ record { touching $= \t => difference t to_remove }
 
 export
 density : Object -> Double

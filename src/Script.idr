@@ -10,6 +10,7 @@ data Script : Type -> Type where
   Damage : Double -> (id : ObjectId) -> Script ()
   GetVelocity : (id : ObjectId) -> Script (Maybe Vector2D)
   GetMass : (id : ObjectId) -> Script (Maybe Double)
+  Print : String -> Script ()
 
   Pure : (res : a) -> Script a
   (>>=) : Script a -> (a -> Script b) -> Script b

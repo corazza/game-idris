@@ -4,4 +4,6 @@ Game made in Idris
 
 - `name` is always display-name
 
-`Scene` is the interface to write scene programs, i.e. event handlers.
+# TODO
+
+- events and locking in iterate, Scene should be parametrized

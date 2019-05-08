@@ -119,9 +119,9 @@ loop state = with ST do
   Right events <- poll
                | pure ()
   [draw, scene, camera, textureCache, lastms] <- split state
-  -- controlEvent scene "player" (case events of -- TODO tf is this
-  --                                   [] => Nothing
-  --                                   (x :: xs) => Just x)
+  controlEvent scene "player" (case events of -- TODO tf is this
+                                    [] => Nothing
+                                    (x :: xs) => Just x)
   beforems <- ticks
   iterate scene (beforems - !(read lastms))
   write lastms beforems
