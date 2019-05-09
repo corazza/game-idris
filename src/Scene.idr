@@ -71,6 +71,8 @@ interface Scene (m : Type -> Type) where
 
   private
   iteratePhysics : (scene : Var) -> (ticks : Int) -> ST m () [scene ::: SScene]
+  -- private
+  -- commitControl : (scene : Var) -> ST m () [scene ::: SScene]
   private
   handleEvents : (scene : Var) -> ST m () [scene ::: SScene]
   private
@@ -289,10 +291,9 @@ export
                       Just Leftward => -3.5
                       Just Rightward => 3.5
         let y' = if jumping ctst && canJump ctst && size (touching obj) > 0
-                    then 1
+                    then 10
                     else 0
         let impulse = mass `scale` (x'-x, y')
-        printLn $ id obj ++ ", " ++ show (jumping ctst) ++ ", " ++ show y' ++ ", " ++ show (canJump ctst) ++ ", " ++ show (size (touching obj))
         applyImpulse physics body impulse
         commitControl physics xs
 

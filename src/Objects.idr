@@ -102,13 +102,17 @@ takeDamage : Double -> Object -> Object
 takeDamage x = record { health $= map ((-) x) }
 
 export
-resetControl : Object -> Object
-resetControl = record { controlState $=
-  record { canJump = False } }
-
-export
 physicsUpdate : (PhysicsProperties -> PhysicsProperties) -> Object -> Object
 physicsUpdate f = record { physicsProperties $= f }
+
+export
+jumping : Object -> Bool
+jumping = jumping . controlState
+
+export
+resetControl : Object -> Object
+resetControl object = record { controlState $=
+  record { canJump = not (jumping object) } } object
 
 export
 touching : Object -> Set ObjectId
