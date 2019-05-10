@@ -140,7 +140,7 @@ game {m} = with ST do
   scene <- startScene map
   let playerCreation = MkCreation (Just "player")
                                   "disciple"
-                                  (0, 20)
+                                  (0, 5)
                                   []
                                   (BoxData Nothing)
   create scene playerCreation

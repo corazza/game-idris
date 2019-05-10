@@ -85,17 +85,19 @@ record Object where
   renderDescription : CompleteRenderDescriptor
   tags : List ObjectTag
   health : Maybe Double -- TODO move health, controlState, and tags into components
+  control : Maybe ControlDescriptor
 
 %name Object object
 
 Show Object where
-  show (MkObject id name physicsProperties controlState renderDescription tags health) = "{ object | "
-    ++   "id: " ++ id
-    ++ ", name: " ++ name
-    ++ ", controlState: " ++ show controlState
-    ++ ", tags: " ++ show tags
-    ++ ", health: " ++ show health
-    ++ " }"
+  show (MkObject id name physicsProperties controlState renderDescription tags health control)
+    =    "{ object | "
+      ++   "id: " ++ id
+      ++ ", name: " ++ name
+      ++ ", controlState: " ++ show controlState
+      ++ ", tags: " ++ show tags
+      ++ ", health: " ++ show health
+      ++ " }"
 
 export
 takeDamage : Double -> Object -> Object

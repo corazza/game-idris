@@ -67,17 +67,7 @@ record BodyDescriptor where
   density : Double
   friction : Double
   dimensions : Maybe Vector2D -- nonexistent for walls
-
 %name BodyDescriptor desc
-
--- public export
--- physicsMass : BodyDescriptor -> Double
--- physicsMass desc = case mass desc of
---   Nothing => 0
---   Just x => x
---
--- public export
--- physicsDensity : BodyDescriptor -> Double
 
 getType : String -> Maybe BodyType
 getType = cast
@@ -91,8 +81,25 @@ ObjectCaster BodyDescriptor where
                             (getDoubleOrDefault "friction" 1 dict)
                             (getVector "dimensions" dict)
 
+public export
+record ControlDescriptor where
+  constructor MkControlDescriptor
+  speed : Double
+  jump : Double
+%name ControlDescriptor cdesc
+
+export
+Show ControlDescriptor where
+  show (MkControlDescriptor speed jump) =
+    "{speed: " ++ show speed ++ ", jump: " ++ show jump ++ "}"
+
+ObjectCaster ControlDescriptor where
+  objectCast dict = with Maybe do
+    JNumber speed <- lookup "speed" dict | Nothing
+    JNumber jump <- lookup "jump" dict | Nothing
+    pure $ MkControlDescriptor speed jump
+
 -- TODO shouldn't be here, but in Objects
--- descriptors
 public export
 data ObjectTag = Spawn
 
@@ -123,15 +130,22 @@ record ObjectDescriptor where
   renderDescription : IncompleteRenderDescriptor
   tags : List ObjectTag
   health : Maybe Double
+  control : Maybe ControlDescriptor
 
 export
 Show ObjectDescriptor where
-  show (MkObjectDescriptor name bodyDescription renderDescription tags health) = "{ descriptor | "
-    ++   "name: " ++ name
-    ++ ", friction: " ++ show (friction bodyDescription)
-    ++ ", density: " ++ show (density bodyDescription)
-    ++ ", health: " ++ show health
-    ++ " }"
+  show (MkObjectDescriptor name bodyDescription renderDescription tags health control)
+    =   "{ descriptor | "
+      ++   "name: " ++ name
+      ++ ", friction: " ++ show (friction bodyDescription)
+      ++ ", density: " ++ show (density bodyDescription)
+      ++ ", health: " ++ show health
+      ++ ", control: " ++ show control
+      ++ " }"
+
+getControl : Maybe JSON -> Maybe ControlDescriptor
+getControl Nothing = Nothing
+getControl (Just x) = the (Maybe ControlDescriptor) (cast x)
 
 ObjectCaster ObjectDescriptor where
   objectCast dict = with Maybe do
@@ -140,8 +154,10 @@ ObjectCaster ObjectDescriptor where
     box2d <- (the (Maybe BodyDescriptor) (cast box2dJson)) | Nothing
     renderJson <- lookup "render" dict | Nothing
     render <- (the (Maybe IncompleteRenderDescriptor) (cast renderJson)) | Nothing
-    pure $ MkObjectDescriptor name box2d render (getTags dict) (getDouble "health" dict)
-
+    pure $ MkObjectDescriptor name box2d render
+                              (getTags dict)
+                              (getDouble "health" dict)
+                              (getControl (lookup "control" dict))
 
 public export
 data CreationData = BoxData (Maybe Vector2D)

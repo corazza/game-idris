@@ -150,13 +150,14 @@ export
     combine scene [spscene, physics, emptyContext, objectCache]
     pure (id object')
 
-  addObject scene (MkObject "" name physicsProperties ctrl render tags health) = with ST do
-    [spscene, physics, emptyContext, objectCache] <- split scene
-    pscene <- read spscene
-    let idString = "autoid_" ++ (show (idCounter pscene))
-    write spscene (record {idCounter $= (+1)} pscene)
-    combine scene [spscene, physics, emptyContext, objectCache]
-    addWithId scene (MkObject idString name physicsProperties ctrl render tags health)
+  addObject scene (MkObject "" name physicsProperties ctrl render tags health control)
+    = with ST do [spscene, physics, emptyContext, objectCache] <- split scene
+                 pscene <- read spscene
+                 let idString = "autoid_" ++ (show (idCounter pscene))
+                 write spscene (record {idCounter $= (+1)} pscene)
+                 combine scene [spscene, physics, emptyContext, objectCache]
+                 addWithId scene (MkObject idString name physicsProperties
+                                           ctrl render tags health control)
 
   addObject scene object = addWithId scene object
 
@@ -204,7 +205,7 @@ export
           physicsProperties noControl
           -- tiled objects don't have dimensions specified in their object descriptors,
           -- but in the creation, so the IncompleteRenderDescriptor must be processed
-          crd tags (health desc)
+          crd tags (health desc) (control desc)
         sceneId <- addObject scene object
         pure (Just sceneId)) where
       decideRenderDescription : IncompleteRenderDescriptor ->
@@ -252,10 +253,6 @@ export
     combine scene [spscene, physics, emptyContext, objectCache]
 
   registerEvents scene events' = with ST do
-    reportEvents events'
-    -- Just player <- getObject scene "player" | pure ()
-    -- -- printLn $ Set.toList (Objects.touching player)
-    -- printLn $ (total_touching $ physicsProperties $ player, size $ touching $ player)
     [spscene, physics, emptyContext, objectCache] <- split scene
     write spscene (record {events $= (events'++)} !(read spscene))
     combine scene [spscene, physics, emptyContext, objectCache]
@@ -279,23 +276,27 @@ export
     combine scene [spscene, physics, emptyContext, objectCache]
     registerEvents scene !(physicsToEvents scene physicsEvents)
     updateObjects scene Objects.resetControl) where
-      -- HERE better jumping (and general one-offs) logic
+      getControl : Object -> STrans m (Maybe ControlDescriptor) xs (const xs)
+      getControl = pure . control
+
       commitControl : (physics : Var) -> List (Object, Body) -> ST m () [physics ::: SBox2D {m}]
       commitControl physics [] = pure ()
       commitControl physics ((obj, body) :: xs) = with ST do
+        Just control <- getControl obj | commitControl physics xs
         (x, y) <- lift $ getVelocity body
         mass <- lift $ getMass body
         let ctst = controlState obj
         let x' = case moving ctst of
                       Nothing => 0
-                      Just Leftward => -3.5
-                      Just Rightward => 3.5
+                      Just Leftward => - (speed control)
+                      Just Rightward => speed control
         let y' = if jumping ctst && canJump ctst && size (touching obj) > 0
-                    then 10
+                    then jump control
                     else 0
         let impulse = mass `scale` (x'-x, y')
         applyImpulse physics body impulse
         commitControl physics xs
+
 
       updateFromBody : (Object, Body) -> m (Object, Body)
       updateFromBody (object, body) = do
