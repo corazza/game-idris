@@ -9,6 +9,7 @@ import Graphics.SDL2
 import Control.ST.ImplicitCall
 import Language.JSON
 
+import Common
 import Events
 import Objects
 import Input
@@ -150,14 +151,15 @@ export
     combine scene [spscene, physics, emptyContext, objectCache]
     pure (id object')
 
-  addObject scene (MkObject "" name physicsProperties ctrl render tags health control)
+  addObject scene (MkObject "" name physicsProperties ctrl render tags health
+                            control scripts)
     = with ST do [spscene, physics, emptyContext, objectCache] <- split scene
                  pscene <- read spscene
                  let idString = "autoid_" ++ (show (idCounter pscene))
                  write spscene (record {idCounter $= (+1)} pscene)
                  combine scene [spscene, physics, emptyContext, objectCache]
-                 addWithId scene (MkObject idString name physicsProperties
-                                           ctrl render tags health control)
+                 addWithId scene (MkObject idString name physicsProperties ctrl
+                                           render tags health control scripts)
 
   addObject scene object = addWithId scene object
 
@@ -205,7 +207,7 @@ export
           physicsProperties noControl
           -- tiled objects don't have dimensions specified in their object descriptors,
           -- but in the creation, so the IncompleteRenderDescriptor must be processed
-          crd tags (health desc) (control desc)
+          crd tags (health desc) (control desc) noScripts
         sceneId <- addObject scene object
         pure (Just sceneId)) where
       decideRenderDescription : IncompleteRenderDescriptor ->
@@ -325,12 +327,15 @@ export
     handle : (scene : Var) -> Events.Event -> ST m () [scene ::: SScene {m}]
     handle scene (MovementStart direction id) = handleControl scene id (startMoving direction)
     handle scene (MovementStop id) = handleControl scene id stopMoving
-    handle scene (Attack id) = handleControl scene id startAttacking
+    handle scene (AttackStart id) = handleControl scene id startAttacking
+    handle scene (AttackStop id) = handleControl scene id stopAttacking
     handle scene (JumpStart id) = handleControl scene id startJumping
     handle scene (JumpStop id) = handleControl scene id stopJumping
     handle scene (CollisionStart id_one id_two) = with ST do
       updateObject scene id_one (addTouching id_two)
       updateObject scene id_two (addTouching id_one)
+      -- let
+      ?sdkfm
     handle scene (CollisionStop id_one id_two) = with ST do
       updateObject scene id_one (removeTouching id_two)
       updateObject scene id_two (removeTouching id_one)

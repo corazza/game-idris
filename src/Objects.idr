@@ -7,13 +7,10 @@ import Physics.Vector2D
 
 import Descriptors
 import Resources
+import Common
+import Script
 
 %access public export
-
-ObjectId : Type
-ObjectId = String
-
-%name ObjectId id
 
 data CompleteRenderDescriptor
   = DrawBox ResourceReference
@@ -75,6 +72,14 @@ record PhysicsProperties where
   type : BodyType
   touching : Set ObjectId
 
+record Scripts where
+  constructor MkScripts
+  attack : Maybe UnitScript
+  collisions : List UnitScript
+
+noScripts : Scripts
+noScripts = MkScripts Nothing empty
+
 -- all changes -> physics, physics -> objects
 record Object where
   constructor MkObject
@@ -86,11 +91,13 @@ record Object where
   tags : List ObjectTag
   health : Maybe Double -- TODO move health, controlState, and tags into components
   control : Maybe ControlDescriptor
+  scripts : Scripts
 
 %name Object object
 
 Show Object where
-  show (MkObject id name physicsProperties controlState renderDescription tags health control)
+  show (MkObject id name physicsProperties controlState renderDescription tags
+                 health control scripts)
     =    "{ object | "
       ++   "id: " ++ id
       ++ ", name: " ++ name
@@ -99,80 +106,61 @@ Show Object where
       ++ ", health: " ++ show health
       ++ " }"
 
-export
 takeDamage : Double -> Object -> Object
 takeDamage x = record { health $= map ((-) x) }
 
-export
 physicsUpdate : (PhysicsProperties -> PhysicsProperties) -> Object -> Object
 physicsUpdate f = record { physicsProperties $= f }
 
-export
 jumping : Object -> Bool
 jumping = jumping . controlState
 
-export
 resetControl : Object -> Object
 resetControl object = record { controlState $=
   record { canJump = not (jumping object) } } object
 
-export
 touching : Object -> Set ObjectId
 touching = touching . physicsProperties
 
-export
 addTouching : ObjectId -> Object -> Object
 addTouching id = physicsUpdate $ record { touching $= insert id }
 
-export
 removeTouching : ObjectId -> Object -> Object
 removeTouching id = let to_remove = insert id empty in
   physicsUpdate $ record { touching $= \t => difference t to_remove }
 
-export
 density : Object -> Double
 density = density . physicsProperties
 
-export
 friction : Object -> Double
 friction = friction . physicsProperties
 
-export
 angle : Object -> Double
 angle = angle . physicsProperties
 
-export
 mass : Object -> Double
 mass = mass . physicsProperties
 
-export
 dimensions : Object -> Vector2D
 dimensions = dimensions . physicsProperties
 
-export
 dim : Object -> Vector2D
 dim = dimensions
 
-export
 position : Object -> Vector2D
 position = position . physicsProperties
 
-export
 velocity : Object -> Vector2D
 velocity = velocity . physicsProperties
 
-export
 w : Object -> Double
 w = fst . dimensions
 
-export
 h : Object -> Double
 h = snd . dimensions
 
-export
 x : Object -> Double
 x = fst . position
 
-export
 y : Object -> Double
 y = snd . position

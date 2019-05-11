@@ -1,6 +1,6 @@
 module Script
 
-import Objects
+import Common
 import Physics.Vector2D
 
 -- HERE now Box2D events have to be polled
@@ -30,6 +30,10 @@ Applicative Script where
 export
 Monad Script where
   (>>=) = Script.(>>=)
+
+export
+UnitScript : Type
+UnitScript = Script ()
 
 energy : ObjectId -> Script (Maybe Double)
 energy id = with Script do

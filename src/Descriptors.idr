@@ -101,14 +101,16 @@ ObjectCaster ControlDescriptor where
 
 -- TODO shouldn't be here, but in Objects
 public export
-data ObjectTag = Spawn
+data ObjectTag = Spawn | Projectile
 
 export
 Show ObjectTag where
   show Spawn = "spawn"
+  show Projectile = "projectile"
 
 Cast String (Maybe ObjectTag) where
   cast "spawn" = Just Spawn
+  cast "projectile" = Just Projectile
   cast _ = Nothing
 
 getTags : Dict String JSON -> List ObjectTag
