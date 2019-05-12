@@ -2,6 +2,7 @@ module Script
 
 import Common
 import Physics.Vector2D
+import Descriptors
 
 -- HERE now Box2D events have to be polled
 
@@ -10,6 +11,8 @@ data Script : Type -> Type where
   Damage : Double -> (id : ObjectId) -> Script ()
   GetVelocity : (id : ObjectId) -> Script (Maybe Vector2D)
   GetMass : (id : ObjectId) -> Script (Maybe Double)
+  Create : Creation -> Script ()
+
   Print : String -> Script ()
 
   Pure : (res : a) -> Script a
@@ -31,7 +34,7 @@ export
 Monad Script where
   (>>=) = Script.(>>=)
 
-export
+public export
 UnitScript : Type
 UnitScript = Script ()
 
@@ -47,7 +50,19 @@ record CollisionData where
   self : ObjectId
   other : ObjectId
 
-projectileDamage : (factor : Double) -> CollisionData -> Script ()
+public export
+data Selector = First | Second
+
+export
+buildCollisionData : ObjectId -> ObjectId -> Selector -> CollisionData
+buildCollisionData id1 id2 First = MkCollisionData id1 id2
+buildCollisionData id1 id2 Second = MkCollisionData id2 id1
+
+export
+projectileDamage : (factor : Double) -> CollisionData -> UnitScript
 projectileDamage factor (MkCollisionData self other) = with Script do
   Just energy <- energy self | pure ()
   Damage (factor * energy) other
+
+-- export
+-- throwBox

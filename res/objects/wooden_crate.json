@@ -1,6 +1,6 @@
 {
   "name": "Wooden crate",
-  "tags": ["projectile"],
+  "tags": [],
 
   "box2d": {
       "type": "box",

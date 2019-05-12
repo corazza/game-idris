@@ -7,6 +7,7 @@ import Data.AVL.Dict
 
 import Resources
 import GameIO
+import Common
 
 
 interface ObjectCaster a where
@@ -30,6 +31,7 @@ getDoubleOrDefault : String -> Double -> Dict String JSON -> Double
 getDoubleOrDefault key default dict = case lookup key dict of
   Just (JNumber x) => x
   _ => default
+
 
 public export
 data IncompleteRenderDescriptor
@@ -81,11 +83,33 @@ ObjectCaster BodyDescriptor where
                             (getDoubleOrDefault "friction" 1 dict)
                             (getVector "dimensions" dict)
 
+public export -- additional parameters supplied later
+data ScriptDescriptor = Create ResourceReference
+
+ObjectCaster ScriptDescriptor where
+  objectCast dict = case lookup "type" dict of
+    Just (JString "create") => with Maybe do
+      JString ref <- lookup "ref" dict | Nothing
+      pure $ Create ref
+    _ => Nothing
+
+Show ScriptDescriptor where
+  show (Create ref) = "create " ++ ref
+
+-- idk why `map cast (lookup "attack" dict)` doesn't work
+getScript : String -> Dict String JSON -> Maybe ScriptDescriptor
+getScript name dict = case lookup name dict of
+  Nothing => Nothing
+  Just x => cast x
+
+
+
 public export
 record ControlDescriptor where
   constructor MkControlDescriptor
   speed : Double
   jump : Double
+  -- attack : Maybe ScriptDescriptor
 %name ControlDescriptor cdesc
 
 export
@@ -98,6 +122,12 @@ ObjectCaster ControlDescriptor where
     JNumber speed <- lookup "speed" dict | Nothing
     JNumber jump <- lookup "jump" dict | Nothing
     pure $ MkControlDescriptor speed jump
+
+getControl : Maybe JSON -> Maybe ControlDescriptor
+getControl Nothing = Nothing
+getControl (Just x) = the (Maybe ControlDescriptor) (cast x)
+
+
 
 -- TODO shouldn't be here, but in Objects
 public export
@@ -133,21 +163,18 @@ record ObjectDescriptor where
   tags : List ObjectTag
   health : Maybe Double
   control : Maybe ControlDescriptor
+  attack : Maybe ScriptDescriptor
 
 export
 Show ObjectDescriptor where
-  show (MkObjectDescriptor name bodyDescription renderDescription tags health control)
-    =   "{ descriptor | "
-      ++   "name: " ++ name
+  show (MkObjectDescriptor name bodyDescription renderDescription tags health control attack)
+      =  "{ name: " ++ name
       ++ ", friction: " ++ show (friction bodyDescription)
       ++ ", density: " ++ show (density bodyDescription)
       ++ ", health: " ++ show health
       ++ ", control: " ++ show control
+      ++ ", attack: " ++ show attack
       ++ " }"
-
-getControl : Maybe JSON -> Maybe ControlDescriptor
-getControl Nothing = Nothing
-getControl (Just x) = the (Maybe ControlDescriptor) (cast x)
 
 ObjectCaster ObjectDescriptor where
   objectCast dict = with Maybe do
@@ -160,6 +187,7 @@ ObjectCaster ObjectDescriptor where
                               (getTags dict)
                               (getDouble "health" dict)
                               (getControl (lookup "control" dict))
+                              (getScript "attack" dict)
 
 public export
 data CreationData = BoxData (Maybe Vector2D)
@@ -175,6 +203,8 @@ record Creation where
   position : Vector2D
   tags : List ObjectTag
   creationData : CreationData
+
+%name Creation creation
 
 ObjectCaster Creation where
   objectCast dict = (with Maybe do
@@ -202,12 +232,8 @@ ObjectCaster Creation where
       -- extractBoxData dict =
 
       getCreationData : Dict String JSON -> Maybe CreationData
-      -- getCreationData x = case lookup "repeat" dict of
-      --   Nothing => Just $ BoxData (getVector "velocity" dict)
-      --   Just (JArray [JNumber xn, JNumber yn]) => Just $ WallData (cast xn, cast yn)
-      --   Just _ => Nothing
       getCreationData dict = case extractWallData dict of
-        Nothing => Just $ BoxData (getVector "velocity" dict)
+        Nothing => Just $ BoxData (getVector "impulse" dict)
         Just x => Just x
 
 public export

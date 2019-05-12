@@ -138,10 +138,7 @@ game {m} = with ST do
 
   Just map <- get {m} {r=MapDescriptor} mapCache emptyContext "likert" | Nothing => ?noLikert
   scene <- startScene map
-  let playerCreation = MkCreation (Just "player")
-                                  "disciple"
-                                  (0, 5)
-                                  []
+  let playerCreation = MkCreation (Just "player") "disciple" (0, 5) []
                                   (BoxData Nothing)
   create scene playerCreation
 

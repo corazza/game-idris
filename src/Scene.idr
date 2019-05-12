@@ -77,6 +77,14 @@ interface Scene (m : Type -> Type) where
   private
   handleEvents : (scene : Var) -> ST m () [scene ::: SScene]
   private
+  handleControl : (scene : Var) -> String ->
+                  (ControlState -> ControlState) ->
+                  ST m () [scene ::: SScene]
+  private
+  handleCollision : (scene : Var) -> CollisionData -> ST m () [scene ::: SScene]
+  private -- handle single event
+  handle : (scene : Var) -> Events.Event -> ST m () [scene ::: SScene]
+  private
   handleEvents' : (scene : Var) -> (List Events.Event) -> ST m () [scene ::: SScene]
   private
   physicsToEvents : (scene : Var) -> (List Box2D.Event) -> ST m (List Events.Event) [scene ::: SScene]
@@ -183,7 +191,7 @@ export
   runScript scene (Pure res) = pure res
   runScript scene (x >>= f) = runScript scene x >>= (runScript scene) . f
 
-  create scene (MkCreation id ref position tags creationData) = (with ST do
+  create scene (MkCreation id ref position ctags creationData) = (with ST do
     [spscene, physics, emptyContext, objectCache] <- split scene
     Just desc <- get {m} {r=ObjectDescriptor} objectCache emptyContext ref
               | with ST do combine scene [spscene, physics, emptyContext, objectCache]
@@ -207,7 +215,7 @@ export
           physicsProperties noControl
           -- tiled objects don't have dimensions specified in their object descriptors,
           -- but in the creation, so the IncompleteRenderDescriptor must be processed
-          crd tags (health desc) (control desc) noScripts
+          crd (ctags ++ tags desc) (health desc) (control desc) noScripts
         sceneId <- addObject scene object
         pure (Just sceneId)) where
       decideRenderDescription : IncompleteRenderDescriptor ->
@@ -299,7 +307,6 @@ export
         applyImpulse physics body impulse
         commitControl physics xs
 
-
       updateFromBody : (Object, Body) -> m (Object, Body)
       updateFromBody (object, body) = do
         newPosition <- getPosition body -- idk why !(getPosition body) doesn't work in record
@@ -318,27 +325,34 @@ export
     handleEvents' scene eventList
 
   handleEvents' scene [] = pure ()
-  handleEvents' scene (x::xs) = handle scene x >>= \_=> handleEvents' scene xs where
-    handleControl : (scene : Var) -> String -> (ControlState -> ControlState) ->
-                    ST m () [scene ::: SScene {m}]
-    handleControl scene id f = with ST do
-      updateObject scene id (record { controlState $= f })
+  handleEvents' scene (x::xs) = handle scene x >>= \_=> handleEvents' scene xs
 
-    handle : (scene : Var) -> Events.Event -> ST m () [scene ::: SScene {m}]
-    handle scene (MovementStart direction id) = handleControl scene id (startMoving direction)
-    handle scene (MovementStop id) = handleControl scene id stopMoving
-    handle scene (AttackStart id) = handleControl scene id startAttacking
-    handle scene (AttackStop id) = handleControl scene id stopAttacking
-    handle scene (JumpStart id) = handleControl scene id startJumping
-    handle scene (JumpStop id) = handleControl scene id stopJumping
-    handle scene (CollisionStart id_one id_two) = with ST do
-      updateObject scene id_one (addTouching id_two)
-      updateObject scene id_two (addTouching id_one)
-      -- let
-      ?sdkfm
-    handle scene (CollisionStop id_one id_two) = with ST do
-      updateObject scene id_one (removeTouching id_two)
-      updateObject scene id_two (removeTouching id_one)
+  handleControl scene id f = with ST do
+    updateObject scene id (record { controlState $= f })
+
+  handleCollision scene cdata@(MkCollisionData self other) = with ST do
+    updateObject scene self (addTouching other)
+    Just scripts' <- queryObject scene self (collisions . scripts) | pure ()
+    let scripts = map (\f => f cdata) scripts'
+    runScript scene (sequence_ scripts)
+
+  handle scene (MovementStart direction id) = handleControl scene id (startMoving direction)
+  handle scene (MovementStop id) = handleControl scene id stopMoving
+  handle scene (AttackStart id) = handleControl scene id startAttacking
+  handle scene (AttackStop id) = with ST do
+    handleControl scene id stopAttacking
+    Just (Just attack_script) <- queryObject scene id (attack . scripts) | pure ()
+    runScript scene attack_script
+  handle scene (JumpStart id) = handleControl scene id startJumping
+  handle scene (JumpStop id) = handleControl scene id stopJumping
+  handle scene (CollisionStart id_one id_two)
+    = let cdata = buildCollisionData id_one id_two in with ST do
+          handleCollision scene (cdata First)
+          handleCollision scene (cdata Second)
+
+  handle scene (CollisionStop id_one id_two) = with ST do
+    updateObject scene id_one (removeTouching id_two)
+    updateObject scene id_two (removeTouching id_one)
 
   physicsIdsToSceneIds scene [] = pure []
   physicsIdsToSceneIds scene (x :: xs) = with ST do

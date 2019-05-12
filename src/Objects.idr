@@ -74,8 +74,8 @@ record PhysicsProperties where
 
 record Scripts where
   constructor MkScripts
-  attack : Maybe UnitScript
-  collisions : List UnitScript
+  attack : Maybe (AttackParameters -> UnitScript)
+  collisions : List (CollisionData -> UnitScript)
 
 noScripts : Scripts
 noScripts = MkScripts Nothing empty

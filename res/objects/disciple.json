@@ -10,6 +10,11 @@
     "friction": 0.3
   },
 
+  "attack": {
+    "type": "create",
+    "ref": "wooden_arrow"
+  },
+
   "control": {
     "speed": 3.5,
     "jump": 6
