@@ -18,6 +18,7 @@ import Physics.Box2D
 import GameIO
 import Resources
 import Descriptors
+import Common
 
 GameState : (Monad m, GameIO m, Draw m, ConsoleIO m, Box2DPhysics m, Scene m) => Type
 GameState {m} = Composite [SDraw {m},
@@ -25,26 +26,6 @@ GameState {m} = Composite [SDraw {m},
                            State Vector2D,
                            SCache {m} {r=Texture},
                            State Int]
-
-screenScale : Double
-screenScale = 33
-
-resolution : (Int, Int)
-resolution = (1280, 800)
-
-Cast (Int, Int) (Double, Double) where
-  cast (x, y) = (cast x, cast y)
-
-resolution' : (Double, Double)
-resolution' = cast resolution
-
-positionToScreen : (camera : Vector2D) -> (position : Vector2D) -> (Int, Int)
-positionToScreen (cx, cy) (ox, oy)
-  = let (x, y) = screenScale `scale` (ox - cx, cy - oy) in
-        cast (x + (fst resolution')/2, y + (snd resolution')/2)
-
-dimToScreen : (dim : Vector2D) -> (Int, Int)
-dimToScreen (x, y) = cast $ (screenScale * x, screenScale * y)
 
 drawScene : (Monad m,
              ConsoleIO m,
@@ -119,9 +100,8 @@ loop state = with ST do
   Right events <- poll
                | pure ()
   [draw, scene, camera, textureCache, lastms] <- split state
-  controlEvent scene "player" (case events of -- TODO tf is this
-                                    [] => Nothing
-                                    (x :: xs) => Just x)
+  controlEvent scene "player" !(read camera) events
+  -- printLn $ screenToPosition !(read camera) (20, 20)
   beforems <- ticks
   iterate scene (beforems - !(read lastms))
   write lastms beforems
@@ -138,8 +118,7 @@ game {m} = with ST do
 
   Just map <- get {m} {r=MapDescriptor} mapCache emptyContext "likert" | Nothing => ?noLikert
   scene <- startScene map
-  let playerCreation = MkCreation (Just "player") "disciple" (0, 5) []
-                                  (BoxData Nothing)
+  let playerCreation = MkCreation (Just "player") "disciple" (0, 5) [] (BoxData Nothing)
   create scene playerCreation
 
   state <- new ()

@@ -58,7 +58,8 @@ interface Scene (m : Type -> Type) where
   registerEvents : (scene : Var) -> (List Events.Event) -> ST m () [scene ::: SScene]
   controlEvent : (scene : Var) ->
                  (id : String) ->
-                 Maybe InputEvent ->
+                 (camera : Vector2D) ->
+                 List InputEvent ->
                  ST m () [scene ::: SScene]
 
   getObject : (scene : Var) -> (id : ObjectId) -> ST m (Maybe Object) [scene ::: SScene]
@@ -199,7 +200,7 @@ export
                            pure Nothing
     putStrLn $ "creating " ++ show desc
     combine scene [spscene, physics, emptyContext, objectCache]
-    case decideFallible (renderDescription desc) creationData (bodyDescription desc) of
+    case decideFallible desc creationData of
       Nothing => ?decideFallibleError
       Just (dimensions, angle, crd) => with ST do
         let physicsProperties = MkPhysicsProperties
@@ -241,12 +242,13 @@ export
       decideDimensions Invisible (InvisibleWallData dims) desc = Just dims
 
       -- TODO this should return an Either String (...) with the description of what failed
-      decideFallible : IncompleteRenderDescriptor ->
+      decideFallible : ObjectDescriptor ->
                        CreationData ->
-                       BodyDescriptor ->
                        Maybe (Vector2D, Double, CompleteRenderDescriptor)
-      decideFallible ird cdata desc = with Maybe do
-        dimensions <- decideDimensions ird cdata desc | Nothing
+      decideFallible desc cdata = let ird = renderDescription desc
+                                      bodyDesc = bodyDescription desc in
+                                      with Maybe do
+        dimensions <- decideDimensions ird cdata bodyDesc | Nothing
         crd <- decideRenderDescription ird cdata | Nothing
         pure (dimensions, 0.0, crd)
 
@@ -267,10 +269,9 @@ export
     write spscene (record {events $= (events'++)} !(read spscene))
     combine scene [spscene, physics, emptyContext, objectCache]
 
-  controlEvent scene id Nothing = pure ()
-  controlEvent scene id (Just input) = case inputToEvent id input of
-                                            Nothing => pure ()
-                                            Just event => registerEvent scene event
+  controlEvent scene id camera xs
+    = registerEvents scene (catMaybes $ map (inputToEvent id camera) xs)
+
   iterate scene ticks = with ST do
     iteratePhysics scene ticks
     handleEvents scene
@@ -338,11 +339,11 @@ export
 
   handle scene (MovementStart direction id) = handleControl scene id (startMoving direction)
   handle scene (MovementStop id) = handleControl scene id stopMoving
-  handle scene (AttackStart id) = handleControl scene id startAttacking
-  handle scene (AttackStop id) = with ST do
+  handle scene (AttackStart pos id) = handleControl scene id startAttacking
+  handle scene (AttackStop pos id) = with ST do
     handleControl scene id stopAttacking
     Just (Just attack_script) <- queryObject scene id (attack . scripts) | pure ()
-    runScript scene attack_script
+    runScript scene (attack_script pos)
   handle scene (JumpStart id) = handleControl scene id startJumping
   handle scene (JumpStop id) = handleControl scene id stopJumping
   handle scene (CollisionStart id_one id_two)

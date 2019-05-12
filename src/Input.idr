@@ -66,10 +66,10 @@ processEvents xs = processEvents' [] xs where
     -- them on different levels of its event hierarchy. this utility function
     -- brings them on the same level in the game input command hierarchy
     processKey : (acc : List InputEvent) ->
-                     (ys' : List SDL2.Event) ->
-                     (key : Key) ->
-                     (cstr : Command -> InputEvent) ->
-                     Either () (List InputEvent)
+                 (ys' : List SDL2.Event) ->
+                 (key : Key) ->
+                 (cstr : Command -> InputEvent) ->
+                 Either () (List InputEvent)
     processKey acc ys' key cstr = case keyToCommand key of
       Nothing => processEvents' acc ys'
       Just cmd => processEvents' ((cstr cmd)::acc) ys'
@@ -80,7 +80,7 @@ processEvents xs = processEvents' [] xs where
       KeyDown key => processKey acc ys key CommandStart
       KeyUp key => processKey acc ys key CommandStop
       MouseMotion x y z w => processEvents' acc ys
-      MouseButtonDown button x y => processEvents' (CommandStop (Attack x y) :: acc) ys
+      MouseButtonDown button x y => processEvents' (CommandStart (Attack x y) :: acc) ys
       MouseButtonUp button x y => processEvents' (CommandStop (Attack x y) :: acc) ys
       Resize x y => processEvents' acc ys
       AppQuit => Left ()
