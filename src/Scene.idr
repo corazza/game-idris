@@ -185,13 +185,16 @@ export
     write pscene (record { objects $= map (\(obj, body) => (f obj, body)) } !(read pscene))
     combine scene [pscene, physics, emptyContext, objectCache]
 
-  runScript scene (Damage x id) = updateObject scene id (takeDamage x)
+  runScript scene (GetPosition id) = queryObject scene id position
   runScript scene (GetVelocity id) = queryObject scene id velocity
   runScript scene (GetMass id) = queryObject scene id mass
+  runScript scene (Damage x id) = updateObject scene id (takeDamage x)
+  runScript scene (Create creation) = do create scene creation; pure ()
   runScript scene (Print what) = putStrLn what
   runScript scene (Pure res) = pure res
   runScript scene (x >>= f) = runScript scene x >>= (runScript scene) . f
 
+  -- HERE need to apply BoxData impulse to creations
   create scene (MkCreation id ref position ctags creationData) = (with ST do
     [spscene, physics, emptyContext, objectCache] <- split scene
     Just desc <- get {m} {r=ObjectDescriptor} objectCache emptyContext ref
@@ -210,15 +213,21 @@ export
           (-1) -- mass is overwritten on addBody
           ((BodyDescriptor.type . bodyDescription) desc)
           empty
+        let scripts = MkScripts (decideAttack (attack desc)) empty
         let object = MkObject
           (decideId id)
           (name desc)
           physicsProperties noControl
           -- tiled objects don't have dimensions specified in their object descriptors,
           -- but in the creation, so the IncompleteRenderDescriptor must be processed
-          crd (ctags ++ tags desc) (health desc) (control desc) noScripts
+          crd (ctags ++ tags desc) (health desc) (control desc) scripts
         sceneId <- addObject scene object
         pure (Just sceneId)) where
+      decideAttack : Maybe ScriptDescriptor -> Maybe (ActionParameters -> UnitScript)
+      decideAttack Nothing = Nothing
+      -- TODO why is this pattern-match necessary?
+      decideAttack (Just (Create x)) = Just $ fromDescriptor (Create x) --Just $ fromDescriptor x
+
       decideRenderDescription : IncompleteRenderDescriptor ->
                                 CreationData ->
                                 Maybe CompleteRenderDescriptor
@@ -343,7 +352,7 @@ export
   handle scene (AttackStop pos id) = with ST do
     handleControl scene id stopAttacking
     Just (Just attack_script) <- queryObject scene id (attack . scripts) | pure ()
-    runScript scene (attack_script pos)
+    runScript scene (attack_script (MkActionParameters id pos (Just 0.5)))
   handle scene (JumpStart id) = handleControl scene id startJumping
   handle scene (JumpStop id) = handleControl scene id stopJumping
   handle scene (CollisionStart id_one id_two)

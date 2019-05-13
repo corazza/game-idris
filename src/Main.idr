@@ -19,6 +19,7 @@ import GameIO
 import Resources
 import Descriptors
 import Common
+import Script
 
 GameState : (Monad m, GameIO m, Draw m, ConsoleIO m, Box2DPhysics m, Scene m) => Type
 GameState {m} = Composite [SDraw {m},
@@ -101,7 +102,9 @@ loop state = with ST do
                | pure ()
   [draw, scene, camera, textureCache, lastms] <- split state
   controlEvent scene "player" !(read camera) events
-  -- printLn $ screenToPosition !(read camera) (20, 20)
+  -- TODO camera smoothing
+  Just position <- runScript scene $ GetPosition "player" | ?noPlayerPositionLoop
+  write camera position
   beforems <- ticks
   iterate scene (beforems - !(read lastms))
   write lastms beforems

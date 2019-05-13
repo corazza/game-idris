@@ -3,14 +3,21 @@ module Common
 import Physics.Vector2D
 
 public export
+ResourceReference : Type
+ResourceReference = String
+%name ResourceReference ref
+
+public export
 ObjectId : Type
 ObjectId = String
-
 %name ObjectId id
 
 public export
-AttackParameters : Type
-AttackParameters = Vector2D
+record ActionParameters where
+  constructor MkActionParameters
+  id : ObjectId
+  position : Vector2D
+  impulse : Maybe Double
 
 public export
 screenScale : Double

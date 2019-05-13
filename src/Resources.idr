@@ -15,10 +15,6 @@ emptyCache : (a : Type) -> CacheType a
 emptyCache a = the (CacheType a) empty
 
 public export
-ResourceReference : Type
-ResourceReference = String
-
-public export
 interface Loader (m : Type -> Type) r where
   Context : Type
   idToFilepath : (id : String) -> String

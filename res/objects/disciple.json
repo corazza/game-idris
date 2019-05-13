@@ -12,7 +12,8 @@
 
   "attack": {
     "type": "create",
-    "ref": "wooden_arrow"
+    "ref": "wooden_arrow",
+    "impulse": 10
   },
 
   "control": {

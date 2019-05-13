@@ -203,7 +203,6 @@ record Creation where
   position : Vector2D
   tags : List ObjectTag
   creationData : CreationData
-
 %name Creation creation
 
 ObjectCaster Creation where

@@ -4,13 +4,15 @@ import Common
 import Physics.Vector2D
 import Descriptors
 
--- HERE now Box2D events have to be polled
 
+-- doesn't know anything about Object, so can't have QueryObject
 public export
 data Script : Type -> Type where
-  Damage : Double -> (id : ObjectId) -> Script ()
+  GetPosition : (id : ObjectId) -> Script (Maybe Vector2D)
   GetVelocity : (id : ObjectId) -> Script (Maybe Vector2D)
   GetMass : (id : ObjectId) -> Script (Maybe Double)
+
+  Damage : Double -> (id : ObjectId) -> Script ()
   Create : Creation -> Script ()
 
   Print : String -> Script ()
@@ -63,6 +65,23 @@ projectileDamage : (factor : Double) -> CollisionData -> UnitScript
 projectileDamage factor (MkCollisionData self other) = with Script do
   Just energy <- energy self | pure ()
   Damage (factor * energy) other
+
+public export
+throw : (ref : ResourceReference) -> ActionParameters -> UnitScript
+throw ref (MkActionParameters id actionPosition impulse) = with Script do
+  let tags = the (List ObjectTag) []
+  let cdata = BoxData (Just actionPosition)
+  Print $ show actionPosition
+  Just position <- GetPosition id | pure ()
+  Create $ MkCreation Nothing ref (position + (0, 2)) tags cdata
+
+public export
+ScriptType : ScriptDescriptor -> Type
+ScriptType (Create ref) = ActionParameters -> UnitScript
+
+public export
+fromDescriptor : (desc : ScriptDescriptor) -> ScriptType desc
+fromDescriptor (Create ref) = throw ref
 
 -- export
 -- throwBox
