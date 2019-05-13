@@ -47,6 +47,8 @@ interface Scene (m : Type -> Type) where
   updateObjects : (scene : Var) -> (f : Object -> Object) -> ST m () [scene ::: SScene]
   private
   queryObject : (scene : Var) -> (id : ObjectId) -> (f : Object -> a) -> ST m (Maybe a) [scene ::: SScene]
+  private
+  applyImpulse : (scene : Var) -> (id : ObjectId) -> (impulse : Vector2D) -> ST m () [scene ::: SScene]
 
   private
   runScript : (scene : Var) -> (script : Script a) -> ST m a [scene ::: SScene]
@@ -63,6 +65,7 @@ interface Scene (m : Type -> Type) where
                  ST m () [scene ::: SScene]
 
   getObject : (scene : Var) -> (id : ObjectId) -> ST m (Maybe Object) [scene ::: SScene]
+  getBody : (scene : Var) -> (id : ObjectId) -> ST m (Maybe Body) [scene ::: SScene]
   getObjects : (scene : Var) -> ST m (List Object) [scene ::: SScene]
   getBackground : (scene : Var) -> ST m Background [scene ::: SScene]
 
@@ -139,6 +142,13 @@ export
     combine scene [spscene, physics, emptyContext, objectCache]
     pure object
 
+  getBody scene id = with ST do
+    [spscene, physics, emptyContext, objectCache] <- split scene
+    pscene <- read spscene
+    let body = map snd (lookup id (objects pscene))
+    combine scene [spscene, physics, emptyContext, objectCache]
+    pure body
+
   addBody scene object = (with ST do
     [spscene, physics, emptyContext, objectCache] <- split scene
     (id, body) <- addBody' physics object
@@ -147,7 +157,8 @@ export
       addBody' : (physics' : Var) -> Object -> ST m (Int, Body) [physics' ::: SBox2D {m}]
       addBody' physics' object' = case (type . physicsProperties) object of
         Wall => createWall physics' (position object') (dim object')
-        Box => createBox physics' (position object') (dim object') (angle object') (density object') (friction object')
+        Box => createBox physics' (position object') (dim object') (angle object')
+                                  (density object') (friction object')
 
   addWithId scene object = with ST do
     (bodyId, body) <- addBody scene object
@@ -185,6 +196,12 @@ export
     write pscene (record { objects $= map (\(obj, body) => (f obj, body)) } !(read pscene))
     combine scene [pscene, physics, emptyContext, objectCache]
 
+  applyImpulse scene id impulse = with ST do
+    Just body <- getBody scene id | pure ()
+    [pscene, physics, emptyContext, objectCache] <- split scene
+    applyImpulse physics body impulse
+    combine scene [pscene, physics, emptyContext, objectCache]
+
   runScript scene (GetPosition id) = queryObject scene id position
   runScript scene (GetVelocity id) = queryObject scene id velocity
   runScript scene (GetMass id) = queryObject scene id mass
@@ -195,7 +212,7 @@ export
   runScript scene (x >>= f) = runScript scene x >>= (runScript scene) . f
 
   -- HERE need to apply BoxData impulse to creations
-  create scene (MkCreation id ref position ctags creationData) = (with ST do
+  create scene (MkCreation id ref position angle ctags creationData) = (with ST do
     [spscene, physics, emptyContext, objectCache] <- split scene
     Just desc <- get {m} {r=ObjectDescriptor} objectCache emptyContext ref
               | with ST do combine scene [spscene, physics, emptyContext, objectCache]
@@ -205,7 +222,7 @@ export
     combine scene [spscene, physics, emptyContext, objectCache]
     case decideFallible desc creationData of
       Nothing => ?decideFallibleError
-      Just (dimensions, angle, crd) => with ST do
+      Just (dimensions, crd) => with ST do
         let physicsProperties = MkPhysicsProperties
           position nullVector dimensions angle
           ((BodyDescriptor.density . bodyDescription) desc)
@@ -222,7 +239,12 @@ export
           -- but in the creation, so the IncompleteRenderDescriptor must be processed
           crd (ctags ++ tags desc) (health desc) (control desc) scripts
         sceneId <- addObject scene object
+        creationImpulse scene sceneId creationData
         pure (Just sceneId)) where
+      creationImpulse : (scene : Var) -> (id' : ObjectId) -> CreationData -> ST m () [scene ::: SScene {m}]
+      creationImpulse x id' (BoxData y) = applyImpulse x id' (getOrDefault nullVector y)
+      creationImpulse x id' _ = pure ()
+
       decideAttack : Maybe ScriptDescriptor -> Maybe (ActionParameters -> UnitScript)
       decideAttack Nothing = Nothing
       -- TODO why is this pattern-match necessary?
@@ -253,13 +275,13 @@ export
       -- TODO this should return an Either String (...) with the description of what failed
       decideFallible : ObjectDescriptor ->
                        CreationData ->
-                       Maybe (Vector2D, Double, CompleteRenderDescriptor)
+                       Maybe (Vector2D, CompleteRenderDescriptor)
       decideFallible desc cdata = let ird = renderDescription desc
                                       bodyDesc = bodyDescription desc in
                                       with Maybe do
         dimensions <- decideDimensions ird cdata bodyDesc | Nothing
         crd <- decideRenderDescription ird cdata | Nothing
-        pure (dimensions, 0.0, crd)
+        pure (dimensions, crd)
 
       decideId : Maybe String -> String
       decideId Nothing = ""
@@ -352,7 +374,7 @@ export
   handle scene (AttackStop pos id) = with ST do
     handleControl scene id stopAttacking
     Just (Just attack_script) <- queryObject scene id (attack . scripts) | pure ()
-    runScript scene (attack_script (MkActionParameters id pos (Just 0.5)))
+    runScript scene (attack_script (MkActionParameters id pos (Just 2.5)))
   handle scene (JumpStart id) = handleControl scene id startJumping
   handle scene (JumpStop id) = handleControl scene id stopJumping
   handle scene (CollisionStart id_one id_two)

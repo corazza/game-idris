@@ -44,10 +44,15 @@ positionToScreen (cx, cy) (ox, oy)
 public export
 screenToPosition : (camera : Vector2D) -> (screen : (Int, Int)) -> Vector2D
 screenToPosition camera (sx, sy)
-  = let screenVector = (cast sx - (fst resolution')/2, cast sy - (snd resolution')/2)
+  = let screenVector = (cast sx - (fst resolution')/2, -(cast sy - (snd resolution')/2))
         s = (1.0 / screenScale) `scale` screenVector
         in camera + s
 
 public export
 dimToScreen : (dim : Vector2D) -> (Int, Int)
 dimToScreen (x, y) = cast $ (screenScale * x, screenScale * y)
+
+public export
+getOrDefault : a -> (Maybe a) -> a
+getOrDefault x Nothing = x
+getOrDefault x (Just y) = y

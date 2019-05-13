@@ -28,6 +28,18 @@ GameState {m} = Composite [SDraw {m},
                            SCache {m} {r=Texture},
                            State Int]
 
+
+drawBackground : (Draw m, ConsoleIO m) =>
+                (draw : Var) -> (camera : Vector2D) -> (background : Background) -> (cache : Var) ->
+                ST m () [cache ::: SCache {m} {r=Texture}, draw ::: SDraw {m}]
+drawBackground {m = m} draw camera (MkBackground image dim) cache = with ST do
+  Just texture <- get {m} {r=Texture} cache draw image | Nothing => ?noTextureDrawBackground
+  let (w, h) = dimToScreen $ 2 `scale` dim
+  let (w', h') = dimToScreen dim
+  let (x, y) = positionToScreen camera (0, 0)
+  drawWholeCenter draw texture (MkSDLRect (x - w') (y - h') w h) 0.0
+
+
 drawScene : (Monad m,
              ConsoleIO m,
              Box2DPhysics m,
@@ -43,16 +55,6 @@ drawScene state = (with ST do
   drawObjects draw !(read camera) !(getObjects scene) textureCache
   present draw
   combine state [draw, scene, camera, textureCache, lastms]) where
-    drawBackground : (Draw m, ConsoleIO m) =>
-                     (draw : Var) -> (camera : Vector2D) -> (background : Background) -> (cache : Var) ->
-                     ST m () [cache ::: SCache {m} {r=Texture}, draw ::: SDraw {m}]
-    drawBackground {m = m} draw camera (MkBackground image dim) cache = with ST do
-      Just texture <- get {m} {r=Texture} cache draw image | Nothing => ?noTextureDrawBackground
-      let (w, h) = dimToScreen $ 2 `scale` dim
-      let (w', h') = dimToScreen dim
-      let (x, y) = positionToScreen camera (0, 0)
-      drawWholeCenter draw texture (MkSDLRect (x - w') (y - h') w h) 0.0
-
     drawObjects : (Draw m, ConsoleIO m) =>
                   (draw : Var) -> (camera : Vector2D) -> List Object -> (cache : Var) ->
                   ST m () [cache ::: SCache {m} {r=Texture}, draw ::: SDraw {m}]
@@ -121,7 +123,7 @@ game {m} = with ST do
 
   Just map <- get {m} {r=MapDescriptor} mapCache emptyContext "likert" | Nothing => ?noLikert
   scene <- startScene map
-  let playerCreation = MkCreation (Just "player") "disciple" (0, 5) [] (BoxData Nothing)
+  let playerCreation = MkCreation (Just "player") "disciple" (0, 5) 0 [] (BoxData Nothing)
   create scene playerCreation
 
   state <- new ()

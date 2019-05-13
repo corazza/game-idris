@@ -70,10 +70,12 @@ public export
 throw : (ref : ResourceReference) -> ActionParameters -> UnitScript
 throw ref (MkActionParameters id actionPosition impulse) = with Script do
   let tags = the (List ObjectTag) []
-  let cdata = BoxData (Just actionPosition)
-  Print $ show actionPosition
   Just position <- GetPosition id | pure ()
-  Create $ MkCreation Nothing ref (position + (0, 2)) tags cdata
+  let direction = normed (actionPosition - position)
+  let impulse' = getOrDefault 0 impulse
+  let cdata = BoxData (Just $ impulse' `scale` direction)
+  Create $ MkCreation Nothing ref (position + (1.1 `scale` direction))
+                      (angle direction - pi/2.0) tags cdata
 
 public export
 ScriptType : ScriptDescriptor -> Type

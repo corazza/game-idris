@@ -201,6 +201,7 @@ record Creation where
   id : Maybe String
   ref : ResourceReference
   position : Vector2D
+  angle : Double
   tags : List ObjectTag
   creationData : CreationData
 %name Creation creation
@@ -211,7 +212,8 @@ ObjectCaster Creation where
     JString ref <- lookup "ref" dict | Nothing
     pos <- getVector "position" dict | Nothing
     creationData <- getCreationData dict | Nothing
-    pure $ MkCreation id ref pos (getTags dict) creationData) where
+    let angle = getDoubleOrDefault "angle" 0 dict
+    pure $ MkCreation id ref pos angle (getTags dict) creationData) where
       getId : Dict String JSON -> Maybe String
       getId dict = with Maybe do
         JString id <- lookup "id" dict | Nothing
