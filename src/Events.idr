@@ -16,8 +16,8 @@ data Event = MovementStart MoveDirection ObjectId
            | AttackStop Vector2D ObjectId
            | JumpStart ObjectId
            | JumpStop ObjectId
-           | CollisionStart ObjectId ObjectId
-           | CollisionStop ObjectId ObjectId
+           | CollisionStart CollisionForObject CollisionForObject
+           | CollisionStop CollisionForObject CollisionForObject
 
 %name Events.Event event
 
@@ -29,8 +29,8 @@ Show Event where
   show (AttackStop pos id) = "AttackStop " ++ id ++ " at " ++ show pos
   show (JumpStart x) = "JumpStart " ++ x
   show (JumpStop x) = "JumpStop " ++ x
-  show (CollisionStart id_one id_two) = "CollisionStart " ++ id_one ++ " " ++ id_two
-  show (CollisionStop id_one id_two) = "CollisionStop " ++ id_one ++ " " ++ id_two
+  show (CollisionStart for_one for_two) = "CollisionStart " ++ (id for_one) ++ " " ++ (id for_two)
+  show (CollisionStop for_one for_two) = "CollisionStop " ++ (id for_one) ++ " " ++ (id for_two)
 
 
 export

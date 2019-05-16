@@ -1,6 +1,5 @@
 {
   "name": "Wooden arrow",
-  "health": 20,
   "tags": ["projectile"],
 
   "box2d": {

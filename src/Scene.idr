@@ -9,6 +9,7 @@ import Graphics.SDL2
 import Control.ST.ImplicitCall
 import Language.JSON
 
+import Scene.Util
 import Common
 import Events
 import Objects
@@ -19,14 +20,6 @@ import Descriptors
 import Resources
 import GameIO
 import Script
-
--- TODO MAJOR mess! cleanup!
-
-SceneObjects : Type
-SceneObjects = Dict String (Object, Body)
-
-SceneEvents : Type
-SceneEvents = List Events.Event
 
 public export
 interface Scene (m : Type -> Type) where
@@ -55,6 +48,7 @@ interface Scene (m : Type -> Type) where
 
   create : (scene : Var) -> (creation : Creation) -> ST m (Maybe String) [scene ::: SScene]
   createMany : (scene : Var) -> (creations : List Creation) -> ST m () [scene ::: SScene]
+  destroy : (scene : Var) -> (id : ObjectId) -> ST m () [scene ::: SScene]
 
   registerEvent : (scene : Var) -> Events.Event -> ST m () [scene ::: SScene]
   registerEvents : (scene : Var) -> (List Events.Event) -> ST m () [scene ::: SScene]
@@ -72,7 +66,6 @@ interface Scene (m : Type -> Type) where
   -- iteratePhysics : (scene : Var) -> (ticks : Int) -> ST m () [scene ::: SScene]
   iterate : (scene : Var) -> (ticks : Int) -> ST m () [scene ::: SScene]
 
-  physicsIdsToSceneIds : (scene : Var) -> List Int -> ST m (List (Maybe ObjectId)) [scene ::: SScene]
 
   private
   iteratePhysics : (scene : Var) -> (ticks : Int) -> ST m () [scene ::: SScene]
@@ -90,6 +83,17 @@ interface Scene (m : Type -> Type) where
   handle : (scene : Var) -> Events.Event -> ST m () [scene ::: SScene]
   private
   handleEvents' : (scene : Var) -> (List Events.Event) -> ST m () [scene ::: SScene]
+
+  private
+  physicsIdsToSceneIds : (scene : Var) -> List Int -> ST m (List (Maybe ObjectId)) [scene ::: SScene]
+  private
+  -- processPhysicsCollision scene one two cstr =
+  processPhysicsCollision : (scene : Var) ->
+                            (one : CollisionForBody) ->
+                            (two : CollisionForBody) ->
+                            (xs : List Box2D.Event) ->
+                            (cstr : CollisionForObject -> CollisionForObject -> Events.Event) ->
+                            ST m (List Events.Event) [scene ::: SScene]
   private
   physicsToEvents : (scene : Var) -> (List Box2D.Event) -> ST m (List Events.Event) [scene ::: SScene]
 
@@ -101,8 +105,6 @@ record PScene where
   physicsIds : Dict Int String
   background : Background
 
--- WRITEUP here, omitting GameIO causes the SCache not to be found. The error message
--- just referred to "can't find implementation for SCache m ObjectDescriptor"
 export
 (ConsoleIO m, Box2DPhysics m,  Monad m, GameIO m) => Scene m where
   SScene = Composite [State PScene,
@@ -131,23 +133,20 @@ export
   getObjects scene = with ST do
     [spscene, physics, emptyContext, objectCache] <- split scene
     pscene <- read spscene
-    let objectList = map fst (values (objects pscene))
     combine scene [spscene, physics, emptyContext, objectCache]
-    pure objectList
+    pure (getObjects' (objects pscene))
 
   getObject scene id = with ST do
     [spscene, physics, emptyContext, objectCache] <- split scene
     pscene <- read spscene
-    let object = map fst (lookup id (objects pscene))
     combine scene [spscene, physics, emptyContext, objectCache]
-    pure object
+    pure (getObject' id (objects pscene))
 
   getBody scene id = with ST do
     [spscene, physics, emptyContext, objectCache] <- split scene
     pscene <- read spscene
-    let body = map snd (lookup id (objects pscene))
     combine scene [spscene, physics, emptyContext, objectCache]
-    pure body
+    pure (getBody' id (objects pscene))
 
   addBody scene object = (with ST do
     [spscene, physics, emptyContext, objectCache] <- split scene
@@ -166,7 +165,7 @@ export
     let object' = physicsUpdate (record { mass=mass' }) object
     [spscene, physics, emptyContext, objectCache] <- split scene
     pscene <- read spscene
-    write spscene (record { objects    $= insert (id object') (object', body),
+    write spscene (record { objects    $= insert (id object') (Right (object', body)),
                             physicsIds $= insert bodyId (id object') } pscene)
     combine scene [spscene, physics, emptyContext, objectCache]
     pure (id object')
@@ -187,13 +186,12 @@ export
 
   updateObject scene id f = with ST do
     [pscene, physics, emptyContext, objectCache] <- split scene
-    write pscene (record { objects $=
-      Dict.update id (\(obj, body) => (f obj, body)) } !(read pscene))
+    write pscene (record { objects $= objectUpdate id f } !(read pscene))
     combine scene [pscene, physics, emptyContext, objectCache]
 
   updateObjects scene f = with ST do
     [pscene, physics, emptyContext, objectCache] <- split scene
-    write pscene (record { objects $= map (\(obj, body) => (f obj, body)) } !(read pscene))
+    write pscene (record { objects $= map (entryUpdate f) } !(read pscene))
     combine scene [pscene, physics, emptyContext, objectCache]
 
   applyImpulse scene id impulse = with ST do
@@ -202,27 +200,32 @@ export
     applyImpulse physics body impulse
     combine scene [pscene, physics, emptyContext, objectCache]
 
+  runScript scene (Create creation) = do create scene creation; pure ()
+  runScript scene (Destroy id) = destroy scene id
   runScript scene (GetPosition id) = queryObject scene id position
   runScript scene (GetVelocity id) = queryObject scene id velocity
   runScript scene (GetMass id) = queryObject scene id mass
-  runScript scene (Damage x id) = updateObject scene id (takeDamage x)
-  runScript scene (Create creation) = do create scene creation; pure ()
+  runScript scene (Damage x id) = with ST do
+    updateObject scene id (takeDamage x)
+    Just alive <- queryObject scene id alive | pure ()
+    if not alive then destroy scene id else pure ()
   runScript scene (Print what) = putStrLn what
   runScript scene (Pure res) = pure res
   runScript scene (x >>= f) = runScript scene x >>= (runScript scene) . f
 
   -- HERE need to apply BoxData impulse to creations
-  create scene (MkCreation id ref position angle ctags creationData) = (with ST do
+  create scene creation@(MkCreation id ref position angle ctags creationData) = (with ST do
     [spscene, physics, emptyContext, objectCache] <- split scene
     Just desc <- get {m} {r=ObjectDescriptor} objectCache emptyContext ref
               | with ST do combine scene [spscene, physics, emptyContext, objectCache]
                            putStrLn $ "couldn't get descriptor of " ++ ref
                            pure Nothing
-    putStrLn $ "creating " ++ show desc
+    -- putStrLn $ "creating " ++ show desc
     combine scene [spscene, physics, emptyContext, objectCache]
     case decideFallible desc creationData of
       Nothing => ?decideFallibleError
       Just (dimensions, crd) => with ST do
+        let object_tags = ctags `union` tags desc
         let physicsProperties = MkPhysicsProperties
           position nullVector dimensions angle
           ((BodyDescriptor.density . bodyDescription) desc)
@@ -230,14 +233,14 @@ export
           (-1) -- mass is overwritten on addBody
           ((BodyDescriptor.type . bodyDescription) desc)
           empty
-        let scripts = MkScripts (decideAttack (attack desc)) empty
+        let scripts = MkScripts (decideAttack (attack desc)) (decideCollisions desc creation)
         let object = MkObject
           (decideId id)
           (name desc)
           physicsProperties noControl
           -- tiled objects don't have dimensions specified in their object descriptors,
           -- but in the creation, so the IncompleteRenderDescriptor must be processed
-          crd (ctags ++ tags desc) (health desc) (control desc) scripts
+          crd object_tags (map fromFull (health desc)) (control desc) scripts
         sceneId <- addObject scene object
         creationImpulse scene sceneId creationData
         pure (Just sceneId)) where
@@ -290,6 +293,14 @@ export
   createMany scene [] = pure () -- TODO return list of id's
   createMany scene (x :: xs) = with ST do create scene x; createMany scene xs
 
+  destroy scene id = with ST do
+    -- putStrLn $ "destroying " ++ id
+    Just body <- getBody scene id | pure ()
+    [pscene, physics, emptyContext, objectCache] <- split scene
+    destroy physics body
+    write pscene (record { objects $= removeEntry id } !(read pscene))
+    combine scene [pscene, physics, emptyContext, objectCache]
+
   registerEvent scene event = with ST do
     [spscene, physics, emptyContext, objectCache] <- split scene
     write spscene (record {events $= (event::)} !(read spscene))
@@ -310,7 +321,8 @@ export
   iteratePhysics scene ticks = (with ST do
     [spscene, physics, emptyContext, objectCache] <- split scene
     pscene <- read spscene
-    commitControl physics (values (objects pscene))
+    let boths = getBoths (objects pscene)
+    commitControl physics boths
     step physics (0.001 * cast ticks) 6 2
     let objects' = !(lift ((traverse updateFromBody) (objects pscene)))
     write spscene (record {objects=objects'} pscene) -- idk why !lift doesn't work in record
@@ -335,18 +347,22 @@ export
         let y' = if jumping ctst && canJump ctst && size (touching obj) > 0
                     then jump control
                     else 0
-        let impulse = mass `scale` (x'-x, y')
+        let x_correction = x' - x
+        let impulse = mass `scale` (if abs x_correction < 0.01 then 0 else x_correction, y')
         applyImpulse physics body impulse
         commitControl physics xs
 
-      updateFromBody : (Object, Body) -> m (Object, Body)
-      updateFromBody (object, body) = do
+      updateFromBody : Entry -> m Entry
+      updateFromBody (Left l) = pure $ Left ()
+      updateFromBody (Right (object, body)) = do
         newPosition <- getPosition body -- idk why !(getPosition body) doesn't work in record
         newAngle <- getAngle body
         newVelocity <- getVelocity body
-        pure (physicsUpdate (record { position   = newPosition,
-                                        angle    = newAngle,
-                                        velocity = newVelocity}) object, body)
+        let object' = physicsUpdate (record {
+                        position   = newPosition,
+                          angle    = newAngle,
+                          velocity = newVelocity}) object
+        pure $ Right (object', body)
 
   handleEvents scene = with ST do
     [spscene, physics, emptyContext, objectCache] <- split scene
@@ -363,8 +379,8 @@ export
     updateObject scene id (record { controlState $= f })
 
   handleCollision scene cdata@(MkCollisionData self other) = with ST do
-    updateObject scene self (addTouching other)
-    Just scripts' <- queryObject scene self (collisions . scripts) | pure ()
+    updateObject scene (id self) (addTouching (id other))
+    Just scripts' <- queryObject scene (id self) (collisions . scripts) | pure ()
     let scripts = map (\f => f cdata) scripts'
     runScript scene (sequence_ scripts)
 
@@ -377,14 +393,14 @@ export
     runScript scene (attack_script (MkActionParameters id pos (Just 2.5)))
   handle scene (JumpStart id) = handleControl scene id startJumping
   handle scene (JumpStop id) = handleControl scene id stopJumping
-  handle scene (CollisionStart id_one id_two)
-    = let cdata = buildCollisionData id_one id_two in with ST do
+  handle scene (CollisionStart one two)
+    = let cdata = buildCollisionData one two in with ST do
           handleCollision scene (cdata First)
           handleCollision scene (cdata Second)
 
-  handle scene (CollisionStop id_one id_two) = with ST do
-    updateObject scene id_one (removeTouching id_two)
-    updateObject scene id_two (removeTouching id_one)
+  handle scene (CollisionStop one two) = with ST do
+    updateObject scene (id one) (removeTouching (id two))
+    updateObject scene (id two) (removeTouching (id one))
 
   physicsIdsToSceneIds scene [] = pure []
   physicsIdsToSceneIds scene (x :: xs) = with ST do
@@ -393,15 +409,20 @@ export
     combine scene [spscene, physics, emptyContext, objectCache]
     pure $ lookup x (physicsIds pscene) :: !(physicsIdsToSceneIds scene xs)
 
+  processPhysicsCollision scene one two xs cstr =
+    case !(physicsIdsToSceneIds scene [id one, id two]) of
+      [Just id_one, Just id_two] =>
+            let for_one = MkCollisionForObject id_one (velocity one)
+                for_two = MkCollisionForObject id_two (velocity two) in pure $
+                  cstr for_one for_two :: !(physicsToEvents scene xs)
+      _ => physicsToEvents scene xs
+
   physicsToEvents scene [] = pure []
-  physicsToEvents scene ((CollisionStart (b2id_one, body_one) (b2id_two, body_two)) :: xs) =
-    case !(physicsIdsToSceneIds scene [b2id_one, b2id_two]) of
-      [Just id_one, Just id_two] => pure $ CollisionStart id_one id_two :: !(physicsToEvents scene xs)
-      _ => physicsToEvents scene xs
-  physicsToEvents scene ((CollisionStop (b2id_one, body_one) (b2id_two, body_two)) :: xs) =
-    case !(physicsIdsToSceneIds scene [b2id_one, b2id_two]) of
-      [Just id_one, Just id_two] => pure $ CollisionStop id_one id_two :: !(physicsToEvents scene xs)
-      _ => physicsToEvents scene xs
+  -- (MkCollisionForBody id body velocity)
+  physicsToEvents scene ((CollisionStart one two) :: xs)
+    = processPhysicsCollision scene one two xs CollisionStart
+  physicsToEvents scene ((CollisionStop one two) :: xs)
+    = processPhysicsCollision scene one two xs CollisionStop
 
   getBackground scene = with ST do
     [spscene, physics, emptyContext, objectCache] <- split scene

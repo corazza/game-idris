@@ -16,6 +16,8 @@ ImageCache = SortedMap String Texture
 emptyImageCache : ImageCache
 emptyImageCache = empty
 
+data Color = MkColor Int Int Int Int
+
 interface Draw (m : Type -> Type) where
   SDraw : Type
 
@@ -30,6 +32,8 @@ interface Draw (m : Type -> Type) where
   -- getTexture : (draw : Var) -> (name : String) -> ST m Texture [draw ::: SDraw]
   loadTexture : (draw : Var) -> (name : String) -> ST m (Maybe Texture) [draw ::: SDraw]
   destroyTexture : Texture -> STrans m () xs (const xs)
+
+  filledRect : (draw : Var) -> (dst : SDLRect) -> Color -> ST m () [draw ::: SDraw]
 
   drawTexture : (draw : Var) ->
                 (texture : Texture) ->
@@ -93,6 +97,11 @@ Draw IO where
     pure (Just texture)
 
   destroyTexture texture = lift $ SDL2.destroyTexture texture
+
+  filledRect draw (MkSDLRect x y z w) (MkColor r g b a) = with ST do
+    [renderer, imageCache] <- split draw
+    lift $ SDL2.filledRect !(read renderer) x y z w r g b a
+    combine draw [renderer, imageCache]
 
   drawTexture draw texture src dst
     = with ST do [renderer, imageCache] <- split draw

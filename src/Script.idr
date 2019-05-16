@@ -1,19 +1,22 @@
 module Script
 
+import Data.AVL.Set
+
 import Common
 import Physics.Vector2D
 import Descriptors
 
-
 -- doesn't know anything about Object, so can't have QueryObject
 public export
 data Script : Type -> Type where
+  Create : Creation -> Script ()
+  Destroy : (id : ObjectId) -> Script ()
+
   GetPosition : (id : ObjectId) -> Script (Maybe Vector2D)
   GetVelocity : (id : ObjectId) -> Script (Maybe Vector2D)
   GetMass : (id : ObjectId) -> Script (Maybe Double)
 
   Damage : Double -> (id : ObjectId) -> Script ()
-  Create : Creation -> Script ()
 
   Print : String -> Script ()
 
@@ -40,42 +43,45 @@ public export
 UnitScript : Type
 UnitScript = Script ()
 
-energy : ObjectId -> Script (Maybe Double)
-energy id = with Script do
-  Just velocity <- GetVelocity id | pure Nothing
-  Just mass <- GetMass id | pure Nothing
-  pure $ Just (0.5*mass*(Doubles.pow (magnitude velocity) 2))
-
+-- this exists only to introduce ordering to collision events (needed by scripts)
 public export
 record CollisionData where
   constructor MkCollisionData
-  self : ObjectId
-  other : ObjectId
+  self : CollisionForObject
+  other : CollisionForObject
 
 public export
 data Selector = First | Second
 
 export
-buildCollisionData : ObjectId -> ObjectId -> Selector -> CollisionData
-buildCollisionData id1 id2 First = MkCollisionData id1 id2
-buildCollisionData id1 id2 Second = MkCollisionData id2 id1
+buildCollisionData : CollisionForObject -> CollisionForObject -> Selector -> CollisionData
+buildCollisionData one two First = MkCollisionData one two
+buildCollisionData one two Second = MkCollisionData two one
+
+energy : CollisionData -> Script (Maybe Double)
+energy (MkCollisionData self other) = with Script do
+  Just mass <- GetMass (id self) | pure Nothing
+  -- the object stopped a projectile relative to itself
+  let v = magnitude ((velocity self) - (velocity other))
+  pure $ Just (0.5*mass*v*v)
 
 export
 projectileDamage : (factor : Double) -> CollisionData -> UnitScript
-projectileDamage factor (MkCollisionData self other) = with Script do
-  Just energy <- energy self | pure ()
-  Damage (factor * energy) other
+projectileDamage factor cdata@(MkCollisionData self other) = with Script do
+  Just energy <- energy cdata | pure ()
+  Damage (factor * energy) (id other)
+  Destroy (id self) -- TODO conditional on damage?
 
+-- TODO exports are wrong
 public export
 throw : (ref : ResourceReference) -> ActionParameters -> UnitScript
 throw ref (MkActionParameters id actionPosition impulse) = with Script do
-  let tags = the (List ObjectTag) []
   Just position <- GetPosition id | pure ()
   let direction = normed (actionPosition - position)
   let impulse' = getOrDefault 0 impulse
   let cdata = BoxData (Just $ impulse' `scale` direction)
-  Create $ MkCreation Nothing ref (position + (1.1 `scale` direction))
-                      (angle direction - pi/2.0) tags cdata
+  Create $ MkCreation Nothing ref (position + (2 `scale` direction))
+                      (angle direction - pi/2.0) empty cdata
 
 public export
 ScriptType : ScriptDescriptor -> Type
@@ -84,6 +90,11 @@ ScriptType (Create ref) = ActionParameters -> UnitScript
 public export
 fromDescriptor : (desc : ScriptDescriptor) -> ScriptType desc
 fromDescriptor (Create ref) = throw ref
+
+export
+decideCollisions : ObjectDescriptor -> Creation -> List (CollisionData -> UnitScript)
+decideCollisions desc creation = let object_tags = (tags desc) `union` (tags creation) in
+  if contains Projectile object_tags then [projectileDamage 0.5] else empty
 
 -- export
 -- throwBox

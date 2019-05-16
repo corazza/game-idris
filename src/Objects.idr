@@ -80,6 +80,30 @@ record Scripts where
 noScripts : Scripts
 noScripts = MkScripts Nothing empty
 
+interface Damagable a where
+  takeDamage : Double -> a -> a
+  alive : a -> Bool
+
+record Health where
+  constructor MkHealth
+  current : Double
+  full : Double
+%name Health health
+
+Damagable Health where
+  takeDamage x = record { current $= \y => y - x }
+  alive health = (current health) > 0
+
+Show Health where
+  show (MkHealth current full) =
+    "{ current: " ++ show current ++ ", full: " ++ show full ++ " }"
+
+fromFull : Double -> Health
+fromFull x = MkHealth x x
+
+percent : Health -> Double
+percent (MkHealth current full) = current / full
+
 -- all changes -> physics, physics -> objects
 record Object where
   constructor MkObject
@@ -88,8 +112,8 @@ record Object where
   physicsProperties : PhysicsProperties
   controlState : ControlState
   renderDescription : CompleteRenderDescriptor
-  tags : List ObjectTag
-  health : Maybe Double -- TODO move health, controlState, and tags into components
+  tags : Set ObjectTag
+  health : Maybe Health -- TODO move health, controlState, and tags into components
   control : Maybe ControlDescriptor
   scripts : Scripts
 
@@ -106,8 +130,11 @@ Show Object where
       ++ ", health: " ++ show health
       ++ " }"
 
-takeDamage : Double -> Object -> Object
-takeDamage x = record { health $= map ((-) x) }
+Damagable Object where
+  takeDamage x = record { health $= map (takeDamage x) }
+  alive object = case health object of
+    Nothing => True
+    Just health => alive health
 
 physicsUpdate : (PhysicsProperties -> PhysicsProperties) -> Object -> Object
 physicsUpdate f = record { physicsProperties $= f }

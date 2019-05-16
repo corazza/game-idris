@@ -4,6 +4,7 @@ import Language.JSON
 import Physics.Vector2D
 import Control.ST
 import Data.AVL.Dict
+import Data.AVL.Set
 
 import Resources
 import GameIO
@@ -127,32 +128,20 @@ getControl : Maybe JSON -> Maybe ControlDescriptor
 getControl Nothing = Nothing
 getControl (Just x) = the (Maybe ControlDescriptor) (cast x)
 
-
-
--- TODO shouldn't be here, but in Objects
-public export
-data ObjectTag = Spawn | Projectile
-
-export
-Show ObjectTag where
-  show Spawn = "spawn"
-  show Projectile = "projectile"
-
 Cast String (Maybe ObjectTag) where
   cast "spawn" = Just Spawn
   cast "projectile" = Just Projectile
   cast _ = Nothing
 
-getTags : Dict String JSON -> List ObjectTag
+getTags : Dict String JSON -> Set ObjectTag
 getTags dict = (case lookup "tags" dict of
-  Nothing => []
-  Just (JArray xs) => catMaybes $ map cast (getStrings xs)
-  Just _ => []) where
+  Nothing => empty
+  Just (JArray xs) => fromList $ catMaybes $ map cast (getStrings xs)
+  Just _ => empty) where
     getStrings : List JSON -> List String
     getStrings [] = []
     getStrings (JString x :: xs) = x :: getStrings xs
     getStrings (_ :: xs) = getStrings xs
-
 
 public export
 record ObjectDescriptor where
@@ -160,7 +149,7 @@ record ObjectDescriptor where
   name : String
   bodyDescription : BodyDescriptor
   renderDescription : IncompleteRenderDescriptor
-  tags : List ObjectTag
+  tags : Set ObjectTag
   health : Maybe Double
   control : Maybe ControlDescriptor
   attack : Maybe ScriptDescriptor
@@ -202,7 +191,7 @@ record Creation where
   ref : ResourceReference
   position : Vector2D
   angle : Double
-  tags : List ObjectTag
+  tags : Set ObjectTag
   creationData : CreationData
 %name Creation creation
 
