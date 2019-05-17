@@ -1,6 +1,7 @@
 module Script
 
 import Data.AVL.Set
+import Data.AVL.Dict
 
 import Common
 import Physics.Vector2D
@@ -9,14 +10,14 @@ import Descriptors
 -- doesn't know anything about Object, so can't have QueryObject
 public export
 data Script : Type -> Type where
-  Create : Creation -> Script ()
-  Destroy : (id : ObjectId) -> Script ()
-
   GetPosition : (id : ObjectId) -> Script (Maybe Vector2D)
   GetVelocity : (id : ObjectId) -> Script (Maybe Vector2D)
   GetMass : (id : ObjectId) -> Script (Maybe Double)
 
+  Create : Creation -> Script ()
+  Destroy : (id : ObjectId) -> Script ()
   Damage : Double -> (id : ObjectId) -> Script ()
+  DeactivateCollision : String -> ObjectId -> Script ()
 
   Print : String -> Script ()
 
@@ -70,7 +71,8 @@ projectileDamage : (factor : Double) -> CollisionData -> UnitScript
 projectileDamage factor cdata@(MkCollisionData self other) = with Script do
   Just energy <- energy cdata | pure ()
   Damage (factor * energy) (id other)
-  Destroy (id self) -- TODO conditional on damage?
+  -- Destroy (id self) -- TODO conditional on damage?
+  DeactivateCollision "projectile" (id self)
 
 -- TODO exports are wrong
 public export
@@ -92,6 +94,8 @@ fromDescriptor : (desc : ScriptDescriptor) -> ScriptType desc
 fromDescriptor (Create ref) = throw ref
 
 export
-decideCollisions : ObjectDescriptor -> Creation -> List (CollisionData -> UnitScript)
+decideCollisions : ObjectDescriptor -> Creation -> Dict String (Maybe (CollisionData -> UnitScript))
 decideCollisions desc creation = let object_tags = (tags desc) `union` (tags creation) in
-  if contains Projectile object_tags then [projectileDamage 0.5] else empty
+  if contains Projectile object_tags
+    then insert "projectile" (Just (projectileDamage 0.5)) empty
+    else empty

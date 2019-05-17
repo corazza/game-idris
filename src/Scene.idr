@@ -201,15 +201,17 @@ export
     applyImpulse physics body impulse
     combine scene [pscene, physics, emptyContext, objectCache]
 
-  runScript scene (Create creation) = do create scene creation; pure ()
-  runScript scene (Destroy id) = destroy scene id
   runScript scene (GetPosition id) = queryObject scene id position
   runScript scene (GetVelocity id) = queryObject scene id velocity
   runScript scene (GetMass id) = queryObject scene id mass
+  runScript scene (Create creation) = do create scene creation; pure ()
+  runScript scene (Destroy id) = destroy scene id
   runScript scene (Damage x id) = with ST do
     updateObject scene id (takeDamage x)
     Just alive <- queryObject scene id alive | pure ()
     if not alive then destroy scene id else pure ()
+  runScript scene (DeactivateCollision name id)
+    = updateObject scene id (deactivateCollision name)
   runScript scene (Print what) = putStrLn what
   runScript scene (Pure res) = pure res
   runScript scene (x >>= f) = runScript scene x >>= (runScript scene) . f
@@ -381,7 +383,7 @@ export
 
   handleCollision scene cdata@(MkCollisionData self other) = with ST do
     updateObject scene (id self) (addTouching (id other))
-    Just scripts' <- queryObject scene (id self) (collisions . scripts) | pure ()
+    Just scripts' <- queryObject scene (id self) (activeCollisions . scripts) | pure ()
     let scripts = map (\f => f cdata) scripts'
     runScript scene (sequence_ scripts)
 

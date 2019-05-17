@@ -72,13 +72,20 @@ record PhysicsProperties where
   type : BodyType
   touching : Set ObjectId
 
+-- HERE make a Scripts : Type, possibly move to Scripts.idr, which handles
+-- adding/deactivation etc. ScriptHolder interface both for Scripts and Object
+
 record Scripts where
   constructor MkScripts
   attack : Maybe (ActionParameters -> UnitScript)
-  collisions : List (CollisionData -> UnitScript)
+  collisions : Dict String (Maybe (CollisionData -> UnitScript))
 
 noScripts : Scripts
 noScripts = MkScripts Nothing empty
+
+export
+activeCollisions : Scripts -> List (CollisionData -> UnitScript)
+activeCollisions = catMaybes . values . collisions
 
 interface Damagable a where
   takeDamage : Double -> a -> a
@@ -116,7 +123,6 @@ record Object where
   health : Maybe Health -- TODO move health, controlState, and tags into components
   control : Maybe ControlDescriptor
   scripts : Scripts
-
 %name Object object
 
 Show Object where
@@ -135,6 +141,10 @@ Damagable Object where
   alive object = case health object of
     Nothing => True
     Just health => alive health
+
+deactivateCollision : (name : String) -> Object -> Object
+deactivateCollision name = record {
+  scripts $= record { collisions $= update name (const Nothing) } }
 
 physicsUpdate : (PhysicsProperties -> PhysicsProperties) -> Object -> Object
 physicsUpdate f = record { physicsProperties $= f }

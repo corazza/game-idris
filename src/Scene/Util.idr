@@ -46,10 +46,10 @@ entryUpdate f (Right (object, body)) = Right (f object, body)
 entryUpdate f x = x
 
 objectUpdate : (id : ObjectId) -> (f : Object -> Object) -> (dict : SceneObjects) -> SceneObjects
-objectUpdate id f dict = update id (entryUpdate f) dict
+objectUpdate id f = update id (entryUpdate f)
 
 removeEntry : (id : ObjectId) -> (dict : SceneObjects) -> SceneObjects
-removeEntry id dict = update id (const $ Left ()) dict
+removeEntry id = update id (const $ Left ())
 
 SceneEvents : Type
 SceneEvents = List Events.Event
