@@ -5,7 +5,6 @@ import Graphics.SDL2 as SDL2
 import Language.JSON
 import Control.ST
 
-
 public export
 CacheType : Type -> Type
 CacheType what = Dict String what

@@ -1,4 +1,4 @@
-module SceneDescriptor
+module Descriptors
 
 import Language.JSON
 import Physics.Vector2D
@@ -9,30 +9,6 @@ import Data.AVL.Set
 import Resources
 import GameIO
 import Common
-
-
-interface ObjectCaster a where
-  objectCast : Dict String JSON -> Maybe a
-
-ObjectCaster a => Cast JSON (Maybe a) where
-  cast (JObject xs) = objectCast (fromList xs)
-  cast _ = Nothing
-
-getVector : (name : String) -> (dict : Dict String JSON) -> Maybe Vector2D
-getVector name dict = with Maybe do
-  JArray [JNumber x, JNumber y] <- lookup name dict | Nothing
-  pure (x, y)
-
-getDouble : String -> Dict String JSON -> Maybe Double
-getDouble key dict = case lookup key dict of
-  Just (JNumber x) => Just x
-  _ => Nothing
-
-getDoubleOrDefault : String -> Double -> Dict String JSON -> Double
-getDoubleOrDefault key default dict = case lookup key dict of
-  Just (JNumber x) => x
-  _ => default
-
 
 public export
 data IncompleteRenderDescriptor
@@ -252,7 +228,6 @@ ObjectCaster MapDescriptor where
     background <- the (Maybe Background) (cast background') | Nothing
     JArray creations <- lookup "creations" dict | Nothing
     pure $ MkMapDescriptor name background (catMaybes (map cast creations))
-
 
 public export
 jsonloadFilepath : (Monad m, Cast JSON (Maybe r), GameIO m, ConsoleIO m) =>

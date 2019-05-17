@@ -95,6 +95,3 @@ export
 decideCollisions : ObjectDescriptor -> Creation -> List (CollisionData -> UnitScript)
 decideCollisions desc creation = let object_tags = (tags desc) `union` (tags creation) in
   if contains Projectile object_tags then [projectileDamage 0.5] else empty
-
--- export
--- throwBox

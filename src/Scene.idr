@@ -20,6 +20,7 @@ import Descriptors
 import Resources
 import GameIO
 import Script
+import Camera
 
 public export
 interface Scene (m : Type -> Type) where
@@ -54,7 +55,7 @@ interface Scene (m : Type -> Type) where
   registerEvents : (scene : Var) -> (List Events.Event) -> ST m () [scene ::: SScene]
   controlEvent : (scene : Var) ->
                  (id : String) ->
-                 (camera : Vector2D) ->
+                 (camera : Camera) ->
                  List InputEvent ->
                  ST m () [scene ::: SScene]
 
@@ -418,8 +419,7 @@ export
       _ => physicsToEvents scene xs
 
   physicsToEvents scene [] = pure []
-  -- (MkCollisionForBody id body velocity)
-  physicsToEvents scene ((CollisionStart one two) :: xs)
+  physicsToEvents scene ((CollisionStart one two) :: xs) -- (MkCollisionForBody id body velocity)
     = processPhysicsCollision scene one two xs CollisionStart
   physicsToEvents scene ((CollisionStop one two) :: xs)
     = processPhysicsCollision scene one two xs CollisionStop

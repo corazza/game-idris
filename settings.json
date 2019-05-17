@@ -1,0 +1,7 @@
+{
+  "fullHealthWidth": 50,
+  "fullHealthHeight": 5,
+  "healthYD": 25,
+  "healthColor": [10, 223, 76, 181],
+  "resolution": [1580, 900]
+}

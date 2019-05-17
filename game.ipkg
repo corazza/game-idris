@@ -6,8 +6,8 @@ pkgs = sdl2, contrib, containers, box2d
 
 sourcedir = src
 
-modules = Draw, Scene, Events, Objects, Input, Physics, Resources, Descriptors,
-          GameIO, Scripts, Common, Scene.Util
+modules = Draw, Scene, Scene.Util, Events, Objects, Input, Physics, Resources,
+          Descriptors, GameIO, Scripts, Common, Settings, Camera
 
 main = Main
 

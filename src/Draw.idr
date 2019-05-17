@@ -7,6 +7,7 @@ import Scene
 import Objects
 import Input
 import Resources
+import Common
 
 %access public export
 
@@ -15,8 +16,6 @@ ImageCache = SortedMap String Texture
 
 emptyImageCache : ImageCache
 emptyImageCache = empty
-
-data Color = MkColor Int Int Int Int
 
 interface Draw (m : Type -> Type) where
   SDraw : Type
