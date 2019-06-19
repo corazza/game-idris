@@ -4,6 +4,7 @@ import Graphics.SDL2
 import Data.AVL.Dict
 import Data.AVL.Set
 import Physics.Vector2D
+import Control.ST
 
 import Descriptors
 import Resources
@@ -16,6 +17,18 @@ data CompleteRenderDescriptor
   = DrawBox ResourceReference
   | TileWith ResourceReference Vector2D (Nat, Nat)
   | Invisible
+
+decideRenderDescription : IncompleteRenderDescriptor -> CreationData ->
+                          Maybe CompleteRenderDescriptor
+decideRenderDescription Invisible cdata = Just Invisible
+decideRenderDescription (DrawBox x) (BoxData y) = Just $ DrawBox x
+decideRenderDescription (TileWith tileRef (x, y)) (WallData (nx, ny))
+  = Just $ TileWith tileRef (x, y) (cast nx, cast ny)
+decideRenderDescription _ _ = Nothing
+
+decideRenderDescription' : IncompleteRenderDescriptor -> CreationData ->
+                           STrans m (Maybe CompleteRenderDescriptor) xs (const xs)
+decideRenderDescription' x y = pure $ decideRenderDescription x y
 
 data MoveDirection = Leftward | Rightward
 %name MoveDirection direction
@@ -72,7 +85,18 @@ record PhysicsProperties where
   type : BodyType
   touching : Set ObjectId
 
--- HERE make a Scripts : Type, possibly move to Scripts.idr, which handles
+fromBodyDescriptor : (bodyDescription : BodyDescriptor) ->
+                     (dimensions : Vector2D) ->
+                     (angle : Double) ->
+                     (position : Vector2D) ->
+                     PhysicsProperties
+fromBodyDescriptor bodyDescription dimensions angle position
+  = MkPhysicsProperties position nullVector dimensions angle
+                        (density bodyDescription) (friction bodyDescription)
+                        -- mass overwritten on addBody
+                        (-1) (type bodyDescription) empty
+
+-- TODO make a Scripts : Type, possibly move to Scripts.idr, which handles
 -- adding/deactivation etc. ScriptHolder interface both for Scripts and Object
 
 record Scripts where
@@ -82,6 +106,9 @@ record Scripts where
 
 noScripts : Scripts
 noScripts = MkScripts Nothing empty
+
+decideScripts : ObjectDescriptor -> Creation -> Scripts
+decideScripts desc creation = MkScripts (decideAttack desc) (decideCollisions desc creation)
 
 export
 activeCollisions : Scripts -> List (CollisionData -> UnitScript)
@@ -201,3 +228,23 @@ x = fst . position
 
 y : Object -> Double
 y = snd . position
+
+fromDescriptorCreation : ObjectDescriptor -> Creation -> Maybe Object
+fromDescriptorCreation desc creation = with Maybe do
+  let id = getOrDefault "" (id creation)
+  let tags = tags creation `union` tags desc
+  let health = map fromFull (health desc)
+  let scripts = decideScripts desc creation
+  let irdesc = renderDescription desc
+  let bdesc = bodyDescription desc
+  let cdata = creationData creation
+  dimensions <- decideDimensions irdesc cdata bdesc
+  let physics_properties =
+    fromBodyDescriptor bdesc dimensions (angle creation) (position creation)
+  crdesc <- decideRenderDescription irdesc cdata
+  pure $ MkObject id (name desc) physics_properties noControl crdesc tags health
+                  (control desc) scripts
+
+fromDescriptorCreation' : ObjectDescriptor -> Creation ->
+                          STrans m (Maybe Object) xs (const xs)
+fromDescriptorCreation' desc creation = pure $ fromDescriptorCreation desc creation

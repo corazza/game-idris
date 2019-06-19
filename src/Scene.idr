@@ -47,6 +47,7 @@ interface Scene (m : Type -> Type) where
   private
   runScript : (scene : Var) -> (script : Script a) -> ST m a [scene ::: SScene]
 
+  ||| Just ID on successful add, Nothing on fail
   create : (scene : Var) -> (creation : Creation) -> ST m (Maybe String) [scene ::: SScene]
   createMany : (scene : Var) -> (creations : List Creation) -> ST m () [scene ::: SScene]
   destroy : (scene : Var) -> (id : ObjectId) -> ST m () [scene ::: SScene]
@@ -217,81 +218,18 @@ export
   runScript scene (x >>= f) = runScript scene x >>= (runScript scene) . f
 
   -- HERE need to apply BoxData impulse to creations
-  create scene creation@(MkCreation id ref position angle ctags creationData) = (with ST do
+  create scene creation = with ST do
+    let ref = ref creation
     [spscene, physics, emptyContext, objectCache] <- split scene
     Just desc <- get {m} {r=ObjectDescriptor} objectCache emptyContext ref
               | with ST do combine scene [spscene, physics, emptyContext, objectCache]
                            putStrLn $ "couldn't get descriptor of " ++ ref
                            pure Nothing
-    -- putStrLn $ "creating " ++ show desc
     combine scene [spscene, physics, emptyContext, objectCache]
-    case decideFallible desc creationData of
-      Nothing => ?decideFallibleError
-      Just (dimensions, crd) => with ST do
-        let object_tags = ctags `union` tags desc
-        let physicsProperties = MkPhysicsProperties
-          position nullVector dimensions angle
-          ((BodyDescriptor.density . bodyDescription) desc)
-          ((BodyDescriptor.friction . bodyDescription) desc)
-          (-1) -- mass is overwritten on addBody
-          ((BodyDescriptor.type . bodyDescription) desc)
-          empty
-        let scripts = MkScripts (decideAttack (attack desc)) (decideCollisions desc creation)
-        let object = MkObject
-          (decideId id)
-          (name desc)
-          physicsProperties noControl
-          -- tiled objects don't have dimensions specified in their object descriptors,
-          -- but in the creation, so the IncompleteRenderDescriptor must be processed
-          crd object_tags (map fromFull (health desc)) (control desc) scripts
-        sceneId <- addObject scene object
-        creationImpulse scene sceneId creationData
-        pure (Just sceneId)) where
-      creationImpulse : (scene : Var) -> (id' : ObjectId) -> CreationData -> ST m () [scene ::: SScene {m}]
-      creationImpulse x id' (BoxData y) = applyImpulse x id' (getOrDefault nullVector y)
-      creationImpulse x id' _ = pure ()
-
-      decideAttack : Maybe ScriptDescriptor -> Maybe (ActionParameters -> UnitScript)
-      decideAttack Nothing = Nothing
-      -- TODO why is this pattern-match necessary?
-      decideAttack (Just (Create x)) = Just $ fromDescriptor (Create x) --Just $ fromDescriptor x
-
-      decideRenderDescription : IncompleteRenderDescriptor ->
-                                CreationData ->
-                                Maybe CompleteRenderDescriptor
-      decideRenderDescription Invisible cdata = Just Invisible
-      decideRenderDescription (DrawBox x) (BoxData y) = Just $ DrawBox x
-      decideRenderDescription (DrawBox x) (WallData y) = Nothing
-      decideRenderDescription (TileWith x y) (BoxData z) = Nothing
-      decideRenderDescription (TileWith tileRef (x, y)) (WallData (nx, ny))
-        = Just $ TileWith tileRef (x, y) (cast nx, cast ny)
-
-      decideDimensions : IncompleteRenderDescriptor ->
-                         CreationData ->
-                         BodyDescriptor ->
-                         Maybe Vector2D
-      decideDimensions (DrawBox x) (BoxData y) (MkBodyDescriptor type density friction dimensions) = dimensions
-      decideDimensions (DrawBox x) (WallData y) desc = Nothing
-      decideDimensions (TileWith tileRef (x, y)) (BoxData z) desc = Nothing
-      decideDimensions (TileWith tileRef (x, y)) (WallData (nx, ny)) desc = Just ((cast nx)*x, (cast ny)*y)
-      decideDimensions Invisible (BoxData z) desc = Nothing
-      decideDimensions Invisible (WallData (nx, ny)) desc = Nothing
-      decideDimensions Invisible (InvisibleWallData dims) desc = Just dims
-
-      -- TODO this should return an Either String (...) with the description of what failed
-      decideFallible : ObjectDescriptor ->
-                       CreationData ->
-                       Maybe (Vector2D, CompleteRenderDescriptor)
-      decideFallible desc cdata = let ird = renderDescription desc
-                                      bodyDesc = bodyDescription desc in
-                                      with Maybe do
-        dimensions <- decideDimensions ird cdata bodyDesc | Nothing
-        crd <- decideRenderDescription ird cdata | Nothing
-        pure (dimensions, crd)
-
-      decideId : Maybe String -> String
-      decideId Nothing = ""
-      decideId (Just x) = x
+    Just object <- fromDescriptorCreation' desc creation | pure Nothing
+    sceneId <- addObject scene object
+    applyImpulse scene sceneId (impulseOnCreation (creationData creation))
+    pure (Just sceneId)
 
   createMany scene [] = pure () -- TODO return list of id's
   createMany scene (x :: xs) = with ST do create scene x; createMany scene xs

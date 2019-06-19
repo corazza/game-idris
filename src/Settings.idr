@@ -27,11 +27,11 @@ defaultSettings = MkSettings 60 7 30 defaultHealthColor (1280, 800)
 
 ObjectCaster Settings where
   objectCast dict = with Maybe do
-    JNumber fullHealthWidth <- lookup "fullHealthWidth" dict | Nothing
-    JNumber fullHealthHeight <- lookup "fullHealthHeight" dict | Nothing
-    JNumber healthYD <- lookup "healthYD" dict | Nothing
-    color <- getColor "healthColor" dict | Nothing
-    resolution <- getVector "resolution" dict | Nothing
+    JNumber fullHealthWidth <- lookup "fullHealthWidth" dict
+    JNumber fullHealthHeight <- lookup "fullHealthHeight" dict
+    JNumber healthYD <- lookup "healthYD" dict
+    color <- getColor "healthColor" dict
+    resolution <- getVector "resolution" dict
     pure $ MkSettings (cast fullHealthWidth) (cast fullHealthHeight)
                       (cast healthYD) color (cast resolution)
 

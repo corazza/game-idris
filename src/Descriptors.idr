@@ -18,7 +18,7 @@ data IncompleteRenderDescriptor
 
 ObjectCaster IncompleteRenderDescriptor where
   objectCast dict = with Maybe do
-    JString type <- lookup "type" dict | Nothing
+    JString type <- lookup "type" dict | Nothing -- no idea why | Nothing must be present
     case type of
       "invisible" => pure Invisible
       "single" => with Maybe do
@@ -129,6 +129,7 @@ record ObjectDescriptor where
   health : Maybe Double
   control : Maybe ControlDescriptor
   attack : Maybe ScriptDescriptor
+%name ObjectDescriptor desc
 
 export
 Show ObjectDescriptor where
@@ -158,6 +159,11 @@ public export
 data CreationData = BoxData (Maybe Vector2D)
                   | WallData (Int, Int)
                   | InvisibleWallData Vector2D
+
+export
+impulseOnCreation : CreationData -> Vector2D
+impulseOnCreation (BoxData (Just x)) = x
+impulseOnCreation _ = nullVector
 
 ||| Collects a flat description of a scene object creation for later processing
 public export
@@ -228,6 +234,20 @@ ObjectCaster MapDescriptor where
     background <- the (Maybe Background) (cast background') | Nothing
     JArray creations <- lookup "creations" dict | Nothing
     pure $ MkMapDescriptor name background (catMaybes (map cast creations))
+
+export
+decideDimensions : IncompleteRenderDescriptor -> CreationData ->
+                   BodyDescriptor -> Maybe Vector2D
+decideDimensions (DrawBox x) (BoxData y) desc = dimensions desc
+decideDimensions (TileWith tileRef (x, y)) (WallData (nx, ny)) desc
+  = Just ((cast nx)*x, (cast ny)*y)
+decideDimensions Invisible (BoxData x) desc = dimensions desc
+decideDimensions Invisible (InvisibleWallData dims) desc = Just dims
+decideDimensions _ _ _ = Nothing
+export
+decideDimensions' : IncompleteRenderDescriptor -> CreationData ->
+                    BodyDescriptor -> STrans m (Maybe Vector2D) xs (const xs)
+decideDimensions' x y z = pure $ decideDimensions x y z
 
 public export
 jsonloadFilepath : (Monad m, Cast JSON (Maybe r), GameIO m, ConsoleIO m) =>

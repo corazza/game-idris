@@ -88,14 +88,24 @@ throw ref (MkActionParameters id actionPosition impulse) = with Script do
 public export
 ScriptType : ScriptDescriptor -> Type
 ScriptType (Create ref) = ActionParameters -> UnitScript
+ScriptType _ = UnitScript
 
 public export
 fromDescriptor : (desc : ScriptDescriptor) -> ScriptType desc
 fromDescriptor (Create ref) = throw ref
 
-export
+export -- tags are recreated because other information from descriptor and creation might be relevant
 decideCollisions : ObjectDescriptor -> Creation -> Dict String (Maybe (CollisionData -> UnitScript))
 decideCollisions desc creation = let object_tags = (tags desc) `union` (tags creation) in
   if contains Projectile object_tags
     then insert "projectile" (Just (projectileDamage 0.5)) empty
     else empty
+
+export
+decideAttack : ObjectDescriptor -> Maybe (ActionParameters -> UnitScript)
+decideAttack desc = with Maybe do
+  attackDescriptor <- attack desc
+  -- Just attackDescriptor@(Create x) => Just $ fromDescriptor attackDescriptor
+  case attackDescriptor of
+    Create x => pure $ fromDescriptor (Create x)
+    _ => Nothing
