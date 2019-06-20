@@ -156,9 +156,9 @@ ObjectCaster ObjectDescriptor where
                               (getScript "attack" dict)
 
 public export
-data CreationData = BoxData (Maybe Vector2D)
-                  | WallData (Int, Int)
-                  | InvisibleWallData Vector2D
+data CreationData = BoxData (Maybe Vector2D) -- impulse
+                  | WallData (Int, Int) -- number of tiles (x, y)
+                  | InvisibleWallData Vector2D -- dimensions
 
 export
 impulseOnCreation : CreationData -> Vector2D

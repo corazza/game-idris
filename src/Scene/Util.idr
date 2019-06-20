@@ -1,55 +1,59 @@
 module Scene.Util
 
 import Data.AVL.Dict
+import Data.AVL.DDict
 
 import Physics.Box2D
+import Physics.Vector2D
 import Common
 import Objects
 import Events
+import Descriptors
 
 %access public export
 
-Entry : Type
-Entry = Either () (Object, Body)
-
 SceneObjects : Type
-SceneObjects = Dict ObjectId Entry
+SceneObjects = DDict ObjectId (Object, Body)
 
--- TODO remove duplication via fst and snd
+noObjects : SceneObjects
+noObjects = empty
+
 getObject' : (id : ObjectId) -> (dict : SceneObjects) -> Maybe Object
-getObject' id dict = case lookup id dict of
-  Just (Right (object, body)) => Just object
-  _ => Nothing
-
-extractObject : Entry -> Maybe Object
-extractObject (Left l) = Nothing
-extractObject (Right (object, body)) = Just object
-
-extractBoth : Entry -> Maybe (Object, Body)
-extractBoth (Left l) = Nothing
-extractBoth (Right r) = Just r
+getObject' id = map fst . lookup id
 
 getObjects' : (dict : SceneObjects) -> List Object
-getObjects' dict = catMaybes $ map extractObject (values dict) -- let entries = values dict in ?sdfjn
+getObjects' = map fst . values
 
--- TODO shorten with map
+addObjectBody : (Object, Body) -> (dict : SceneObjects) -> SceneObjects
+addObjectBody entry@(object, body) = insert (id object) entry
+
 getBody' : (id : ObjectId) -> (dict : SceneObjects) -> Maybe Body
-getBody' id dict = case lookup id dict of
-  Just (Right (object, body)) => Just body
-  _ => Nothing
+getBody' id = map snd . lookup id
 
-getBoths : (dict : SceneObjects) -> List (Object, Body)
-getBoths dict = catMaybes $ map extractBoth (values dict)
-
-entryUpdate : (f : Object -> Object) -> Entry -> Entry
-entryUpdate f (Right (object, body)) = Right (f object, body)
-entryUpdate f x = x
-
-objectUpdate : (id : ObjectId) -> (f : Object -> Object) -> (dict : SceneObjects) -> SceneObjects
-objectUpdate id f = update id (entryUpdate f)
-
-removeEntry : (id : ObjectId) -> (dict : SceneObjects) -> SceneObjects
-removeEntry id = update id (const $ Left ())
+objectUpdate : (f : Object -> Object) -> (entry : (Object, Body)) -> (Object, Body)
+objectUpdate f (object, body) = (f object, body)
 
 SceneEvents : Type
 SceneEvents = List Events.Event
+
+noEvents : SceneEvents
+noEvents = empty
+
+updateFromBody : (Monad m, Box2DPhysics m) => (Object, Body) -> m (Object, Body)
+updateFromBody (object, body) = do
+    newPosition <- getPosition body -- idk why !(getPosition body) doesn't work in record
+    newAngle <- getAngle body
+    newVelocity <- getVelocity body
+    let object' = physicsUpdate (record {
+                    position   = newPosition,
+                      angle    = newAngle,
+                      velocity = newVelocity}) object
+    pure $ (object', body)
+
+record PScene where
+  constructor MkPScene
+  idCounter : Nat
+  objects : SceneObjects
+  events : SceneEvents
+  physicsIds : Dict Int String
+  background : Background

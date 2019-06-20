@@ -1,7 +1,7 @@
 module Script
 
 import Data.AVL.Set
-import Data.AVL.Dict
+import Data.AVL.DDict
 
 import Common
 import Physics.Vector2D
@@ -95,10 +95,10 @@ fromDescriptor : (desc : ScriptDescriptor) -> ScriptType desc
 fromDescriptor (Create ref) = throw ref
 
 export -- tags are recreated because other information from descriptor and creation might be relevant
-decideCollisions : ObjectDescriptor -> Creation -> Dict String (Maybe (CollisionData -> UnitScript))
+decideCollisions : ObjectDescriptor -> Creation -> DDict String (CollisionData -> UnitScript)
 decideCollisions desc creation = let object_tags = (tags desc) `union` (tags creation) in
   if contains Projectile object_tags
-    then insert "projectile" (Just (projectileDamage 0.5)) empty
+    then insert "projectile" (projectileDamage 0.5) empty
     else empty
 
 export

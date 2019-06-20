@@ -1,7 +1,7 @@
 module Objects
 
 import Graphics.SDL2
-import Data.AVL.Dict
+-- import Data.AVL.Dict
 import Data.AVL.Set
 import Physics.Vector2D
 import Control.ST
@@ -10,6 +10,8 @@ import Descriptors
 import Resources
 import Common
 import Script
+
+import Data.AVL.DDict
 
 %access public export
 
@@ -102,7 +104,7 @@ fromBodyDescriptor bodyDescription dimensions angle position
 record Scripts where
   constructor MkScripts
   attack : Maybe (ActionParameters -> UnitScript)
-  collisions : Dict String (Maybe (CollisionData -> UnitScript))
+  collisions : DDict String (CollisionData -> UnitScript)
 
 noScripts : Scripts
 noScripts = MkScripts Nothing empty
@@ -112,7 +114,7 @@ decideScripts desc creation = MkScripts (decideAttack desc) (decideCollisions de
 
 export
 activeCollisions : Scripts -> List (CollisionData -> UnitScript)
-activeCollisions = catMaybes . values . collisions
+activeCollisions = values . collisions
 
 interface Damagable a where
   takeDamage : Double -> a -> a
@@ -170,8 +172,7 @@ Damagable Object where
     Just health => alive health
 
 deactivateCollision : (name : String) -> Object -> Object
-deactivateCollision name = record {
-  scripts $= record { collisions $= update name (const Nothing) } }
+deactivateCollision name = record { scripts->collisions $= delete name }
 
 physicsUpdate : (PhysicsProperties -> PhysicsProperties) -> Object -> Object
 physicsUpdate f = record { physicsProperties $= f }
@@ -192,6 +193,9 @@ addTouching id = physicsUpdate $ record { touching $= insert id }
 removeTouching : ObjectId -> Object -> Object
 removeTouching id = let to_remove = insert id empty in
   physicsUpdate $ record { touching $= \t => difference t to_remove }
+
+getControlST : Object -> STrans m (Maybe ControlDescriptor) xs (const xs)
+getControlST = pure . control
 
 density : Object -> Double
 density = density . physicsProperties
