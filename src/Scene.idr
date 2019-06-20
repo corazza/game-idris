@@ -19,12 +19,13 @@ import Resources
 import GameIO
 import Script
 import Camera
+import Settings
 
 public export
 interface Scene (m : Type -> Type) where
   SScene : Type
 
-  startScene : (descriptor : MapDescriptor) -> ST m Var [add SScene]
+  startScene :  (descriptor : MapDescriptor) -> (settings : SceneSettings) -> ST m Var [add SScene]
   endScene : (scene : Var) -> ST m () [remove scene SScene]
 
   getObject : (scene : Var) -> (id : ObjectId) -> ST m (Maybe Object) [scene ::: SScene]
@@ -84,10 +85,6 @@ interface Scene (m : Type -> Type) where
   private
   handleEvents' : (scene : Var) -> (List Events.Event) -> ST m () [scene ::: SScene]
   private
-  handleControl : (scene : Var) -> String ->
-                  (ControlState -> ControlState) ->
-                  ST m () [scene ::: SScene]
-  private
   handleCollision : (scene : Var) -> CollisionData -> ST m () [scene ::: SScene]
   private -- handle single event
   handle : (scene : Var) -> Events.Event -> ST m () [scene ::: SScene]
@@ -102,9 +99,9 @@ export
                       EmptyContext {m},
                       SCache {m} {r=ObjectDescriptor}]
 
-  startScene (MkMapDescriptor name background creations) = with ST do
-    pscene <- new $ MkPScene Z noObjects noEvents empty background
-    physics <- createWorld (0, -8.0)
+  startScene (MkMapDescriptor name background creations) settings = with ST do
+    pscene <- new $ emptyPScene background
+    physics <- createWorld (0, gravity settings)
     objectCache <- initCache {r=ObjectDescriptor}
     emptyContext <- createEmptyContext
     scene <- new ()
@@ -208,13 +205,13 @@ export
     combine scene [spscene, physics, emptyContext, objectCache]
     pure (id object')
 
-  addObject scene object@(MkObject "" _ _ _ _ _ _ _ _)
-    = with ST do [spscene, physics, emptyContext, objectCache] <- split scene
-                 pscene <- read spscene
-                 let idString = "autoid_" ++ (show (idCounter pscene))
-                 write spscene (record {idCounter $= (+1)} pscene)
-                 combine scene [spscene, physics, emptyContext, objectCache]
-                 addWithId scene (record {id = idString} object)
+  addObject scene object@(MkObject "" _ _ _ _ _ _ _) = with ST do
+    [spscene, physics, emptyContext, objectCache] <- split scene
+    pscene <- read spscene
+    let idString = "autoid_" ++ show (idCounter pscene)
+    write spscene (record {idCounter $= (+1)} pscene)
+    combine scene [spscene, physics, emptyContext, objectCache]
+    addWithId scene (record {id = idString} object)
   addObject scene object = addWithId scene object
 
   queryObject scene id f = pure $ map f !(getObject scene id)
@@ -241,23 +238,10 @@ export
     let objectBodys = values (objects pscene)
     commitControl' physics objectBodys
     combine scene [spscene, physics, emptyContext, objectCache]) where
-      commitControl' : (physics : Var) -> List (Object, Body) -> ST m () [physics ::: SBox2D {m}]
+      commitControl' : (physics : Var) -> List Entry -> ST m () [physics ::: SBox2D {m}]
       commitControl' physics [] = pure ()
-      commitControl' physics ((obj, body) :: xs) = with ST do
-        Just control <- getControlST obj | commitControl' physics xs
-        (x, y) <- lift $ getVelocity body
-        mass <- lift $ getMass body
-        let ctst = controlState obj
-        let x' = case moving ctst of
-                      Nothing => 0
-                      Just Leftward => - (speed control)
-                      Just Rightward => speed control
-        let y' = if jumping ctst && canJump ctst && size (touching obj) > 0
-                    then jump control
-                    else 0
-        let x_correction = x' - x
-        let impulse = mass `scale` (if abs x_correction < 0.01 then 0 else x_correction, y')
-        applyImpulse physics body impulse
+      commitControl' physics ((object, body) :: xs) = with ST do
+        applyImpulse physics body (movementImpulse object)
         commitControl' physics xs
 
   iteratePhysics scene ticks = with ST do
@@ -303,24 +287,24 @@ export
   handleEvents' scene [] = pure ()
   handleEvents' scene (x::xs) = handle scene x >>= \_=> handleEvents' scene xs
 
-  handleControl scene id f = with ST do
-    updateObject scene id (record { controlState $= f })
-
   handleCollision scene cdata@(MkCollisionData self other) = with ST do
     updateObject scene (id self) (addTouching (id other))
     Just scripts' <- queryObject scene (id self) (activeCollisions . scripts) | pure ()
     let scripts = map (\f => f cdata) scripts'
     runScript scene (sequence_ scripts)
 
-  handle scene (MovementStart direction id) = handleControl scene id (startMoving direction)
-  handle scene (MovementStop id) = handleControl scene id stopMoving
-  handle scene (AttackStart pos id) = handleControl scene id startAttacking
+  handle scene (MovementStart direction id)
+    = updateObject scene id (updateControl $ startMoving direction)
+  handle scene (MovementStop id)
+    = updateObject scene id (updateControl stopMoving)
+  handle scene (AttackStart pos id)
+    = updateObject scene id (updateControl startAttacking)
   handle scene (AttackStop pos id) = with ST do
-    handleControl scene id stopAttacking
+    updateObject scene id (updateControl stopAttacking)
     Just (Just attack_script) <- queryObject scene id (attack . scripts) | pure ()
     runScript scene (attack_script (MkActionParameters id pos (Just 2.5)))
-  handle scene (JumpStart id) = handleControl scene id startJumping
-  handle scene (JumpStop id) = handleControl scene id stopJumping
+  handle scene (JumpStart id) = updateObject scene id (updateControl startJumping)
+  handle scene (JumpStop id) = updateObject scene id (updateControl stopJumping)
   handle scene (CollisionStart one two)
     = let cdata = buildCollisionData one two in with ST do
           handleCollision scene (cdata First)

@@ -146,7 +146,7 @@ game {m} = with ST do
   emptyContext <- createEmptyContext
 
   Just map <- get {m} {r=MapDescriptor} mapCache emptyContext "likert" | Nothing => ?noLikert
-  scene <- startScene map
+  scene <- startScene map (sceneSettings settings)
   let playerCreation = MkCreation (Just "player") "disciple" (0, 5) 0 empty (BoxData Nothing)
   create scene playerCreation
 

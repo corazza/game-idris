@@ -45,7 +45,6 @@ record ControlState where
   jumping : Bool
   canJump : Bool
   attacking : Bool
-
 %name ControlState controlState
 
 Show ControlState where
@@ -56,6 +55,12 @@ Show ControlState where
 
 noControl : ControlState
 noControl = MkControlState Nothing False False False
+
+moveSign : ControlState -> Double
+moveSign controlState = case moving controlState of
+  Nothing => 0
+  Just Leftward => -1
+  Just Rightward => 1
 
 startMoving : (direction : MoveDirection) -> ControlState -> ControlState
 startMoving direction = record { moving = Just direction }
@@ -74,6 +79,9 @@ startAttacking = record { attacking = True }
 
 stopAttacking : ControlState -> ControlState
 stopAttacking = record { attacking = False }
+
+resetControlState : ControlState -> ControlState
+resetControlState ctst = record { canJump = not (jumping ctst) } ctst
 
 record PhysicsProperties where
   constructor MkPhysicsProperties
@@ -140,36 +148,58 @@ fromFull x = MkHealth x x
 percent : Health -> Double
 percent (MkHealth current full) = current / full
 
--- all changes -> physics, physics -> objects
+record ObjectControl where
+  constructor MkObjectControl
+  controlState : ControlState
+  controlParameters : ControlDescriptor
+%name ObjectControl control
+
+Show ObjectControl where
+  show (MkObjectControl ctst ctp)
+    =  "{ control | "
+    ++   "controlState: " ++ show ctst
+    ++ ", controlParameters: " ++ show ctp
+    ++ "}"
+
+resetObjectControl : ObjectControl -> ObjectControl
+resetObjectControl = record { controlState $= resetControlState }
+
+updateObjectControl : (f : ControlState -> ControlState) -> ObjectControl -> ObjectControl
+updateObjectControl f = record { controlState $= f }
+
 record Object where
   constructor MkObject
   id : String
   name : String
   physicsProperties : PhysicsProperties
-  controlState : ControlState
   renderDescription : CompleteRenderDescriptor
   tags : Set ObjectTag
-  health : Maybe Health -- TODO move health, controlState, and tags into components
-  control : Maybe ControlDescriptor
   scripts : Scripts
+  control : Maybe ObjectControl
+  health : Maybe Health -- TODO move health, controlState, and tags into components
 %name Object object
 
 Show Object where
-  show (MkObject id name physicsProperties controlState renderDescription tags
-                 health control scripts)
-    =    "{ object | "
-      ++   "id: " ++ id
-      ++ ", name: " ++ name
-      ++ ", controlState: " ++ show controlState
-      ++ ", tags: " ++ show tags
-      ++ ", health: " ++ show health
-      ++ " }"
+  show (MkObject id name physicsProperties renderDescription tags scripts control health)
+    =  "{ object | "
+    ++   "id: " ++ id
+    ++ ", name: " ++ name
+    ++ ", tags: " ++ show tags
+    ++ ", control: " ++ show control
+    ++ ", health: " ++ show health
+    ++ " }"
 
 Damagable Object where
   takeDamage x = record { health $= map (takeDamage x) }
   alive object = case health object of
     Nothing => True
     Just health => alive health
+
+controlState : Object -> Maybe ControlState
+controlState = map controlState . control
+
+controlParameters : Object -> Maybe ControlDescriptor
+controlParameters = map controlParameters . control
 
 deactivateCollision : (name : String) -> Object -> Object
 deactivateCollision name = record { scripts->collisions $= delete name }
@@ -178,11 +208,15 @@ physicsUpdate : (PhysicsProperties -> PhysicsProperties) -> Object -> Object
 physicsUpdate f = record { physicsProperties $= f }
 
 jumping : Object -> Bool
-jumping = jumping . controlState
+jumping object = case control object of
+  Nothing => False
+  Just x => jumping $ controlState x
 
 resetControl : Object -> Object
-resetControl object = record { controlState $=
-  record { canJump = not (jumping object) } } object
+resetControl = record { control $= map resetObjectControl }
+
+updateControl : (f : ControlState -> ControlState) -> Object -> Object
+updateControl f = record { control $= map (updateObjectControl f) }
 
 touching : Object -> Set ObjectId
 touching = touching . physicsProperties
@@ -194,8 +228,9 @@ removeTouching : ObjectId -> Object -> Object
 removeTouching id = let to_remove = insert id empty in
   physicsUpdate $ record { touching $= \t => difference t to_remove }
 
+-- TODO delete
 getControlST : Object -> STrans m (Maybe ControlDescriptor) xs (const xs)
-getControlST = pure . control
+getControlST = pure . controlParameters
 
 density : Object -> Double
 density = density . physicsProperties
@@ -221,6 +256,21 @@ position = position . physicsProperties
 velocity : Object -> Vector2D
 velocity = velocity . physicsProperties
 
+-- TODO fix
+onGround : Object -> Bool
+onGround object = size (touching object) > 0
+
+movementImpulse : Object -> Vector2D
+movementImpulse object = case control object of
+  Nothing => nullVector
+  Just (MkObjectControl controlState controlParameters) => let
+    (x, y) = velocity object
+    x' = (speed controlParameters) * (moveSign controlState)
+    y' = if jumping controlState && canJump controlState && (onGround object)
+              then jump controlParameters else 0
+    x_correction = if abs (x' - x) < 0.01 then 0 else x' - x
+          in (mass object) `scale` (x_correction, y')
+
 w : Object -> Double
 w = fst . dimensions
 
@@ -232,6 +282,9 @@ x = fst . position
 
 y : Object -> Double
 y = snd . position
+
+controlFromDescriptor : ObjectDescriptor -> Maybe ObjectControl
+controlFromDescriptor = map (MkObjectControl noControl) . control
 
 fromDescriptorCreation : ObjectDescriptor -> Creation -> Maybe Object
 fromDescriptorCreation desc creation = with Maybe do
@@ -246,8 +299,8 @@ fromDescriptorCreation desc creation = with Maybe do
   let physics_properties =
     fromBodyDescriptor bdesc dimensions (angle creation) (position creation)
   crdesc <- decideRenderDescription irdesc cdata
-  pure $ MkObject id (name desc) physics_properties noControl crdesc tags health
-                  (control desc) scripts
+  pure $ MkObject id (name desc) physics_properties crdesc tags scripts
+                  (controlFromDescriptor desc) health
 
 fromDescriptorCreation' : ObjectDescriptor -> Creation ->
                           STrans m (Maybe Object) xs (const xs)

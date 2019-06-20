@@ -79,8 +79,6 @@ getScript name dict = case lookup name dict of
   Nothing => Nothing
   Just x => cast x
 
-
-
 public export
 record ControlDescriptor where
   constructor MkControlDescriptor
@@ -145,10 +143,8 @@ Show ObjectDescriptor where
 ObjectCaster ObjectDescriptor where
   objectCast dict = with Maybe do
     JString name <- lookup "name" dict | Nothing
-    box2dJson <- lookup "box2d" dict | Nothing
-    box2d <- (the (Maybe BodyDescriptor) (cast box2dJson)) | Nothing
-    renderJson <- lookup "render" dict | Nothing
-    render <- (the (Maybe IncompleteRenderDescriptor) (cast renderJson)) | Nothing
+    box2d <- the (Maybe BodyDescriptor) $ getCastable "box2d" dict
+    render <- the (Maybe IncompleteRenderDescriptor) $ getCastable "render" dict
     pure $ MkObjectDescriptor name box2d render
                               (getTags dict)
                               (getDouble "health" dict)
@@ -200,9 +196,6 @@ ObjectCaster Creation where
                       Just $ InvisibleWallData (x, y)
                     _ => Nothing
 
-      -- extractBoxData : Dict String JSON -> Maybe CreationData
-      -- extractBoxData dict =
-
       getCreationData : Dict String JSON -> Maybe CreationData
       getCreationData dict = case extractWallData dict of
         Nothing => Just $ BoxData (getVector "impulse" dict)
@@ -230,8 +223,7 @@ record MapDescriptor where
 ObjectCaster MapDescriptor where
   objectCast dict = with Maybe do
     JString name <- lookup "name" dict | Nothing
-    background' <- lookup "background" dict | Nothing
-    background <- the (Maybe Background) (cast background') | Nothing
+    background <- the (Maybe Background) $ getCastable "background" dict
     JArray creations <- lookup "creations" dict | Nothing
     pure $ MkMapDescriptor name background (catMaybes (map cast creations))
 
@@ -263,9 +255,6 @@ public export
   idToFilepath id = "res/maps/" ++ id ++ ".json"
   loadFilepath _ = jsonloadFilepath
   destroy _ = pure ()
-  -- loadFilepath _ filepath = do
-  --   Just a <- lift $ loadJSON filepath | pure Nothing
-  --   pure $ cast a
 
 public export
 (Monad m, GameIO m, ConsoleIO m) => Loader m ObjectDescriptor where
@@ -273,6 +262,3 @@ public export
   idToFilepath id = "res/objects/" ++ id ++ ".json"
   loadFilepath _ = jsonloadFilepath
   destroy _ = pure ()
-  -- loadFilepath _ filepath = do
-  --   Just a <- lift $ loadJSON filepath | pure Nothing
-  --   pure $ cast a

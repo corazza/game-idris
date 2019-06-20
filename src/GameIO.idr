@@ -41,6 +41,18 @@ ObjectCaster a => Cast JSON (Maybe a) where
   cast (JObject xs) = objectCast (fromList xs)
   cast _ = Nothing
 
+
+
+export
+getCastable : ObjectCaster a => (name : String) -> (dict : Dict String JSON) -> Maybe a
+getCastable name dict = with Maybe do
+  aJSON <- lookup name dict
+  the (Maybe a) (cast aJSON)
+
+export
+getCastableOrDefault : ObjectCaster a => a -> (name : String) -> (dict : Dict String JSON) -> a
+getCastableOrDefault x name dict = getOrDefault x (getCastable name dict)
+
 export
 getColor : (name : String) -> (dict : Dict String JSON) -> Maybe Color
 getColor name dict = with Maybe do
