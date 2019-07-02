@@ -9,6 +9,7 @@ import Common
 import Objects
 import Events
 import Descriptors
+import GameIO
 
 %access public export
 
@@ -42,9 +43,16 @@ SceneEvents = List Events.Event
 noEvents : SceneEvents
 noEvents = empty
 
-updateFromBody : (Monad m, Box2DPhysics m) => Entry -> m Entry
-updateFromBody (object, body) = do
-    newPosition <- getPosition body -- idk why !(getPosition body) doesn't work in record
+addBody' : (GameIO m, Monad m) => (world : Box2D.World) -> Object -> m (Int, Body)
+addBody' world object = with m do
+  let def = makeBodyDefinition (type object) (position object) (angle object)
+  (id, body) <- createBody world def
+  traverse (createFixture body) (fixtures $ physicsProperties object)
+  pure (id, body)
+
+updateFromBody : (GameIO m, Monad m) => Entry -> m Entry
+updateFromBody (object, body) = with m do
+    newPosition <- getPosition body
     newAngle <- getAngle body
     newVelocity <- getVelocity body
     let object' = physicsUpdate (record {
@@ -52,6 +60,12 @@ updateFromBody (object, body) = do
                       angle    = newAngle,
                       velocity = newVelocity}) object
     pure $ (object', body)
+
+commitControl' : (GameIO m, Monad m) => (world : Box2D.World) -> List Entry -> m ()
+commitControl' world [] = pure ()
+commitControl' world ((object, body) :: xs) = with m do
+  applyImpulse body (movementImpulse object)
+  commitControl' world xs
 
 record PScene where
   constructor MkPScene

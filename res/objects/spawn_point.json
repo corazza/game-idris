@@ -1,15 +1,23 @@
 {
   "name": "Spawn",
   "tags": ["spawn"],
-  "box2d": {
-      "type": "box",
-      "mass": 1,
-      "dimensions": [0.5, 0.5],
-      "density": 1,
-      "friction": 0.5
+
+  "body": {
+      "type": "dynamic",
+
+      "fixture": {
+        "shape": {
+          "type": "box",
+          "dimensions": [0.5, 0.5]
+        },
+        "density": 1,
+        "friction": 0.5
+      }
   },
+
   "render": {
       "type": "single",
-      "image": "wooden_crate.png"
+      "image": "wooden_crate.png",
+      "dimensions": [0.5, 0.5]
   }
 }

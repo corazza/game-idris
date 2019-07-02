@@ -6,6 +6,7 @@ import Language.JSON
 import Physics.Vector2D
 import Common
 import GameIO
+import Exception
 
 export
 defaultHealthColor : Color
@@ -18,8 +19,8 @@ record SceneSettings where
 %name SceneSettings sceneSettings
 
 ObjectCaster SceneSettings where
-  objectCast dict = with Maybe do
-    JNumber gravity <- lookup "gravity" dict
+  objectCast dict = with Checked do
+    gravity <- getDouble "gravity" dict
     pure $ MkSceneSettings (-gravity)
 
 export
@@ -43,9 +44,9 @@ defaultSettings = MkSettings 60 7 30 defaultHealthColor (1280, 800) defaultScene
 
 ObjectCaster Settings where
   objectCast dict = with Maybe do
-    JNumber fullHealthWidth <- lookup "fullHealthWidth" dict
-    JNumber fullHealthHeight <- lookup "fullHealthHeight" dict
-    JNumber healthYD <- lookup "healthYD" dict
+    fullHealthWidth <- getDouble "fullHealthWidth" dict
+    fullHealthHeight <- getDouble "fullHealthHeight" dict
+    healthYD <- getDouble "healthYD" dict
     color <- getColor "healthColor" dict
     resolution <- getVector "resolution" dict
     let sceneSettings = getCastableOrDefault defaultSceneSettings "scene" dict
@@ -53,6 +54,6 @@ ObjectCaster Settings where
                       (cast healthYD) color (cast resolution) sceneSettings
 
 export
-loadSettings : (Monad m, GameIO m) => (path : String) -> m (Maybe Settings)
-loadSettings path = do Just a <- loadJSON path | pure Nothing
+loadSettings : (Monad m, GameIO m) => (path : String) -> m (Checked Settings)
+loadSettings path = do Just a <- loadJSON path | pure (fail $ "couldn't load: " ++ path)
                        pure (cast a)

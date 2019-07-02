@@ -23,6 +23,10 @@ record CollisionForObject where
   id : ObjectId
   velocity : Vector2D
 
+export
+Show CollisionForObject where
+  show (MkCollisionForObject id velocity) = id ++ " with velocity " ++ show velocity
+
 public export
 record ActionParameters where
   constructor MkActionParameters

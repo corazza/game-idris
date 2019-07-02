@@ -3,15 +3,22 @@
   "health": 20,
   "tags": [],
 
-  "box2d": {
-      "type": "box",
-      "dimensions": [0.5, 0.5],
-      "density": 3,
-      "friction": 0.3
+  "body": {
+      "type": "dynamic",
+      "bullet": true,
+      "fixture": {
+        "shape": {
+          "type": "box",
+          "dimensions": [0.5, 0.5]
+        },
+        "density": 3,
+        "friction": 0.5
+      }
   },
 
   "render": {
       "type": "single",
-      "image": "wooden_crate.png"
+      "image": "wooden_crate.png",
+      "dimensions": [0.5, 0.5]
   }
 }

@@ -3,11 +3,16 @@
   "health": 100,
   "tags": [],
 
-  "box2d": {
-    "type": "box",
-    "dimensions": [0.5, 0.727273],
-    "density": 5,
-    "friction": 0.3
+  "body": {
+    "type": "dynamic",
+    "fixture": {
+      "shape": {
+        "type": "box",
+        "dimensions": [0.5, 0.727273]
+      },
+      "density": 5,
+      "friction": 0.3
+    }
   },
 
   "attack": {
@@ -23,6 +28,7 @@
 
   "render": {
     "type": "single",
-    "image": "disciple.png"
+    "image": "disciple.png",
+    "dimensions": [0.5, 0.727273]
   }
 }

@@ -1,9 +1,8 @@
-import Data.SortedMap
+import Data.AVL.Dict
 import Control.ST
 import Graphics.SDL2 as SDL2
 
 import Events
-import Scene
 import Objects
 import Input
 import Resources
@@ -12,10 +11,17 @@ import Common
 %access public export
 
 ImageCache : Type
-ImageCache = SortedMap String Texture
+ImageCache = CacheType Texture
 
 emptyImageCache : ImageCache
 emptyImageCache = empty
+
+loadTexture : (renderer : Renderer) -> (filepath : String) -> IO (Maybe Texture)
+loadTexture renderer filepath = with IO do
+  Just surface <- SDL2.loadImage filepath | pure Nothing
+  texture <- SDL2.createTextureFromSurface renderer surface
+  SDL2.freeSurface surface
+  pure (Just texture)
 
 interface Draw (m : Type -> Type) where
   SDraw : Type
@@ -28,8 +34,7 @@ interface Draw (m : Type -> Type) where
   clear : (draw : Var) -> ST m Int [draw ::: SDraw]
   present : (draw : Var) -> ST m () [draw ::: SDraw]
 
-  -- getTexture : (draw : Var) -> (name : String) -> ST m Texture [draw ::: SDraw]
-  loadTexture : (draw : Var) -> (name : String) -> ST m (Maybe Texture) [draw ::: SDraw]
+  getTexture : (draw : Var) -> (id : String) -> ST m (Maybe Texture) [draw ::: SDraw]
   destroyTexture : Texture -> STrans m () xs (const xs)
 
   filledRect : (draw : Var) -> (dst : SDLRect) -> Color -> ST m () [draw ::: SDraw]
@@ -46,14 +51,7 @@ interface Draw (m : Type -> Type) where
                     (angle : Double) ->
                     ST m () [draw ::: SDraw]
 
-public export
-Draw m => Loader m Texture where
-  Context {m} = SDraw {m}
-  idToFilepath id = "res/images/" ++ id
-  loadFilepath ctx filepath = with ST do
-    texture <- loadTexture ctx filepath
-    pure texture
-  destroy = destroyTexture
+-- TODO move to GameIO? like physics
 
 export
 Draw IO where
@@ -87,13 +85,17 @@ Draw IO where
                   lift $ SDL2.renderPresent !(read renderer)
                   combine draw [renderer, imageCache]
 
-  loadTexture draw filepath = with ST do
-    Just surface <- lift $ SDL2.loadImage filepath | pure Nothing
+  getTexture draw id = with ST do
     [renderer, imageCache] <- split draw
-    texture <- lift $ SDL2.createTextureFromSurface !(read renderer) surface
-    lift $ SDL2.freeSurface surface
-    combine draw [renderer, imageCache]
-    pure (Just texture)
+    cache <- read imageCache
+    case lookup id cache of -- TODO this pattern is repeated from SimpleCache, fix
+      Nothing => with ST do
+        Just texture <- lift $ loadTexture !(read renderer) ("res/images/" ++ id)
+                     | do combine draw [renderer, imageCache]; pure Nothing
+        write imageCache (insert id texture cache)
+        combine draw [renderer, imageCache]
+        pure $ Just texture
+      Just x => do combine draw [renderer, imageCache]; pure (Just x)
 
   destroyTexture texture = lift $ SDL2.destroyTexture texture
 

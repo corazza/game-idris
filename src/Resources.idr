@@ -4,6 +4,10 @@ import Data.AVL.Dict
 import Graphics.SDL2 as SDL2
 import Language.JSON
 import Control.ST
+import Control.ST.ImplicitCall
+
+import Exception
+import GameIO
 
 public export
 CacheType : Type -> Type
@@ -13,51 +17,35 @@ public export
 emptyCache : (a : Type) -> CacheType a
 emptyCache a = the (CacheType a) empty
 
-public export
-interface Loader (m : Type -> Type) r where
-  Context : Type
-  idToFilepath : (id : String) -> String
-  loadFilepath : (context : Var) ->
-                 (filepath : String) ->
-                 ST m (Maybe r) [context ::: Context]
-  destroy : r -> STrans m () xs (const xs)
+-- get : CacheType r ->
 
 public export
-interface Cache (m : Type -> Type) r where
+interface SimpleLoader (m : Type -> Type) r where
+  load : (filepath : String) -> m (Checked r)
+
+public export
+interface SimpleCache (m : Type -> Type) r where
   SCache : Type
-  LoadContext : Type
-
   initCache : ST m Var [add SCache]
   quitCache : (cache : Var) -> ST m () [remove cache SCache]
-
-  get : (cache : Var) ->
-        (context : Var) ->
-        (id : String) ->
-        ST m (Maybe r) [cache ::: SCache, context ::: LoadContext]
+  get : (cache : Var) -> (id : String) -> ST m (Checked r) [cache ::: SCache]
 
 public export
-(Loader m r, ConsoleIO m) => Cache m r where
-  -- SCache = ?what
+(GameIO m, SimpleLoader m r) => SimpleCache m r where
   SCache {r} = State $ CacheType r
-  LoadContext {m} {r} = Context {m} {r}
 
   initCache = with ST do
     cache <- new (emptyCache r)
     pure cache
 
-  quitCache cache = (with ST do
-    dict <- read cache
-    destroyAll (values dict)
-    delete cache) where
-      destroyAll : List r -> STrans m () xs (const xs)
-      destroyAll [] = pure ()
-      destroyAll (x :: xs) = destroy x >>= (\_ => destroyAll xs)
+  quitCache cache = delete cache
 
-  get cache ctx id = with ST do
+  get cache id = with ST do
     dict <- read cache
     case lookup id dict of
-      Nothing => do let filepath = idToFilepath {m} {r} id
-                    Just result <- call $ loadFilepath {m} {r} ctx filepath | pure Nothing
-                    write cache (insert id result dict)
-                    pure (Just result)
-      x => pure x
+      Nothing => with ST do
+        Right result <- lift $ load {m} {r} id
+                     | Left e => pure (fail e)
+        write cache (insert id result dict)
+        pure $ Right result
+      Just x => pure $ Right x

@@ -1,11 +1,11 @@
 module Objects
 
 import Graphics.SDL2
--- import Data.AVL.Dict
 import Data.AVL.Set
 import Physics.Vector2D
 import Control.ST
 
+import Physics.Box2D
 import Descriptors
 import Resources
 import Common
@@ -16,14 +16,14 @@ import Data.AVL.DDict
 %access public export
 
 data CompleteRenderDescriptor
-  = DrawBox ResourceReference
+  = DrawBox ResourceReference Vector2D
   | TileWith ResourceReference Vector2D (Nat, Nat)
   | Invisible
 
 decideRenderDescription : IncompleteRenderDescriptor -> CreationData ->
                           Maybe CompleteRenderDescriptor
-decideRenderDescription Invisible cdata = Just Invisible
-decideRenderDescription (DrawBox x) (BoxData y) = Just $ DrawBox x
+decideRenderDescription Invisible _ = Just Invisible
+decideRenderDescription (DrawBox x dims) (BoxData y) = Just $ DrawBox x dims
 decideRenderDescription (TileWith tileRef (x, y)) (WallData (nx, ny))
   = Just $ TileWith tileRef (x, y) (cast nx, cast ny)
 decideRenderDescription _ _ = Nothing
@@ -83,32 +83,32 @@ stopAttacking = record { attacking = False }
 resetControlState : ControlState -> ControlState
 resetControlState ctst = record { canJump = not (jumping ctst) } ctst
 
+-- mass overwritten on addBody
 record PhysicsProperties where
   constructor MkPhysicsProperties
+  type : BodyType
   position : Vector2D
   velocity : Vector2D
-  dimensions : Vector2D
   angle : Double
-  density : Double
-  friction : Double
+  -- density : Double
+  -- friction : Double
   mass : Double -- overwritten on Scene.addWithId
-  type : BodyType
   touching : Set ObjectId
+  fixtures : List FixtureDefinition
+  -- dimensions : Vector2D
 
-fromBodyDescriptor : (bodyDescription : BodyDescriptor) ->
-                     (dimensions : Vector2D) ->
-                     (angle : Double) ->
-                     (position : Vector2D) ->
-                     PhysicsProperties
-fromBodyDescriptor bodyDescription dimensions angle position
-  = MkPhysicsProperties position nullVector dimensions angle
-                        (density bodyDescription) (friction bodyDescription)
-                        -- mass overwritten on addBody
-                        (-1) (type bodyDescription) empty
+-- fromDescCreation : BodyDescriptor -> Creation -> PhysicsProperties
+-- fromDescCreation desc creation
+--   = let noFixtures = MkPhysicsProperties (type desc) (position creation)
+--                                          nullVector (angle creation) (-1) empty
+--       in case creationData creation of
+--             (BoxData x) => ?sdklfmksdm
+--             (WallData x) => ?sdflkgmsdk_2
+--             (InvisibleWallData x) => noFixtures [defaultWallFixture x]
+
 
 -- TODO make a Scripts : Type, possibly move to Scripts.idr, which handles
 -- adding/deactivation etc. ScriptHolder interface both for Scripts and Object
-
 record Scripts where
   constructor MkScripts
   attack : Maybe (ActionParameters -> UnitScript)
@@ -232,20 +232,23 @@ removeTouching id = let to_remove = insert id empty in
 getControlST : Object -> STrans m (Maybe ControlDescriptor) xs (const xs)
 getControlST = pure . controlParameters
 
-density : Object -> Double
-density = density . physicsProperties
-
-friction : Object -> Double
-friction = friction . physicsProperties
-
 angle : Object -> Double
 angle = angle . physicsProperties
 
 mass : Object -> Double
 mass = mass . physicsProperties
 
+-- TODO invisible e.g. should return aabb
 dimensions : Object -> Vector2D
-dimensions = dimensions . physicsProperties
+dimensions object = case renderDescription object of
+  DrawBox ref dim => dim
+  TileWith ref (x, y) (nx, ny) => (cast nx * x, cast ny * y)
+  Invisible => case fixtures $ physicsProperties object of
+    [] => nullVector
+    (x :: xs) => case shape x of
+      (Circle r) => (r, r)
+      (Box x) => x
+      (Polygon xs) => ?polygonDimensionsObjects
 
 dim : Object -> Vector2D
 dim = dimensions
@@ -255,6 +258,9 @@ position = position . physicsProperties
 
 velocity : Object -> Vector2D
 velocity = velocity . physicsProperties
+
+type : Object -> BodyType
+type = type . physicsProperties
 
 -- TODO fix
 onGround : Object -> Bool
@@ -271,11 +277,11 @@ movementImpulse object = case control object of
     x_correction = if abs (x' - x) < 0.01 then 0 else x' - x
           in (mass object) `scale` (x_correction, y')
 
-w : Object -> Double
-w = fst . dimensions
-
-h : Object -> Double
-h = snd . dimensions
+-- w : Object -> Double
+-- w = fst . dimensions
+--
+-- h : Object -> Double
+-- h = snd . dimensions
 
 x : Object -> Double
 x = fst . position
@@ -286,6 +292,34 @@ y = snd . position
 controlFromDescriptor : ObjectDescriptor -> Maybe ObjectControl
 controlFromDescriptor = map (MkObjectControl noControl) . control
 
+fromParams : FixtureParameters -> Shape -> FixtureDefinition
+fromParams (MkFixtureParameters offset angle density friction restitution) shape
+  = MkFixtureDefinition shape offset angle density friction restitution
+
+fromShapes : List ShapedFixtureDescriptor -> List FixtureDefinition
+fromShapes [] = []
+fromShapes ((MkShapedFixtureDescriptor shape params) :: xs)
+  = fromParams params shape :: fromShapes xs
+
+getPhysicsProperties : BodyDescriptor ->
+                       Creation ->
+                       IncompleteRenderDescriptor ->
+                       Maybe PhysicsProperties
+getPhysicsProperties bdesc creation irdesc = with Maybe do
+  let cdata = creationData creation
+  let noFixtures = MkPhysicsProperties (type bdesc) (position creation)
+                                       nullVector (angle creation) (-1) empty
+  case fixtures bdesc of
+    Left (MkImmaterialFixtureDescriptor params) => case cdata of
+      BoxData x => Nothing
+      WallData (nx, ny) => case irdesc of
+        TileWith _ (x, y) => pure $
+          noFixtures $ [fromParams params (Box (cast nx * x, cast ny * y))]
+        _ => Nothing
+      InvisibleWallData x => pure $ noFixtures $ [fromParams params (Box x)]
+    Right [] => Nothing
+    Right shapes => pure $ noFixtures $ fromShapes shapes
+
 fromDescriptorCreation : ObjectDescriptor -> Creation -> Maybe Object
 fromDescriptorCreation desc creation = with Maybe do
   let id = getOrDefault "" (id creation)
@@ -293,14 +327,13 @@ fromDescriptorCreation desc creation = with Maybe do
   let health = map fromFull (health desc)
   let scripts = decideScripts desc creation
   let irdesc = renderDescription desc
-  let bdesc = bodyDescription desc
   let cdata = creationData creation
-  dimensions <- decideDimensions irdesc cdata bdesc
-  let physics_properties =
-    fromBodyDescriptor bdesc dimensions (angle creation) (position creation)
+  let bdesc = bodyDescription desc
   crdesc <- decideRenderDescription irdesc cdata
+  physics_properties <- getPhysicsProperties bdesc creation irdesc
   pure $ MkObject id (name desc) physics_properties crdesc tags scripts
                   (controlFromDescriptor desc) health
+
 
 fromDescriptorCreation' : ObjectDescriptor -> Creation ->
                           STrans m (Maybe Object) xs (const xs)

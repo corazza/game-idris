@@ -1,9 +1,16 @@
 {
   "name": "Wall",
   "tags": [],
-  "box2d": {
-    "type": "wall"
+
+  "body": {
+    "type": "static",
+    "bullet" : false,
+    "immaterial": {
+      "density": 2,
+      "friction": 0.3
+    }
   },
+
   "render": {
     "type": "invisible"
   }

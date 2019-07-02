@@ -21,6 +21,7 @@ modules = Draw
         , Settings
         , Camera
         , Data.AVL.DDict
+        , Exception
 
 main = Main
 
