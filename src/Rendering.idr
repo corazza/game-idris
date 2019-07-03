@@ -77,15 +77,3 @@ drawObjectInfo draw camera (object :: xs) = case health object of
                                (cast $ (percent health) * (cast fullHealthWidth'))
                                (fullHealthHeight defaultSettings)) (healthColor defaultSettings)
     drawObjectInfo draw camera xs
-
-export
-drawScene : (GameIO m, Scene m, Draw m) =>
-             (draw : Var) -> (scene : Var) -> (camera : Camera) ->
-             ST m () [draw ::: SDraw {m}, scene ::: SScene {m}]
-drawScene draw scene camera = with ST do
-  let objects = !(getObjects scene)
-  clear draw
-  drawBackground draw camera !(getBackground scene)
-  drawObjects draw camera objects
-  drawObjectInfo draw camera objects
-  present draw
