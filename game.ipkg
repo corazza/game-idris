@@ -6,7 +6,8 @@ pkgs = sdl2, contrib, containers, box2d
 
 sourcedir = src
 
-modules = Draw
+modules = Rendering
+        , Rendering.Draw
         , Scene
         , Scene.Util
         , Events

@@ -1,6 +1,6 @@
-- rename `ObjectId` to `SceneId`
-- Main.idr, Game.idr
 - rendering code into Draw.idr
+
+- Main.idr, Game.idr
 
 # Resources and community
 
