@@ -318,8 +318,8 @@ export
 
   handle scene (MovementStart direction id)
     = updateObject scene id (updateControl $ startMoving direction)
-  handle scene (MovementStop id)
-    = updateObject scene id (updateControl stopMoving)
+  handle scene (MovementStop direction id)
+    = updateObject scene id (updateControl $ stopMoving direction)
   handle scene (AttackStart pos id)
     = updateObject scene id (updateControl startAttacking)
   handle scene (AttackStop pos id) = with ST do

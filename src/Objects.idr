@@ -48,13 +48,18 @@ decideRenderDescription' x y = pure $ decideRenderDescription x y
 data MoveDirection = Leftward | Rightward
 %name MoveDirection direction
 
+Eq MoveDirection where
+  Leftward == Leftward = True
+  Rightward == Rightward = True
+  _ == _ = False
+
 Show MoveDirection where
   show Leftward = "left"
   show Rightward = "right"
 
 record ControlState where
   constructor MkControlState
-  moving : Maybe MoveDirection
+  moving : List MoveDirection
   facing : MoveDirection
   jumping : Bool
   canJump : Bool
@@ -69,19 +74,29 @@ Show ControlState where
       " attacking: " ++ show attacking ++ ")"
 
 noControl : MoveDirection -> ControlState
-noControl facing = MkControlState Nothing facing False False False
+noControl facing = MkControlState empty facing False False False
 
 moveSign : ControlState -> Double
 moveSign controlState = case moving controlState of
-  Nothing => 0
-  Just Leftward => -1
-  Just Rightward => 1
+  [] => 0
+  Leftward :: _ => -1
+  Rightward :: _ => 1
+
+moveToTop : Eq a => a -> List a -> List a
+moveToTop x xs = x :: filter (/= x) xs
 
 startMoving : (direction : MoveDirection) -> ControlState -> ControlState
-startMoving direction = record { moving = Just direction, facing = direction }
+startMoving direction = record { moving $= moveToTop direction, facing = direction }
 
-stopMoving : ControlState -> ControlState
-stopMoving = record { moving = Nothing }
+stopMoving : (direction : MoveDirection) -> ControlState -> ControlState
+stopMoving direction ctst
+  = let newCtst = record { moving $= filter (/= direction) } ctst
+        in case moving newCtst of
+          [] => newCtst
+          x :: _ => record {facing=x} newCtst
+
+stopDead : ControlState -> ControlState
+stopDead = record { moving = empty }
 
 startJumping : ControlState -> ControlState
 startJumping = record { jumping = True }
@@ -214,8 +229,8 @@ animationState : Object -> String
 animationState object = case controlState object of
   Nothing => "resting"
   Just ctst => case moving ctst of
-    Nothing => "resting"
-    Just _ => "moving"
+    [] => "resting"
+    _ => "moving"
 
 updateAnimationState : (ticks : Int) -> Object -> Object
 updateAnimationState ticks object = case renderDescription object of
@@ -272,25 +287,6 @@ angle = angle . physicsProperties
 mass : Object -> Double
 mass = mass . physicsProperties
 
--- TODO invisible e.g. should return aabb
--- TODO should be removed, calculated in Rendering.idr
--- dimensions : Object -> Checked Vector2D
--- dimensions object = case renderDescription object of
---   DrawBox ref dim => pure dim
---   TileWith ref (x, y) (nx, ny) => pure (cast nx * x, cast ny * y)
---   Animated states => let state = animationState object in case lookup state states of
---     Nothing => fail $ "animation state " ++ "\"" ++ state ++ "\" missing from" ++ (id object)
---     Just aparams => pure (dimensions aparams)
---   Invisible => case fixtures $ physicsProperties object of
---     [] => pure nullVector
---     (x :: xs) => case shape x of
---       (Circle r) => pure (r, r)
---       (Box x) => pure x
---       (Polygon xs) => ?polygonDimensionsObjects
---
--- dim : Object -> Checked Vector2D
--- dim = dimensions
-
 dimensions : Object -> Vector2D
 dimensions object = case renderDescription object of
   DrawBox ref dim => dim
@@ -320,7 +316,6 @@ type = type . physicsProperties
 bullet : Object -> Maybe Bool
 bullet = bullet . physicsProperties
 
--- TODO fix
 onGround : Object -> Bool
 onGround object = size (touching object) > 0
 
@@ -334,12 +329,6 @@ movementImpulse object = case control object of
               then jump controlParameters else 0
     x_correction = if abs (x' - x) < 0.01 then 0 else x' - x
           in (mass object) `scale` (x_correction, y')
-
--- w : Object -> Double
--- w = fst . dimensions
---
--- h : Object -> Double
--- h = snd . dimensions
 
 x : Object -> Double
 x = fst . position

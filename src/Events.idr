@@ -13,7 +13,7 @@ import Camera
 -- (DurationStart / DurationStop) Duration (Movement | Jump | Attack | etc.)
 public export
 data Event = MovementStart MoveDirection ObjectId
-           | MovementStop ObjectId
+           | MovementStop MoveDirection ObjectId
            | AttackStart Vector2D ObjectId
            | AttackStop Vector2D ObjectId
            | JumpStart ObjectId
@@ -26,7 +26,7 @@ data Event = MovementStart MoveDirection ObjectId
 export
 Show Event where
   show (MovementStart direction x) = "MovementStart " ++ show direction ++ " " ++ x
-  show (MovementStop x) = "MovementStop " ++ x
+  show (MovementStop direction x) = "MovementStop " ++ show direction ++ " " ++ x
   show (AttackStart pos id) = "AttackStart " ++ id ++ " at " ++ show pos
   show (AttackStop pos id) = "AttackStop " ++ id ++ " at " ++ show pos
   show (JumpStart x) = "JumpStart " ++ x
@@ -44,8 +44,8 @@ inputToEvent id camera (CommandStart (Attack x y))
   = let scenePos = screenToPosition camera (x, y) in
             Just $ AttackStart scenePos id
 
-inputToEvent id _ (CommandStop (Movement Left)) = Just $ MovementStop id
-inputToEvent id _ (CommandStop (Movement Right)) = Just $ MovementStop id
+inputToEvent id _ (CommandStop (Movement Left)) = Just $ MovementStop Leftward id
+inputToEvent id _ (CommandStop (Movement Right)) = Just $ MovementStop Rightward id
 inputToEvent id _ (CommandStop (Movement Up)) = Just $ JumpStop id
 inputToEvent id _ (CommandStop (Movement Down)) = Nothing
 inputToEvent id camera (CommandStop (Attack x y))
