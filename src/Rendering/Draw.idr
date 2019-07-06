@@ -70,10 +70,8 @@ interface Draw (m : Type -> Type) where
                 (dst : Maybe SDLRect) ->
                 ST m Int [draw ::: SDraw]
 
-  drawWholeCenter : (draw : Var) ->
-                    (texture : Texture) ->
-                    (dst : SDLRect) ->
-                    (angle : Double) ->
+  drawWholeCenter : (draw : Var) -> (texture : Texture) -> (dst : SDLRect) ->
+                    (angle : Double) -> (flip : Int) ->
                     ST m () [draw ::: SDraw]
 
   drawCenter : (draw : Var) -> (texture : Texture) ->
@@ -150,9 +148,9 @@ Draw IO where
                  combine draw [renderer, imageCache, animationCache]
                  pure res
 
-  drawWholeCenter draw texture dst angle = with ST do
+  drawWholeCenter draw texture dst angle flip = with ST do
     [renderer, imageCache, animationCache] <- split draw
-    lift $ SDL2.drawWholeCenter !(read renderer) texture dst angle
+    lift $ SDL2.drawWholeCenter !(read renderer) texture dst angle flip
     combine draw [renderer, imageCache, animationCache]
 
   drawCenter draw texture src dst angle flip = with ST do

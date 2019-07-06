@@ -28,7 +28,7 @@
     ],
     "physicsEffect" : {
       "type": "drag",
-      "factor": 0.009,
+      "factor": 0.008,
       "offset": [0, -0.5]
     }
   },

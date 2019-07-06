@@ -1,9 +1,9 @@
 module GameIO
 
 import Control.ST
-import Language.JSON
+import public Language.JSON
 import Graphics.SDL2 as SDL2
-import Data.AVL.Dict
+import public Data.AVL.Dict
 import Common
 import Physics.Vector2D
 import Physics.Box2D
@@ -193,3 +193,12 @@ getDoubleOrDefault : String -> Double -> Dict String JSON -> Double
 getDoubleOrDefault key default dict = case lookup key dict of
   Just (JNumber x) => x
   _ => default
+
+export
+toChecked : (elem : Checked (String, a)) ->
+            (acc : Checked (List (String, a))) ->
+            Checked (List (String, a))
+toChecked (Left e) (Left es) = fail $ e ++ "\n" ++ es
+toChecked (Left e) (Right r) = fail e
+toChecked (Right aparams) (Left e) = fail e
+toChecked (Right aparams) (Right ps) = pure $ aparams :: ps

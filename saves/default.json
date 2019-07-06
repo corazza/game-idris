@@ -1,0 +1,12 @@
+{
+  "character": "character",
+
+  "characters": {
+    "character": {
+      "name": "Default Character",
+      "object": "main/objects/character.json",
+      "position": [0, -9],
+      "map": "main/maps/castle.json"
+    }
+  }
+}

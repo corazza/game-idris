@@ -23,6 +23,11 @@ getFlip object animation = case (facingRight animation, forceDirection object) o
   (False, Leftward) => 0
   (False, Rightward) => 2
 
+getFlip' : Object -> Int
+getFlip' object = case forceDirection object of
+  Leftward => 2
+  Rightward => 0
+
 export
 drawBackground : (GameIO m, Draw m) =>
                 (draw : Var) -> (camera : Camera) -> (background : Background) ->
@@ -32,7 +37,7 @@ drawBackground draw camera (MkBackground image dim) = with ST do
   let (w, h) = dimToScreen camera (2 `scale` dim)
   let (w', h') = dimToScreen camera dim
   let (x, y) = positionToScreen camera (0, 0)
-  drawWholeCenter draw texture (MkSDLRect (x - w') (y - h') w h) 0.0
+  drawWholeCenter draw texture (MkSDLRect (x - w') (y - h') w h) 0.0 0
 
 tile : Draw m => GameIO m =>
        (draw : Var) -> (camera : Camera) -> (texture : Texture) -> (position : (Int, Int)) ->
@@ -45,7 +50,7 @@ tile {m} draw camera texture (x, y) (w, h) (nx, S ny) = (with ST do
     tileRow _ Z = pure ()
     tileRow (x', y') (S k) = with ST do
       let rect = MkSDLRect x' y' w h
-      drawWholeCenter draw texture rect 0.0
+      drawWholeCenter draw texture rect 0.0 0
       tileRow (x' + w, y') k
 
 -- w = full width on screen, w' = half width on screen
@@ -58,7 +63,7 @@ drawObject {m} draw camera object = let deg_angle = -(angle object) / (2.0*pi) *
       Just texture <- getTexture draw textureRef
                    | log ("missing texture " ++ textureRef ++ " on " ++ id object)
       let rect = getRect camera (position object) dimensions
-      drawWholeCenter draw texture rect deg_angle
+      drawWholeCenter draw texture rect deg_angle (getFlip' object)
     Animated states (MkAnimationState state ticks) => case lookup state states of
       Nothing => log $ "missing animation state \"" ++ state ++ "\" in " ++ show states
       Just aparams => with ST do

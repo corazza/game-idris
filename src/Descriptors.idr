@@ -66,14 +66,6 @@ toParameters (state, json) = case the (Checked AnimationParameters) (cast json) 
   Left e => fail e
   Right aparams => pure (state, aparams)
 
-toChecked : (elem : Checked (String, AnimationParameters)) ->
-            (acc : Checked (List (String, AnimationParameters))) ->
-            Checked (List (String, AnimationParameters))
-toChecked (Left e) (Left es) = fail $ e ++ "\n" ++ es
-toChecked (Left e) (Right r) = fail e
-toChecked (Right aparams) (Left e) = fail e
-toChecked (Right aparams) (Right ps) = pure $ aparams :: ps
-
 getAnimationStates : Dict String JSON -> Checked (Dict String AnimationParameters)
 getAnimationStates dict = case lookup "states" dict of
   Nothing => fail "missing animation states"
