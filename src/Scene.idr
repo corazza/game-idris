@@ -32,11 +32,13 @@ interface Scene (m : Type -> Type) where
   getObjects : (scene : Var) -> ST m (List Object) [scene ::: SScene]
   getBody : (scene : Var) -> (id : ObjectId) -> ST m (Maybe Body) [scene ::: SScene]
   getBackground : (scene : Var) -> ST m Background [scene ::: SScene]
+  getDimensions : (scene : Var) -> ST m Vector2D [scene ::: SScene]
 
   ||| Just ID on successful add, Nothing on fail
   create : (scene : Var) -> (creation : Creation) -> ST m (Maybe String) [scene ::: SScene]
   createMany : (scene : Var) -> (creations : List Creation) -> ST m () [scene ::: SScene]
   destroy : (scene : Var) -> (id : ObjectId) -> ST m () [scene ::: SScene]
+  destroyMany : (scene : Var) -> (ids : List ObjectId) -> ST m () [scene ::: SScene]
 
   registerEvent : (scene : Var) -> Events.Event -> ST m () [scene ::: SScene]
   registerEvents : (scene : Var) -> (List Events.Event) -> ST m () [scene ::: SScene]
@@ -64,8 +66,14 @@ interface Scene (m : Type -> Type) where
   private
   applyImpulse : (scene : Var) -> (id : ObjectId) -> (impulse : Vector2D) -> ST m () [scene ::: SScene]
 
+  -- TODO FIX in all objects, but only a minority have AnimationState
   private
-  commitControl : (scene : Var) -> ST m () [scene ::: SScene]
+  iterateAnimation : (scene : Var) -> Int -> ST m () [scene ::: SScene]
+
+  private
+  affectPhysics : (scene : Var) -> ST m () [scene ::: SScene]
+  private
+  pruneOutside : (scene : Var) -> ST m () [scene ::: SScene]
   private
   iteratePhysics : (scene : Var) -> (ticks : Int) -> ST m () [scene ::: SScene]
   private
@@ -93,7 +101,7 @@ interface Scene (m : Type -> Type) where
   runScript : (scene : Var) -> (script : Script a) -> ST m a [scene ::: SScene]
 
   private
-  log : Show a => a -> STrans m () xs (const xs)
+  log : String -> STrans m () xs (const xs)
 
 export
 (ConsoleIO m, GameIO m) => Scene m where
@@ -101,8 +109,8 @@ export
                       State Box2D.World,
                       SCache {m} {r=ObjectDescriptor}]
 
-  startScene (MkMapDescriptor name background creations) settings = with ST do
-    pscene <- new $ emptyPScene background
+  startScene (MkMapDescriptor name background creations dimensions) settings = with ST do
+    pscene <- new $ emptyPScene background dimensions
     world <- new !(lift $ createWorld (0, gravity settings))
     objectCache <- initCache {r=ObjectDescriptor}
     scene <- new ()
@@ -142,6 +150,13 @@ export
     combine scene [spscene, physics, objectCache]
     pure background'
 
+  -- TODO getPure dimensions
+  getDimensions scene = with ST do
+    [spscene, physics, objectCache] <- split scene
+    let dimensions' = dimensions !(read spscene)
+    combine scene [spscene, physics, objectCache]
+    pure dimensions'
+
   create scene creation = with ST do
     let ref = ref creation
     [spscene, physics, objectCache] <- split scene
@@ -167,6 +182,9 @@ export
     write pscene (record { objects $= DDict.delete id } !(read pscene))
     combine scene [pscene, world, objectCache]
 
+  destroyMany scene [] = pure ()
+  destroyMany scene (id :: ids) = with ST do destroy scene id; destroyMany scene ids
+
   registerEvent scene event = with ST do
     [spscene, physics, objectCache] <- split scene
     write spscene (record {events $= (event::)} !(read spscene))
@@ -181,9 +199,10 @@ export
     = registerEvents scene (catMaybes $ map (inputToEvent id camera) xs)
 
   iterate scene ticks = with ST do
-    commitControl scene
+    affectPhysics scene
     iteratePhysics scene ticks
     handleEvents scene
+    iterateAnimation scene ticks
 
   addBody scene object = with ST do
     [spscene, world, objectCache] <- split scene
@@ -203,7 +222,7 @@ export
     combine scene [spscene, physics, objectCache]
     pure (id object')
 
-  addObject scene object@(MkObject "" _ _ _ _ _ _ _) = with ST do
+  addObject scene object@(MkObject "" _ _ _ _ _ _ _ _) = with ST do
     [spscene, physics, objectCache] <- split scene
     pscene <- read spscene
     let idString = "autoid_" ++ show (idCounter pscene)
@@ -230,12 +249,21 @@ export
     lift $ applyImpulse body impulse
     combine scene [pscene, world, objectCache]
 
-  commitControl scene = with ST do
+  iterateAnimation scene ticks = updateObjects scene (updateAnimationState ticks)
+
+  affectPhysics scene = with ST do
     [spscene, physics, objectCache] <- split scene
     pscene <- read spscene
     let objectBodys = values (objects pscene)
-    lift $ commitControl' !(read physics) objectBodys -- in Scene.Util
+    lift $ commitControl !(read physics) objectBodys -- in Scene.Util
+    lift $ commitEffects !(read physics) objectBodys -- in Scene.Util
     combine scene [spscene, physics, objectCache]
+
+  pruneOutside scene = with ST do
+    objects <- getObjects scene
+    dimensions <- getDimensions scene
+    let outside = getOutside dimensions objects
+    destroyMany scene outside
 
   iteratePhysics scene ticks = with ST do
     [spscene, world, objectCache] <- split scene
@@ -248,6 +276,7 @@ export
     combine scene [spscene, world, objectCache]
     registerEvents scene !(physicsToEvents scene physicsEvents)
     updateObjects scene Objects.resetControl
+    pruneOutside scene
 
   physicsIdsToSceneIds scene [] = pure []
   physicsIdsToSceneIds scene (x :: xs) = with ST do
@@ -285,7 +314,6 @@ export
     updateObject scene (id self) (addTouching (id other))
     Just scripts' <- queryObject scene (id self) (activeCollisions . scripts) | pure ()
     let scripts = map (\f => f cdata) scripts'
-    -- log (length scripts)
     runScript scene (sequence_ scripts)
 
   handle scene (MovementStart direction id)
@@ -297,7 +325,7 @@ export
   handle scene (AttackStop pos id) = with ST do
     updateObject scene id (updateControl stopAttacking)
     Just (Just attack_script) <- queryObject scene id (attack . scripts) | pure ()
-    runScript scene (attack_script (MkActionParameters id pos (Just 2.5)))
+    runScript scene (attack_script (MkActionParameters id pos))
   handle scene (JumpStart id) = updateObject scene id (updateControl startJumping)
   handle scene (JumpStop id) = updateObject scene id (updateControl stopJumping)
   handle scene (CollisionStart one two)

@@ -4,6 +4,7 @@ Game made in Idris
 
 - `name` is always display-name
 
-# TODO
+# Physics properties
 
-- events and locking in iterate, Scene should be parametrized
+- restitution: 0 (no bounce) to 1 (full bounce)
+- friction: 0 (no friction) to 1, but can go higher

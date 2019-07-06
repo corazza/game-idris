@@ -22,60 +22,77 @@ GameState : (GameIO m, Draw m, Scene m) => Type
 GameState {m} = Composite [SDraw {m},
                            SScene {m},
                            State Camera,
-                           State Int]
+                           State Int,
+                           State Int] -- carry
 
-render : (GameIO m, Scene m, Draw m) => (state : Var) -> ST m () [state ::: GameState {m}]
-render state = with ST do
-  [draw, scene, camera', lastms] <- split state
+render : (GameIO m, Scene m, Draw m) =>
+         (state : Var) -> UISettings -> ST m () [state ::: GameState {m}]
+render state uiSettings = with ST do
+  [draw, scene, camera', lastms, carry] <- split state
   let camera = !(read camera')
   let objects = !(getObjects scene)
   clear draw
   drawBackground draw camera !(getBackground scene)
   drawObjects draw camera objects
-  drawObjectInfo draw camera objects
+  drawInfoObjects draw camera objects uiSettings
   present draw
-  combine state [draw, scene, camera', lastms]
+  combine state [draw, scene, camera', lastms, carry]
 
-loop : (GameIO m, Scene m, Draw m) => (state : Var) -> ST m () [state ::: GameState {m}]
-loop state = with ST do
-  Right events <- poll | pure ()
-  [draw, scene, camera', lastms] <- split state
-  let camera = !(read camera')
-  controlEvent scene "player" camera events
-  -- TODO camera smoothing
+iterateCarry : GameIO m => Scene m =>
+               (scene : Var) -> (dt : Int) -> (time : Int) ->
+               ST m Int [scene ::: SScene {m}]
+iterateCarry scene dt time = if time > dt
+  then with ST do
+    iterate scene dt
+    if time `div` dt < 8
+      then iterateCarry scene dt (time - dt)
+      else pure 0
+  else pure time
+
+loop : (GameIO m, Scene m, Draw m) =>
+       (state : Var) -> Settings -> ST m () [state ::: GameState {m}]
+loop state settings = with ST do
+  let (MkSettings uiSettings displaySettings sceneSettings) = settings
   beforems <- ticks
-  iterate scene (beforems - !(read lastms))
+  Right events <- poll | pure ()
+  [draw, scene, camera', lastms, carry'] <- split state
+  let passed = beforems - !(read lastms)
+  carry <- read carry'
   write lastms beforems
+  camera <- read camera'
+  controlEvent scene "player" camera events
+  newCarry <- iterateCarry scene (timeStep sceneSettings) (passed+carry)
+  write carry' newCarry
   Just position <- runScript scene $ GetPosition "player" | ?noPlayerPositionLoop
-  write camera' (translate position camera)
-  combine state [draw, scene, camera', lastms]
-  render state
-  loop state
+  write camera' (translate (position + (0, yd camera)) camera)
+  combine state [draw, scene, camera', lastms, carry']
+  render state uiSettings
+  loop state settings
 
 game : (GameIO m, Draw m, Scene m) => ST m () []
 game {m} = with ST do
-  Right settings <- lift $ loadSettings "settings.json" | ?noSettings
-  let r = resolution settings
+  Right settings <- lift $ loadSettings "settings.json"
+      | Left e => log ("couldn't load settings: " ++ e)
+  let (MkSettings uiSettings displaySettings sceneSettings) = settings
+  let r = resolution displaySettings
   draw <- initDraw (fst r) (snd r)
   mapCache <- initCache {r=MapDescriptor}
-
-  Right map <- get {m} {r=MapDescriptor} mapCache "likert" | ?noLikert
-  scene <- startScene map (sceneSettings settings)
-  let playerCreation = MkCreation (Just "player") "disciple" (0, 5) 0 empty (BoxData Nothing)
+  Right map <- get {m} {r=MapDescriptor} mapCache "main/maps/castle.json" | ?noMap
+  scene <- startScene map sceneSettings
+  let playerCreation = MkCreation (Just "player") "main/objects/disciple.json"
+    (0, -9) 0 empty (BoxData Nothing)
   create scene playerCreation
-
   state <- new ()
-  camera <- new (fromSettings settings)
+  camera <- new (fromSettings displaySettings)
   lastms <- new !ticks
-  combine state [draw, scene, camera, lastms]
-
-  loop state
-
-  [draw, scene, camera, lastms] <- split state
+  carry <- new 0
+  combine state [draw, scene, camera, lastms, carry]
+  loop state settings
+  [draw, scene, camera, lastms, carry] <- split state
   quitDraw draw
   endScene scene
   quitCache {r=MapDescriptor} mapCache
-  delete camera; delete lastms
+  delete camera; delete lastms; delete carry
   delete state
 
 main : IO ()

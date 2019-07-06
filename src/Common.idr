@@ -3,6 +3,7 @@ module Common
 import Physics.Vector2D
 import Data.AVL.Dict
 import Data.AVL.Set
+import Graphics.SDL2 as SDL2
 
 public export
 data Color = MkColor Int Int Int Int
@@ -32,7 +33,6 @@ record ActionParameters where
   constructor MkActionParameters
   id : ObjectId
   position : Vector2D
-  impulse : Maybe Double
 
 -- TODO shouldn't be here, but in Objects
 public export
@@ -71,3 +71,9 @@ getOrDefault x (Just y) = y
 -- delete : Ord k => (key : k) -> (dict : Dict k v) -> Dict k v
 -- delete key dict = let asList = toList dict
 --                       result = filter (\(k', v')=>k' /= key) asList in fromList result
+
+-- TODO in idris-sdl2
+export
+Show SDLRect where
+  show (MkSDLRect x y w h)
+    = "(" ++ show x ++ ", " ++ show y ++ ", " ++ show w ++ ", " ++ show h ++ ")"

@@ -3,8 +3,11 @@
   "health": 100,
   "tags": [],
 
+  "map": "main/maps/castle.json",
+
   "body": {
     "type": "dynamic",
+    "fixedRotation": true,
     "fixture": {
       "shape": {
         "type": "box",
@@ -17,8 +20,8 @@
 
   "attack": {
     "type": "create",
-    "ref": "wooden_arrow",
-    "impulse": 10
+    "ref": "main/objects/wooden_arrow.json",
+    "impulse": 5
   },
 
   "control": {
@@ -28,7 +31,7 @@
 
   "render": {
     "type": "single",
-    "image": "disciple.png",
+    "image": "main/images/disciple.png",
     "dimensions": [0.5, 0.727273]
   }
 }

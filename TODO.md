@@ -1,9 +1,10 @@
-- rendering code into Draw.idr
+`DrawSettings` (+ info) placed into `SDraw`
 
-- Main.idr, Game.idr
+- fix arrow damage:
+  - only head deals damage
 
-# Resources and community
+- TODO preload, should be `: Animation` and not `: ResourceReference`, when the resource can be loaded immediately
 
-All resources go into "res/", the main game resources are in "res/main/", community resources are in "res/community/name/"
+# Far off
 
-Make a ResourceId type that uniquely identifies a resource, and `filepath : ResourceId -> String`
+- make `ObjectCaster` independent of backend (JSON atm.)

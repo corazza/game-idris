@@ -23,6 +23,7 @@ modules = Rendering
         , Camera
         , Data.AVL.DDict
         , Exception
+        , Main
 
 main = Main
 

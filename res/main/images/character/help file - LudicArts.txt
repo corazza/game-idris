@@ -1,0 +1,24 @@
+LudicArts.com
+
+Free Platform Game Character
+For Adventure games, platformers, RPG and more.
+
+Animation included:
+-Attack
+-Death
+-Idle
+-Jump
+-Run
+-Sliding
+-Walk
+
+
+
+
+
+This file was created by Franco Giachetti.
+
+If you have any questions you can contact me: http://ludicarts.com/contact/
+Or add me to facebook: facebook.com/simirk.graphics
+
+Again if you have any issues, please contact me.

@@ -1,10 +1,19 @@
 {
-  "fullHealthWidth": 50,
-  "fullHealthHeight": 5,
-  "healthYD": 25,
-  "healthColor": [10, 223, 76, 181],
-  "resolution": [1580, 900],
+  "ui": {
+    "fullHealthWidth": 50,
+    "fullHealthHeight": 5,
+    "healthYD": 35,
+    "healthColor": [10, 223, 76, 100]
+  },
+
+  "display": {
+    "resolution": [1580, 900],
+    "cameraYD": 3.5,
+    "zoom": 55
+  },
+
   "scene" : {
-    "gravity": 8
+    "gravity": 9.81,
+    "timeStep": 15
   }
 }

@@ -45,7 +45,8 @@ noEvents = empty
 
 addBody' : (GameIO m, Monad m) => (world : Box2D.World) -> Object -> m (Int, Body)
 addBody' world object = with m do
-  let def = makeBodyDefinition (type object) (position object) (angle object)
+  let def = MkBodyDefinition
+    (type object) (position object) (Just (angle object)) (fixedRotation object) (bullet object)
   (id, body) <- createBody world def
   traverse (createFixture body) (fixtures $ physicsProperties object)
   pure (id, body)
@@ -61,11 +62,30 @@ updateFromBody (object, body) = with m do
                       velocity = newVelocity}) object
     pure $ (object', body)
 
-commitControl' : (GameIO m, Monad m) => (world : Box2D.World) -> List Entry -> m ()
-commitControl' world [] = pure ()
-commitControl' world ((object, body) :: xs) = with m do
+commitControl : (GameIO m, Monad m) => (world : Box2D.World) -> List Entry -> m ()
+commitControl world [] = pure ()
+commitControl world ((object, body) :: xs) = with m do
   applyImpulse body (movementImpulse object)
-  commitControl' world xs
+  commitControl world xs
+
+commitEffect : GameIO m => Monad m => (world : Box2D.World) -> Entry -> PhysicsEffect -> m ()
+-- commitEffect w e eff = pure ()
+commitEffect world (object, body) (Drag factor offset) = with m do
+  velocity <- getVelocity body
+  let norm' = norm velocity
+  if (norm' > 0.001)
+    then with m do
+      let direction = negate $ normed velocity
+      let force = (0.5*factor*norm'*norm') `scale` direction
+      applyForce body force offset
+      pure ()
+    else pure ()
+
+commitEffects : (GameIO m, Monad m) => (world : Box2D.World) -> List Entry -> m ()
+commitEffects world [] = pure ()
+commitEffects world (x@(object, body) :: xs) = with m do
+  sequence_ $ map (commitEffect world x) (effects object)
+  commitEffects world xs
 
 record PScene where
   constructor MkPScene
@@ -74,6 +94,14 @@ record PScene where
   events : SceneEvents
   physicsIds : Dict Int String
   background : Background
+  dimensions : Vector2D
 
-emptyPScene : Background -> PScene
+emptyPScene : Background -> Vector2D -> PScene
 emptyPScene = MkPScene Z noObjects noEvents empty
+
+getOutside : (dimensions : Vector2D) -> List Object -> List ObjectId
+getOutside (w, h) [] = []
+getOutside dimensions@(w, h) (object :: xs) = let (x, y) = position object in
+  if x > w || x < -w || y > h || y < -h
+    then id object :: getOutside dimensions xs
+    else getOutside dimensions xs

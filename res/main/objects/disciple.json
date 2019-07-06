@@ -1,0 +1,48 @@
+{
+  "name": "Disciple",
+  "health": 100,
+  "tags": [],
+
+  "map": "main/maps/castle.json",
+
+  "body": {
+    "type": "dynamic",
+    "fixedRotation": true,
+    "bullet": true,
+    "fixture": {
+      "shape": {
+        "type": "box",
+        "dimensions": [0.5, 0.8]
+      },
+      "density": 5,
+      "friction": 0.3
+    }
+  },
+
+  "attack": {
+    "type": "create",
+    "ref": "main/objects/wooden_arrow.json",
+    "impulse": 8
+  },
+
+  "control": {
+    "speed": 6,
+    "jump": 6
+  },
+
+  "render": {
+    "type": "animated",
+    "states": {
+      "moving": {
+        "animation": "main/animations/run-large.json",
+        "dimensions": [0.914286, 0.8192],
+        "speed": 0.08
+      },
+      "resting": {
+        "animation": "main/animations/rest-large.json",
+        "dimensions": [0.4, 0.8],
+        "speed": 0.05
+      }
+    }
+  }
+}

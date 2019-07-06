@@ -8,50 +8,82 @@ import Common
 import GameIO
 import Exception
 
+public export
+record UISettings where
+  constructor MkUISettings
+  fullHealthWidth : Int
+  fullHealthHeight : Int
+  healthYD : Int
+  healthColor : Color
+
+ObjectCaster UISettings where
+  objectCast dict = with Checked do
+    fullHealthWidth <- getInt "fullHealthWidth" dict
+    fullHealthHeight <- getInt "fullHealthHeight" dict
+    healthYD <- getInt "healthYD" dict
+    color <- getColor "healthColor" dict
+    pure $ MkUISettings fullHealthWidth fullHealthHeight healthYD color
+
 export
-defaultHealthColor : Color
-defaultHealthColor = MkColor 10 223 76 (cast (255*0.71))
+defaultUISettings : UISettings
+defaultUISettings = MkUISettings 60 7 30 (MkColor 10 223 76 181)
+
+
+public export
+record DisplaySettings where
+  constructor MkDisplaySettings
+  resolution : (Int, Int)
+  cameraYD : Double
+  zoom : Double
+
+ObjectCaster DisplaySettings where
+  objectCast dict = with Checked do
+    resolution <- getVector "resolution" dict
+    cameraYD <- getDouble "cameraYD" dict
+    zoom <- getDouble "zoom" dict
+    pure $ MkDisplaySettings (cast resolution) cameraYD zoom
+
+export
+defaultDisplaySettings : DisplaySettings
+defaultDisplaySettings = MkDisplaySettings (1280, 800) 50 45.0
+
 
 public export
 record SceneSettings where
   constructor MkSceneSettings
   gravity : Double
+  timeStep : Int
 %name SceneSettings sceneSettings
 
 ObjectCaster SceneSettings where
   objectCast dict = with Checked do
     gravity <- getDouble "gravity" dict
-    pure $ MkSceneSettings (-gravity)
+    timeStep <- getInt "timeStep" dict
+    pure $ MkSceneSettings (-gravity) timeStep
 
 export
 defaultSceneSettings : SceneSettings
-defaultSceneSettings = MkSceneSettings (-8.0)
+defaultSceneSettings = MkSceneSettings (-9.0) 15
+
 
 public export
 record Settings where
   constructor MkSettings
-  fullHealthWidth : Int
-  fullHealthHeight : Int
-  healthYD : Int
-  healthColor : Color
-  resolution : (Int, Int)
+  uiSettings : UISettings
+  displaySettings : DisplaySettings
   sceneSettings : SceneSettings
 %name Settings settings
 
 export
 defaultSettings : Settings
-defaultSettings = MkSettings 60 7 30 defaultHealthColor (1280, 800) defaultSceneSettings
+defaultSettings = MkSettings defaultUISettings defaultDisplaySettings defaultSceneSettings
 
 ObjectCaster Settings where
   objectCast dict = with Maybe do
-    fullHealthWidth <- getDouble "fullHealthWidth" dict
-    fullHealthHeight <- getDouble "fullHealthHeight" dict
-    healthYD <- getDouble "healthYD" dict
-    color <- getColor "healthColor" dict
-    resolution <- getVector "resolution" dict
+    let uiSettings = getCastableOrDefault defaultUISettings "ui" dict
+    let displaySettings = getCastableOrDefault defaultDisplaySettings "display" dict
     let sceneSettings = getCastableOrDefault defaultSceneSettings "scene" dict
-    pure $ MkSettings (cast fullHealthWidth) (cast fullHealthHeight)
-                      (cast healthYD) color (cast resolution) sceneSettings
+    pure $ MkSettings uiSettings displaySettings sceneSettings
 
 export
 loadSettings : (Monad m, GameIO m) => (path : String) -> m (Checked Settings)

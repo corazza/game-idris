@@ -2,22 +2,33 @@ module Objects
 
 import Graphics.SDL2
 import Data.AVL.Set
+import Data.AVL.Dict
 import Physics.Vector2D
 import Control.ST
+import Exception
 
 import Physics.Box2D
 import Descriptors
 import Resources
 import Common
 import Script
-
 import Data.AVL.DDict
 
 %access public export
 
+data AnimationState = MkAnimationState String Int -- state, started (ms)
+
+initialAnimationState : AnimationState
+initialAnimationState = MkAnimationState "resting" 0
+
+advanceAnimation : Int -> AnimationState -> AnimationState
+advanceAnimation ticks (MkAnimationState state current)
+  = MkAnimationState state (current+ticks)
+
 data CompleteRenderDescriptor
   = DrawBox ResourceReference Vector2D
   | TileWith ResourceReference Vector2D (Nat, Nat)
+  | Animated (Dict String AnimationParameters) AnimationState
   | Invisible
 
 decideRenderDescription : IncompleteRenderDescriptor -> CreationData ->
@@ -26,6 +37,8 @@ decideRenderDescription Invisible _ = Just Invisible
 decideRenderDescription (DrawBox x dims) (BoxData y) = Just $ DrawBox x dims
 decideRenderDescription (TileWith tileRef (x, y)) (WallData (nx, ny))
   = Just $ TileWith tileRef (x, y) (cast nx, cast ny)
+decideRenderDescription (Animated states) (BoxData impulse)
+  = Just $ Animated states initialAnimationState
 decideRenderDescription _ _ = Nothing
 
 decideRenderDescription' : IncompleteRenderDescriptor -> CreationData ->
@@ -42,19 +55,21 @@ Show MoveDirection where
 record ControlState where
   constructor MkControlState
   moving : Maybe MoveDirection
+  facing : MoveDirection
   jumping : Bool
   canJump : Bool
   attacking : Bool
 %name ControlState controlState
 
 Show ControlState where
-  show (MkControlState moving jumping canJump attacking)
-    = "(moving: " ++ (show moving) ++ "," ++
-      " jumping: " ++ (show jumping) ++ "," ++
-      " attacking: " ++ (show attacking) ++ ")"
+  show (MkControlState moving facing jumping canJump attacking)
+    = "(moving: " ++ show moving ++ "," ++
+      " facing: " ++ show facing ++ "," ++
+      " jumping: " ++ show jumping ++ "," ++
+      " attacking: " ++ show attacking ++ ")"
 
-noControl : ControlState
-noControl = MkControlState Nothing False False False
+noControl : MoveDirection -> ControlState
+noControl facing = MkControlState Nothing facing False False False
 
 moveSign : ControlState -> Double
 moveSign controlState = case moving controlState of
@@ -63,7 +78,7 @@ moveSign controlState = case moving controlState of
   Just Rightward => 1
 
 startMoving : (direction : MoveDirection) -> ControlState -> ControlState
-startMoving direction = record { moving = Just direction }
+startMoving direction = record { moving = Just direction, facing = direction }
 
 stopMoving : ControlState -> ControlState
 stopMoving = record { moving = Nothing }
@@ -83,29 +98,17 @@ stopAttacking = record { attacking = False }
 resetControlState : ControlState -> ControlState
 resetControlState ctst = record { canJump = not (jumping ctst) } ctst
 
--- mass overwritten on addBody
 record PhysicsProperties where
   constructor MkPhysicsProperties
   type : BodyType
   position : Vector2D
   velocity : Vector2D
   angle : Double
-  -- density : Double
-  -- friction : Double
   mass : Double -- overwritten on Scene.addWithId
   touching : Set ObjectId
+  fixedRotation : Maybe Bool
+  bullet : Maybe Bool
   fixtures : List FixtureDefinition
-  -- dimensions : Vector2D
-
--- fromDescCreation : BodyDescriptor -> Creation -> PhysicsProperties
--- fromDescCreation desc creation
---   = let noFixtures = MkPhysicsProperties (type desc) (position creation)
---                                          nullVector (angle creation) (-1) empty
---       in case creationData creation of
---             (BoxData x) => ?sdklfmksdm
---             (WallData x) => ?sdflkgmsdk_2
---             (InvisibleWallData x) => noFixtures [defaultWallFixture x]
-
 
 -- TODO make a Scripts : Type, possibly move to Scripts.idr, which handles
 -- adding/deactivation etc. ScriptHolder interface both for Scripts and Object
@@ -177,10 +180,11 @@ record Object where
   scripts : Scripts
   control : Maybe ObjectControl
   health : Maybe Health -- TODO move health, controlState, and tags into components
+  effects : List PhysicsEffect
 %name Object object
 
 Show Object where
-  show (MkObject id name physicsProperties renderDescription tags scripts control health)
+  show (MkObject id name physicsProperties renderDescription tags scripts control health _)
     =  "{ object | "
     ++   "id: " ++ id
     ++ ", name: " ++ name
@@ -197,6 +201,33 @@ Damagable Object where
 
 controlState : Object -> Maybe ControlState
 controlState = map controlState . control
+
+facing : Object -> Maybe MoveDirection
+facing = map facing . controlState
+
+forceDirection : Object -> MoveDirection
+forceDirection object = case facing object of
+  Nothing => Rightward
+  Just x => x
+
+animationState : Object -> String
+animationState object = case controlState object of
+  Nothing => "resting"
+  Just ctst => case moving ctst of
+    Nothing => "resting"
+    Just _ => "moving"
+
+updateAnimationState : (ticks : Int) -> Object -> Object
+updateAnimationState ticks object = case renderDescription object of
+  Animated states state@(MkAnimationState previousState soFar) =>
+    let currentState = animationState object
+        in case previousState == currentState of
+          False => let newState = MkAnimationState currentState 0 in
+            record {renderDescription = Animated states newState} object
+          True =>  record {
+            renderDescription = Animated states (advanceAnimation ticks state)
+          } object
+  _ => object
 
 controlParameters : Object -> Maybe ControlDescriptor
 controlParameters = map controlParameters . control
@@ -221,6 +252,9 @@ updateControl f = record { control $= map (updateObjectControl f) }
 touching : Object -> Set ObjectId
 touching = touching . physicsProperties
 
+fixedRotation : Object -> Maybe Bool
+fixedRotation = fixedRotation . physicsProperties
+
 addTouching : ObjectId -> Object -> Object
 addTouching id = physicsUpdate $ record { touching $= insert id }
 
@@ -239,10 +273,31 @@ mass : Object -> Double
 mass = mass . physicsProperties
 
 -- TODO invisible e.g. should return aabb
+-- TODO should be removed, calculated in Rendering.idr
+-- dimensions : Object -> Checked Vector2D
+-- dimensions object = case renderDescription object of
+--   DrawBox ref dim => pure dim
+--   TileWith ref (x, y) (nx, ny) => pure (cast nx * x, cast ny * y)
+--   Animated states => let state = animationState object in case lookup state states of
+--     Nothing => fail $ "animation state " ++ "\"" ++ state ++ "\" missing from" ++ (id object)
+--     Just aparams => pure (dimensions aparams)
+--   Invisible => case fixtures $ physicsProperties object of
+--     [] => pure nullVector
+--     (x :: xs) => case shape x of
+--       (Circle r) => pure (r, r)
+--       (Box x) => pure x
+--       (Polygon xs) => ?polygonDimensionsObjects
+--
+-- dim : Object -> Checked Vector2D
+-- dim = dimensions
+
 dimensions : Object -> Vector2D
 dimensions object = case renderDescription object of
   DrawBox ref dim => dim
-  TileWith ref (x, y) (nx, ny) => (cast nx * x, cast ny * y)
+  TileWith ref (x, y) (nx, ny) => (cast nx * x * 0.5, cast ny * y * 0.5)
+  Animated states state => let state = animationState object in case lookup state states of
+    Nothing => nullVector
+    Just aparams => dimensions aparams
   Invisible => case fixtures $ physicsProperties object of
     [] => nullVector
     (x :: xs) => case shape x of
@@ -261,6 +316,9 @@ velocity = velocity . physicsProperties
 
 type : Object -> BodyType
 type = type . physicsProperties
+
+bullet : Object -> Maybe Bool
+bullet = bullet . physicsProperties
 
 -- TODO fix
 onGround : Object -> Bool
@@ -290,7 +348,7 @@ y : Object -> Double
 y = snd . position
 
 controlFromDescriptor : ObjectDescriptor -> Maybe ObjectControl
-controlFromDescriptor = map (MkObjectControl noControl) . control
+controlFromDescriptor = map (MkObjectControl (noControl Rightward)) . control
 
 fromParams : FixtureParameters -> Shape -> FixtureDefinition
 fromParams (MkFixtureParameters offset angle density friction restitution) shape
@@ -307,8 +365,9 @@ getPhysicsProperties : BodyDescriptor ->
                        Maybe PhysicsProperties
 getPhysicsProperties bdesc creation irdesc = with Maybe do
   let cdata = creationData creation
-  let noFixtures = MkPhysicsProperties (type bdesc) (position creation)
-                                       nullVector (angle creation) (-1) empty
+  let noFixtures = MkPhysicsProperties
+    (type bdesc) (position creation) nullVector (angle creation) (-1) empty
+    (fixedRotation bdesc) (bullet bdesc)
   case fixtures bdesc of
     Left (MkImmaterialFixtureDescriptor params) => case cdata of
       BoxData x => Nothing
@@ -332,7 +391,7 @@ fromDescriptorCreation desc creation = with Maybe do
   crdesc <- decideRenderDescription irdesc cdata
   physics_properties <- getPhysicsProperties bdesc creation irdesc
   pure $ MkObject id (name desc) physics_properties crdesc tags scripts
-                  (controlFromDescriptor desc) health
+                  (controlFromDescriptor desc) health (effects bdesc)
 
 
 fromDescriptorCreation' : ObjectDescriptor -> Creation ->

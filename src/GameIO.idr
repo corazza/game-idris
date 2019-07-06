@@ -9,7 +9,6 @@ import Physics.Vector2D
 import Physics.Box2D
 import Physics.Box2D.Definitions
 import Exception
--- import Objects
 
 public export
 interface (Monad m, ConsoleIO m) => GameIO (m : Type -> Type) where
@@ -20,7 +19,9 @@ interface (Monad m, ConsoleIO m) => GameIO (m : Type -> Type) where
   ticks : STrans m Int xs (const xs)
   loadJSON : (filepath : String) -> m (Maybe JSON)
 
-  log : Show a => a -> m ()
+  checkedJSONLoad : (Cast JSON (Checked r), GameIO m) => (filepath : String) -> m (Checked r)
+
+  log : String -> m ()
 
   createWorld : Vector2D -> m Box2D.World
   destroyWorld : Box2D.World -> m ()
@@ -34,8 +35,10 @@ interface (Monad m, ConsoleIO m) => GameIO (m : Type -> Type) where
          (positionIterations : Int) ->
          m ()
   applyImpulse : Body -> Vector2D -> m ()
+  applyForce : Body -> Vector2D -> Vector2D -> m ()
   getMass : Body -> m Double
   getPosition : Body -> m Vector2D
+  getWorldCenter : Body -> m Vector2D
   getAngle : Body -> m Double
   getVelocity : Body -> m Vector2D
   pollEvent : Box2D.World -> m (Maybe Box2D.Event)
@@ -48,6 +51,7 @@ GameIO IO where
   deleteEmptyContext c = delete c
 
   ticks = lift getTicks
+
   loadJSON filepath = do
     Right mapJSON <- readFile filepath
                   | Left err => pure Nothing
@@ -56,7 +60,11 @@ GameIO IO where
       putStrLn ("failed to parse: " ++ filepath ++ " (GameIO.loadJSON)")
     pure parsed
 
-  log a = putStrLn $ show a
+  checkedJSONLoad filepath = with m do
+    Just a <- loadJSON filepath | pure (fail $ "couldn't load " ++ filepath)
+    pure $ cast a
+
+  log = putStrLn
 
   createWorld = Box2D.createWorld
   destroyWorld = Box2D.destroyWorld
@@ -66,13 +74,14 @@ GameIO IO where
   destroy = Box2D.destroy
   step = Box2D.step
   applyImpulse = Box2D.applyImpulse
+  applyForce = Box2D.applyForce
   getMass = Box2D.getMass
   getPosition = Box2D.getPosition
+  getWorldCenter = Box2D.getWorldCenter
   getAngle = Box2D.getAngle
   getVelocity = Box2D.getVelocity
   pollEvent = Box2D.pollEvent
   pollEvents = Box2D.pollEvents
-
 
 export
 interface ObjectCaster a where
@@ -98,14 +107,34 @@ export
 getColor : (name : String) -> (dict : Dict String JSON) -> Checked Color
 getColor name dict = with Checked do
   JArray [JNumber r, JNumber g, JNumber b, JNumber a] <-
-    maybeToEither "color format fail" (lookup name dict)
+    maybeToEither ("color \"" ++ name ++ "\" inexistent") (lookup name dict)
+                  | fail "color format fail (must be [r, g, b])"
   pure $ MkColor (cast r) (cast g) (cast b) (cast a)
 
-export
+total
+keyError : (type : String) -> (key : String) -> String
+keyError type key = type ++ "\"" ++ key ++ "\"" ++ "inexistent"
+
+export total
 getVector : (name : String) -> (dict : Dict String JSON) -> Checked Vector2D
 getVector name dict = with Checked do
-  JArray [JNumber x, JNumber y] <- maybeToEither "vector format fail" (lookup name dict)
+  JArray [JNumber x, JNumber y] <- maybeToEither (keyError "vector" name) (lookup name dict)
+                                | fail ("vector format fail" ++ name)
   pure (x, y)
+
+export total
+getInt : (name : String) -> (dict : Dict String JSON) -> Checked Int
+getInt name dict = with Checked do
+  JNumber x <- maybeToEither (keyError "int" name) (lookup name dict)
+            | fail ("int format fail " ++ name)
+  pure (cast x)
+
+export total
+getIntPair : (name : String) -> (dict : Dict String JSON) -> Checked (Int, Int)
+getIntPair name dict = with Checked do
+  JArray [JNumber x, JNumber y] <- maybeToEither (keyError "int pair" name) (lookup name dict)
+                                | fail ("int pair format fail " ++ name)
+  pure (cast x, cast y)
 
 export
 getDouble : String -> Dict String JSON -> Checked Double
@@ -120,6 +149,13 @@ getBool key dict = case lookup key dict of
   _ => fail $ "not a boolean (" ++ key ++ ")"
 
 export
+getBoolOrDefault : Bool -> String -> Dict String JSON -> Checked Bool
+getBoolOrDefault default key dict = case lookup key dict of
+  Nothing => pure default
+  Just (JBoolean x) => pure x
+  _ => fail $ "not a boolean (" ++ key ++ ")"
+
+export
 getString : String -> Dict String JSON -> Checked String
 getString key dict = case lookup key dict of
   Just (JString x) => pure x
@@ -130,6 +166,17 @@ getArray : String -> Dict String JSON -> Checked (List JSON)
 getArray key dict = case lookup key dict of
   Just (JArray xs) => pure xs
   _ => fail $ "not an array (" ++ key ++ ")"
+
+-- TODO why doesn't this works?
+-- export
+-- getArrayOf : Cast JSON (Checked a) => (a : Type) -> String -> Dict String JSON -> Checked (List a)
+-- getArrayOf a key dict = (with Checked do
+--   array <- getArray key dict
+--   getArrayOf' [] array) where
+--   getArrayOf' : Cast JSON (Checked a) => List a -> List JSON -> Checked (List a)
+--   getArrayOf' acc [] = pure acc
+--   getArrayOf' acc (x :: xs) = case the (Checked a) (cast x) of
+--     val => ?sdsd
 
 export
 getStrings : String -> Dict String JSON -> Checked (List String)

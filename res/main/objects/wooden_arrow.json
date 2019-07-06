@@ -1,0 +1,41 @@
+{
+  "name": "Wooden arrow",
+  "tags": ["projectile"],
+
+  "body": {
+    "type": "dynamic",
+    "bullet": false,
+    "fixtures": [
+      {
+        "shape": {
+          "type": "box",
+          "dimensions": [0.07, 0.5]
+        },
+        "density": 2,
+        "friction": 0.1,
+        "restitution": 0.5
+      },
+      {
+        "shape": {
+          "type": "circle",
+          "radius": 0.15
+        },
+        "offset": [0, 0.25],
+        "density": 2.5,
+        "friction": 1,
+        "restitution": 0
+      }
+    ],
+    "physicsEffect" : {
+      "type": "drag",
+      "factor": 0.009,
+      "offset": [0, -0.5]
+    }
+  },
+
+  "render": {
+    "type": "single",
+    "image": "main/images/arrow_1.png",
+    "dimensions": [0.07, 0.5]
+  }
+}

@@ -4,9 +4,7 @@
 
   "body": {
     "type": "static",
-    "bullet" : false,
     "immaterial": {
-      "density": 2,
       "friction": 0.3
     }
   },

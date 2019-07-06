@@ -76,23 +76,22 @@ projectileDamage factor cdata@(MkCollisionData self other) = with Script do
 
 -- TODO exports are wrong
 public export
-throw : (ref : ResourceReference) -> ActionParameters -> UnitScript
-throw ref (MkActionParameters id actionPosition impulse) = with Script do
+throw : (ref : ResourceReference) -> Double -> ActionParameters -> UnitScript
+throw ref impulse (MkActionParameters id actionPosition) = with Script do
   Just position <- GetPosition id | pure ()
   let direction = normed (actionPosition - position)
-  let impulse' = getOrDefault 0 impulse
-  let cdata = BoxData (Just $ impulse' `scale` direction)
+  let cdata = BoxData (Just $ impulse `scale` direction)
   Create $ MkCreation Nothing ref (position + (2 `scale` direction))
                       (angle direction - pi/2.0) empty cdata
 
 public export
 ScriptType : ScriptDescriptor -> Type
-ScriptType (Create ref) = ActionParameters -> UnitScript
+ScriptType (Create ref impulse) = ActionParameters -> UnitScript
 ScriptType _ = UnitScript
 
 public export
 fromDescriptor : (desc : ScriptDescriptor) -> ScriptType desc
-fromDescriptor (Create ref) = throw ref
+fromDescriptor (Create ref impulse) = throw ref impulse
 
 export -- tags are recreated because other information from descriptor and creation might be relevant
 decideCollisions : ObjectDescriptor -> Creation -> DDict String (CollisionData -> UnitScript)
@@ -107,5 +106,5 @@ decideAttack desc = with Maybe do
   attackDescriptor <- attack desc
   -- Just attackDescriptor@(Create x) => Just $ fromDescriptor attackDescriptor
   case attackDescriptor of
-    Create x => pure $ fromDescriptor (Create x)
+    desc@(Create ref impulse) => pure $ fromDescriptor desc
     _ => Nothing

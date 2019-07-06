@@ -1,9 +1,12 @@
 {
   "name": "Likert Forest",
+  "dimensions": [100, 100],
+
   "background": {
     "image": "backgrounds/jungle.jpg",
     "dimensions": [20.9091, 12.4242]
   },
+
   "creations": [
     {
       "ref": "invisible_wall",

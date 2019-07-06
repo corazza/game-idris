@@ -8,6 +8,7 @@ import Control.ST.ImplicitCall
 
 import Exception
 import GameIO
+import Common
 
 public export
 CacheType : Type -> Type
@@ -17,7 +18,9 @@ public export
 emptyCache : (a : Type) -> CacheType a
 emptyCache a = the (CacheType a) empty
 
--- get : CacheType r ->
+export
+refToFilepath : ResourceReference -> String
+refToFilepath = (++) "res/"
 
 public export
 interface SimpleLoader (m : Type -> Type) r where

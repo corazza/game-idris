@@ -13,10 +13,75 @@ import Common
 import Exception
 
 public export
+data FlipState = None | Vertical | Horizontal | Both
+
+export
+Show FlipState where
+  show None = "none"
+  show Vertical = "vertical"
+  show Horizontal = "horizontal"
+  show Both = "both"
+
+getFlipState : Dict String JSON -> Checked FlipState
+getFlipState dict = case lookup "flip" dict of
+  Nothing => pure None
+  Just (JString x) => case x of
+    "none" => pure None
+    "vertical" => pure Vertical
+    "horizontal" => pure Horizontal
+    "both" => pure Both
+    _ => fail $ "flip must be of " ++ "\"none\"|\"vertical\"|\"horizontal\"|\"both\""
+
+-- TODO preload, should be : Animation and not : ResourceReference, when the
+-- resource can be loaded immediately
+public export
+record AnimationParameters where
+  constructor MkAnimationParameters
+  animation : ResourceReference
+  dimensions : Vector2D
+  speed : Double
+  -- flip : FlipState -- 0 no flip, 1 vertical, 2 horizontal, 3 both
+
+export
+Show AnimationParameters where
+  show (MkAnimationParameters animation dimensions speed)
+    = show animation ++ ", " ++ show dimensions ++  ", " ++ show speed
+
+ObjectCaster AnimationParameters where
+  objectCast dict = with Checked do
+    animation <- getString "animation" dict
+    dimensions <- getVector "dimensions" dict
+    speed <- getDouble "speed" dict
+    pure $ MkAnimationParameters animation dimensions speed
+
+public export
 data IncompleteRenderDescriptor
   = DrawBox ResourceReference Vector2D
   | TileWith ResourceReference Vector2D
+  | Animated (Dict String AnimationParameters)
   | Invisible
+
+toParameters : (String, JSON) -> Checked (String, AnimationParameters)
+toParameters (state, json) = case the (Checked AnimationParameters) (cast json) of
+  Left e => fail e
+  Right aparams => pure (state, aparams)
+
+toChecked : (elem : Checked (String, AnimationParameters)) ->
+            (acc : Checked (List (String, AnimationParameters))) ->
+            Checked (List (String, AnimationParameters))
+toChecked (Left e) (Left es) = fail $ e ++ "\n" ++ es
+toChecked (Left e) (Right r) = fail e
+toChecked (Right aparams) (Left e) = fail e
+toChecked (Right aparams) (Right ps) = pure $ aparams :: ps
+
+getAnimationStates : Dict String JSON -> Checked (Dict String AnimationParameters)
+getAnimationStates dict = case lookup "states" dict of
+  Nothing => fail "missing animation states"
+  Just (JObject xs) => with Checked do
+    let attempt = map toParameters xs
+    aparams <- foldr toChecked (pure empty) attempt
+    pure $ fromList aparams
+  _ => fail "animation states aren't JObject"
 
 ObjectCaster IncompleteRenderDescriptor where
   objectCast dict = with Checked do
@@ -27,12 +92,12 @@ ObjectCaster IncompleteRenderDescriptor where
         image <- getString "image" dict
         dimensions <- getVector "dimensions" dict
         pure $ DrawBox image dimensions
-      "tile" => with Maybe do
+      "tile" => with Checked do
         image <- getString "image" dict
         tileDims <- getVector "tileDims" dict
         pure $ TileWith image tileDims
+      "animated" => getAnimationStates dict >>= pure . Animated
       _ => fail "render type must be of \"invisible\"|\"single\"|\"tile\""
-
 
 ObjectCaster Shape where
   objectCast dict = case lookup "type" dict of
@@ -82,6 +147,30 @@ Cast String (Checked BodyType) where
   cast x = fail $
     "body type must be of \"static\"|\"dynamic\"|\"kinematic\", not \"" ++ x ++ "\""
 
+public export
+data PhysicsEffect = Drag Double Vector2D
+
+ObjectCaster PhysicsEffect where
+  objectCast dict = with Checked do
+    type <- getString "type" dict
+    case type of
+      "drag" => with Checked do
+        factor <- getDouble "factor" dict
+        offset <- getVector "offset" dict
+        pure $ Drag factor offset
+      _ => fail "effect type must be of \"drag\""
+
+getPhysicsEffects : Dict String JSON -> Checked (List PhysicsEffect)
+getPhysicsEffects dict = case (hasKey "physicsEffect" dict,  hasKey "physicsEffects" dict) of
+  (True, False) => with Checked do
+    effect <- the (Checked PhysicsEffect) $ getCastable "physicsEffect" dict
+    pure [effect]
+  (False, True) => with Checked do
+    effects' <- getArray "physicsEffects" dict
+    pure $ the (List PhysicsEffect) $ catMaybes $ map (eitherToMaybe . cast) effects'
+  (False, False) => pure empty
+  _ => fail "\"physicsEffect and physicsEffects can't both be present"
+
 -- position and angle come from creation
 public export
 record BodyDescriptor where
@@ -89,6 +178,7 @@ record BodyDescriptor where
   type : BodyType
   fixedRotation : Maybe Bool
   bullet : Maybe Bool
+  effects : List PhysicsEffect
   fixtures : Either ImmaterialFixtureDescriptor (List ShapedFixtureDescriptor) -- TODO prove not empty
 %name BodyDescriptor desc
 
@@ -98,7 +188,8 @@ ObjectCaster BodyDescriptor where
     type <- the (Checked BodyType) (cast typeString)
     let fixedRotation = eitherToMaybe $ getBool "fixedRotation" dict
     let bullet = eitherToMaybe $ getBool "bullet" dict
-    let desc = MkBodyDescriptor type fixedRotation bullet
+    effects <- getPhysicsEffects dict
+    let desc = MkBodyDescriptor type fixedRotation bullet effects
     case hasKey "immaterial" dict of
       True => with Checked do
         fixture <- the (Checked ImmaterialFixtureDescriptor) $ getCastable "immaterial" dict
@@ -113,17 +204,18 @@ ObjectCaster BodyDescriptor where
                 catMaybes $ map (eitherToMaybe . cast) fixtures'
 
 public export -- additional parameters supplied later
-data ScriptDescriptor = Create ResourceReference
+data ScriptDescriptor = Create ResourceReference Double
 
 ObjectCaster ScriptDescriptor where
   objectCast dict = case lookup "type" dict of
     Just (JString "create") => with Checked do
       ref <- getString "ref" dict
-      pure $ Create ref
+      impulse <- getDouble "impulse" dict
+      pure $ Create ref impulse
     _ => fail "script type must be of \"create\""
 
 Show ScriptDescriptor where
-  show (Create ref) = "create " ++ ref
+  show (Create ref impulse) = "create " ++ ref ++ ", " ++ show impulse
 
 -- idk why `map cast (lookup "attack" dict)` doesn't work
 getScript : String -> Dict String JSON -> Checked ScriptDescriptor
@@ -271,24 +363,21 @@ record MapDescriptor where
   name : String
   background : Background
   creations : List Creation
+  dimensions : Vector2D
 
 ObjectCaster MapDescriptor where
   objectCast dict = with Maybe do
     name <- getString "name" dict
+    dimensions <- getVector "dimensions" dict
     background <- the (Checked Background) $ getCastable "background" dict
     creations' <- getArray "creations" dict
     let creations = fromMaybe [] $ eitherToMaybe $ catResults $ map cast creations'
-    pure $ MkMapDescriptor name background creations
-
-checkedJSONLoad : (Cast JSON (Checked r), GameIO m) => (filepath : String) -> m (Checked r)
-checkedJSONLoad filepath = with m do
-  Just a <- loadJSON filepath | pure (Left $ "couldn't load " ++ filepath)
-  pure $ cast a
+    pure $ MkMapDescriptor name background creations dimensions
 
 public export
 GameIO m => SimpleLoader m MapDescriptor where
-  load id = checkedJSONLoad $ "res/maps/" ++ id ++ ".json"
+  load id = checkedJSONLoad (refToFilepath id) -- $ "res/main/maps/" ++ id ++ ".json"
 
 public export
 GameIO m => SimpleLoader m ObjectDescriptor where
-  load id = checkedJSONLoad $ "res/objects/" ++ id ++ ".json"
+  load id = checkedJSONLoad (refToFilepath id) -- $ "res/main/objects/" ++ id ++ ".json"

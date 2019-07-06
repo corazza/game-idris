@@ -1,0 +1,17 @@
+{
+  "name": "Marble ground",
+  "tags": [],
+
+  "body": {
+    "type": "static",
+    "immaterial": {
+      "friction": 0.3
+    }
+  },
+
+  "render": {
+    "type": "tile",
+    "image": "main/images/BrightPurpleMarble_256.png",
+    "tileDims": [0.5, 0.5]
+  }
+}
