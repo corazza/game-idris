@@ -215,24 +215,27 @@ getScript name dict = case lookup name dict of
   Nothing => fail "no script"
   Just x => cast x
 
+
 public export
 record ControlDescriptor where
   constructor MkControlDescriptor
   speed : Double
   jump : Double
+  ai : Maybe ResourceReference
   -- attack : Maybe ScriptDescriptor
 %name ControlDescriptor cdesc
 
 export
 Show ControlDescriptor where
-  show (MkControlDescriptor speed jump) =
-    "{speed: " ++ show speed ++ ", jump: " ++ show jump ++ "}"
+  show (MkControlDescriptor speed jump ai) =
+    "{ speed: " ++ show speed ++ ", jump: " ++ show jump ++ ", ai: " ++ show  ai ++ " }"
 
 ObjectCaster ControlDescriptor where
   objectCast dict = with Maybe do
     speed <- getDouble "speed" dict
     jump <- getDouble "jump" dict
-    pure $ MkControlDescriptor speed jump
+    let ai = eitherToMaybe $ getString "ai" dict
+    pure $ MkControlDescriptor speed jump ai
 
 getControl : Maybe JSON -> Checked (Maybe ControlDescriptor)
 getControl Nothing = pure Nothing

@@ -1,10 +1,8 @@
-`DrawSettings` (+ info) placed into `SDraw`
+Cleanup `Common.idr`
 
-- fix arrow damage:
-  - only head deals damage
-
-- TODO preload, should be `: Animation` and not `: ResourceReference`, when the resource can be loaded immediately
+Move `Events`, `Scripts`, into `Scene/`
 
 # Far off
 
 - make `ObjectCaster` independent of backend (JSON atm.)
+- preload, should be `: Animation` and not `: ResourceReference`, when the resource can be loaded immediately

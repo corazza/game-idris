@@ -1,0 +1,26 @@
+{
+  "leftright": {
+    "duration": 3,
+    "onCollision": {
+      "transition": "chase"
+    }
+  },
+
+  "chase": {
+    "onTime": {
+      "time": 10,
+      "transition": "leftright"
+    },
+
+    "onCollision": {
+      "transition": "attack"
+    }
+  },
+
+  "attack": {
+    "onTime": {
+      "time": 2,
+      "transition": "chase"
+    }
+  }
+}

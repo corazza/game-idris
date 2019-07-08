@@ -93,11 +93,15 @@ record PScene where
   objects : SceneObjects
   events : SceneEvents
   physicsIds : Dict Int String
+  -- timeCounter : Int
   background : Background
   dimensions : Vector2D
 
 emptyPScene : Background -> Vector2D -> PScene
 emptyPScene = MkPScene Z noObjects noEvents empty
+
+-- updateCount : (ticks : Int) -> PScene -> PScene
+-- updateCount ticks = record {timeCounter $= (+ ticks)}
 
 getOutside : (dimensions : Vector2D) -> List Object -> List ObjectId
 getOutside (w, h) [] = []

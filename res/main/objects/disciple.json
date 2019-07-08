@@ -3,8 +3,6 @@
   "health": 100,
   "tags": [],
 
-  "map": "main/maps/castle.json",
-
   "body": {
     "type": "dynamic",
     "fixedRotation": true,
@@ -26,8 +24,9 @@
   },
 
   "control": {
-    "speed": 6,
-    "jump": 6
+    "speed": 3,
+    "jump": 6,
+    "ai": "main/aiscripts/simplechase.json"
   },
 
   "render": {

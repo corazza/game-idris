@@ -10,7 +10,6 @@ import Scene
 import Camera
 import Input
 import Settings
-import Script
 import Resources
 import Physics.Vector2D
 import Descriptors

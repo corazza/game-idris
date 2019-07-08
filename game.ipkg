@@ -10,6 +10,11 @@ modules = Rendering
         , Rendering.Draw
         , Scene
         , Scene.Util
+        , Scene.SceneScript
+        , AI
+        , AI.AIScript
+        , AI.Controller
+        , AI.AIEvents
         , Events
         , Objects
         , Input

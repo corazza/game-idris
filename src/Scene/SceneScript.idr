@@ -1,4 +1,4 @@
-module Script
+module Scene.SceneScript
 
 import Data.AVL.Set
 import Data.AVL.DDict
@@ -9,58 +9,43 @@ import Descriptors
 
 -- doesn't know anything about Object, so can't have QueryObject
 public export
-data Script : Type -> Type where
-  GetPosition : (id : ObjectId) -> Script (Maybe Vector2D)
-  GetVelocity : (id : ObjectId) -> Script (Maybe Vector2D)
-  GetMass : (id : ObjectId) -> Script (Maybe Double)
+data SceneScript : Type -> Type where
+  GetPosition : (id : ObjectId) -> SceneScript (Maybe Vector2D)
+  GetVelocity : (id : ObjectId) -> SceneScript (Maybe Vector2D)
+  GetMass : (id : ObjectId) -> SceneScript (Maybe Double)
 
-  Create : Creation -> Script ()
-  Destroy : (id : ObjectId) -> Script ()
-  Damage : Double -> (id : ObjectId) -> Script ()
-  DeactivateCollision : String -> ObjectId -> Script ()
+  Create : Creation -> SceneScript ()
+  Destroy : (id : ObjectId) -> SceneScript ()
+  Damage : Double -> (id : ObjectId) -> SceneScript ()
+  DeactivateCollision : String -> ObjectId -> SceneScript ()
 
-  Print : String -> Script ()
+  Log : String -> SceneScript ()
 
-  Pure : (res : a) -> Script a
-  (>>=) : Script a -> (a -> Script b) -> Script b
+  Pure : (res : a) -> SceneScript a
+  (>>=) : SceneScript a -> (a -> SceneScript b) -> SceneScript b
 
 export
-Functor Script where
+Functor SceneScript where
   map f x = do res <- x
                Pure (f res)
 
 export
-Applicative Script where
+Applicative SceneScript where
   pure = Pure
   sf <*> sa = do f <- sf
                  a <- sa
                  pure (f a)
 
 export
-Monad Script where
-  (>>=) = Script.(>>=)
+Monad SceneScript where
+  (>>=) = SceneScript.(>>=)
 
 public export
 UnitScript : Type
-UnitScript = Script ()
+UnitScript = SceneScript ()
 
--- this exists only to introduce ordering to collision events (needed by scripts)
-public export
-record CollisionData where
-  constructor MkCollisionData
-  self : CollisionForObject
-  other : CollisionForObject
-
-public export
-data Selector = First | Second
-
-export
-buildCollisionData : CollisionForObject -> CollisionForObject -> Selector -> CollisionData
-buildCollisionData one two First = MkCollisionData one two
-buildCollisionData one two Second = MkCollisionData two one
-
-energy : CollisionData -> Script (Maybe Double)
-energy (MkCollisionData self other) = with Script do
+energy : CollisionData -> SceneScript (Maybe Double)
+energy (MkCollisionData self other) = with SceneScript do
   Just mass <- GetMass (id self) | pure Nothing
   -- the object stopped a projectile relative to itself
   let v = magnitude ((velocity self) - (velocity other))
@@ -68,7 +53,7 @@ energy (MkCollisionData self other) = with Script do
 
 export
 projectileDamage : (factor : Double) -> CollisionData -> UnitScript
-projectileDamage factor cdata@(MkCollisionData self other) = with Script do
+projectileDamage factor cdata@(MkCollisionData self other) = with SceneScript do
   Just energy <- energy cdata | pure ()
   Damage (factor * energy) (id other)
   -- Destroy (id self) -- TODO conditional on damage?
@@ -77,7 +62,7 @@ projectileDamage factor cdata@(MkCollisionData self other) = with Script do
 -- TODO exports are wrong
 public export
 throw : (ref : ResourceReference) -> Double -> ActionParameters -> UnitScript
-throw ref impulse (MkActionParameters id actionPosition) = with Script do
+throw ref impulse (MkActionParameters id actionPosition) = with SceneScript do
   Just position <- GetPosition id | pure ()
   let direction = normed (actionPosition - position)
   let cdata = BoxData (Just $ impulse `scale` direction)

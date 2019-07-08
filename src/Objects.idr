@@ -11,7 +11,7 @@ import Physics.Box2D
 import Descriptors
 import Resources
 import Common
-import Script
+import Scene.SceneScript
 import Data.AVL.DDict
 
 %access public export
@@ -166,11 +166,23 @@ fromFull x = MkHealth x x
 percent : Health -> Double
 percent (MkHealth current full) = current / full
 
+record ControlParameters where
+  constructor MkControlParameters
+  speed : Double
+  jump : Double
+
+Show ControlParameters where
+  show (MkControlParameters speed jump)
+    = "{ speed: " ++ show speed ++ ", jump: " ++ show jump ++ " }"
+
 record ObjectControl where
   constructor MkObjectControl
   controlState : ControlState
-  controlParameters : ControlDescriptor
+  controlParameters : ControlParameters
 %name ObjectControl control
+
+initialControl : ControlParameters -> ObjectControl
+initialControl = MkObjectControl (noControl Rightward)
 
 Show ObjectControl where
   show (MkObjectControl ctst ctp)
@@ -178,6 +190,12 @@ Show ObjectControl where
     ++   "controlState: " ++ show ctst
     ++ ", controlParameters: " ++ show ctp
     ++ "}"
+
+controlFromDescriptor : ObjectDescriptor -> Maybe ObjectControl
+controlFromDescriptor desc = case control desc of
+  Nothing => Nothing
+  Just (MkControlDescriptor speed jump ai) => Just $
+    initialControl (MkControlParameters speed jump)
 
 resetObjectControl : ObjectControl -> ObjectControl
 resetObjectControl = record { controlState $= resetControlState }
@@ -220,6 +238,12 @@ controlState = map controlState . control
 facing : Object -> Maybe MoveDirection
 facing = map facing . controlState
 
+-- ai : Object -> Maybe AI
+-- ai = join . map ai . control
+--
+-- aiInfo : Object -> Maybe (AIDescriptor, ObjectId)
+-- aiInfo object = map (\x => (x, id object)) (map descriptor (ai object))
+
 forceDirection : Object -> MoveDirection
 forceDirection object = case facing object of
   Nothing => Rightward
@@ -244,7 +268,7 @@ updateAnimationState ticks object = case renderDescription object of
           } object
   _ => object
 
-controlParameters : Object -> Maybe ControlDescriptor
+controlParameters : Object -> Maybe ControlParameters
 controlParameters = map controlParameters . control
 
 deactivateCollision : (name : String) -> Object -> Object
@@ -276,10 +300,6 @@ addTouching id = physicsUpdate $ record { touching $= insert id }
 removeTouching : ObjectId -> Object -> Object
 removeTouching id = let to_remove = insert id empty in
   physicsUpdate $ record { touching $= \t => difference t to_remove }
-
--- TODO delete
-getControlST : Object -> STrans m (Maybe ControlDescriptor) xs (const xs)
-getControlST = pure . controlParameters
 
 angle : Object -> Double
 angle = angle . physicsProperties
@@ -335,9 +355,6 @@ x = fst . position
 
 y : Object -> Double
 y = snd . position
-
-controlFromDescriptor : ObjectDescriptor -> Maybe ObjectControl
-controlFromDescriptor = map (MkObjectControl (noControl Rightward)) . control
 
 fromParams : FixtureParameters -> Shape -> FixtureDefinition
 fromParams (MkFixtureParameters offset angle density friction restitution) shape
