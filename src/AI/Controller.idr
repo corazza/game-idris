@@ -7,48 +7,82 @@ import GameIO
 import Exception
 import Common
 import Resources
+import Events
+import Physics.Vector2D
 
 public export
-data AIState = Leftright | Chase | Attack
-
-initialState : AIState
-initialState = Leftright
+data AIState = Initial | Roam | Chase
 
 Cast String (Checked AIState) where
-  cast "leftright" = pure Leftright
+  cast "initial" = pure Initial
+  cast "roam" = pure Roam
   cast "chase" = pure Chase
+  cast _ = fail "AIState must be of \"roam\"|\"chase\""
+
+-- TODO expand
+public export
+data AIAction = MoveRight | MoveLeft | ChangeDirection | Attack
+
+export
+Show AIAction where
+  show MoveRight = "move right"
+  show MoveLeft = "move left"
+  show ChangeDirection = "change direction"
+  show Attack = "attack"
+
+Cast String (Checked AIAction) where
+  cast "move right" = pure MoveRight
+  cast "move left" = pure MoveLeft
+  cast "change direction" = pure ChangeDirection
   cast "attack" = pure Attack
-  cast _ = fail "AIState must be of \"leftright\"|\"chase\"|\"attack\""
+  cast _ = fail "action must be of \"attack\""
+
+public export
+record Transition where
+  constructor MkTransition
+  state : AIState
+  action : Maybe AIAction
+
+getState : Dict String JSON -> Checked AIState
+getState dict = with Checked do
+  state <- getString "state" dict
+  cast state
+
+ObjectCaster Transition where
+  objectCast dict = with Checked do
+    state <- getState dict
+    action <- maybeFromString "action" cast dict
+    pure $ MkTransition state action
 
 -- additional parameters only affect handlers, i.e. whether they fire,
 -- which arguments they give, etc.
 public export
 record Handlers where
   constructor MkHandlers
-  onCollision : Maybe AIState
-  onTime : Maybe (Double, AIState) -- wait time
+  onCollision : Maybe Transition
+  onTime : Maybe (Double, Transition) -- wait time
 
--- TODO abstract and unify
-getCollision : Dict String JSON -> Checked (Maybe AIState)
+getCollision : Dict String JSON -> Checked (Maybe Transition)
 getCollision dict = case lookup "onCollision" dict of
   Nothing => pure Nothing
-  Just (JObject xs) => let dict' = fromList xs in with Checked do
-    statename <- getString "transition" dict'
-    case the (Checked AIState) (cast statename) of
+  Just (JObject xs) => case lookup "transition" (fromList xs) of
+    Nothing => fail "onCollision must have transition field"
+    Just x => case the (Checked Transition) (cast x) of
       Left e => fail e
-      Right state => pure $ Just state
+      Right transition => pure $ Just transition
   _ => fail "onCollision must be JObject"
 
-getTime : Dict String JSON -> Checked (Maybe (Double, AIState))
+getTime : Dict String JSON -> Checked (Maybe (Double, Transition))
 getTime dict = case lookup "onTime" dict of
   Nothing => pure Nothing
-  Just (JObject xs) => let dict' = fromList xs in with Checked do
-    statename <- getString "transition" dict'
-    case the (Checked AIState) (cast statename) of
-      Left e => fail e
-      Right state => with Checked do
-        time <- getDouble "time" dict'
-        pure $ Just (time, state)
+  Just (JObject xs) => let dict' = fromList xs in
+    case lookup "transition" dict' of
+      Nothing => fail "onTime must have transition field"
+      Just x => case the (Checked Transition) (cast x) of
+        Left e => fail e
+        Right transition => with Checked do
+          time <- getDouble "time" dict'
+          pure $ Just (time, transition)
   _ => fail "onTime must be JObject"
 
 getHandlers : Dict String JSON -> Checked Handlers
@@ -60,19 +94,10 @@ getHandlers dict = with Checked do
 public export
 record AIDescriptor where
   constructor MkAIDescriptor
-  leftright : Maybe (Double, Handlers)
+  initial : Handlers
+  roam : Maybe Handlers
   chase : Maybe Handlers
-  attack : Maybe Handlers
 %name AIDescriptor aidesc
-
-getLeftright : Dict String JSON -> Checked (Maybe (Double, Handlers))
-getLeftright dict = case lookup "leftright" dict of
-  Nothing => pure Nothing
-  Just (JObject xs) => let dict' = fromList xs in with Checked do
-    duration <- getDouble "duration" dict'
-    handlers <- getHandlers dict'
-    pure $ Just (duration, handlers)
-  _ => fail "state leftright must be JObject"
 
 getStateHandlers : (name : String) -> Dict String JSON -> Checked (Maybe Handlers)
 getStateHandlers name dict = case lookup name dict of
@@ -82,22 +107,36 @@ getStateHandlers name dict = case lookup name dict of
 
 ObjectCaster AIDescriptor where
   objectCast dict = with Checked do
-    leftright <- getLeftright dict
+    Just initial <- getStateHandlers "initial" dict
+    roam <- getStateHandlers "roam" dict
     chase <- getStateHandlers "chase" dict
-    attack <- getStateHandlers "attack" dict
-    pure $ MkAIDescriptor leftright chase attack
+    pure $ MkAIDescriptor initial roam chase
 
 public export
 GameIO m => SimpleLoader m AIDescriptor where
-  load id = checkedJSONLoad (refToFilepath id) -- $ "res/main/maps/" ++ id ++ ".json"
+  load id = checkedJSONLoad (refToFilepath id)
+
+public export
+data AIDirection = Leftward | Rightward
+
+export
+Show AIDirection where
+  show Leftward = "left"
+  show Rightward = "right"
 
 public export
 record AIData where
   constructor MkAIData
-  lastTime : Int
+  direction : Maybe AIDirection -- ms since last transition
 
 initialData : AIData
-initialData = MkAIData 0
+initialData = MkAIData Nothing
+
+export
+commandToDataUpdate : Command -> AIData -> AIData
+commandToDataUpdate (Start (Movement Left)) = record { direction = Just Leftward }
+commandToDataUpdate (Start (Movement Right)) = record { direction = Just Rightward }
+commandToDataUpdate _ = id
 
 public export
 record AIController where
@@ -105,25 +144,33 @@ record AIController where
   descriptor : AIDescriptor
   aidata : AIData
   state : AIState
+  transitioned : Int
 %name AIController controller
 
 export
 fromDescriptor : AIDescriptor -> AIController
-fromDescriptor aidesc = MkAIController aidesc initialData initialState
+fromDescriptor aidesc = MkAIController aidesc initialData Initial 0
 
 export
 updateData : (f : AIData -> AIData) -> AIController -> AIController
 updateData f = record { aidata $= f }
 
--- HELPER
 export
-leftright : AIController -> Maybe (Double, Handlers)
-leftright = leftright . descriptor
+initial : AIController -> Handlers
+initial = initial . descriptor
+
+export
+roam : AIController -> Maybe Handlers
+roam = roam . descriptor
 
 export
 chase : AIController -> Maybe Handlers
 chase = chase . descriptor
 
 export
-attack : AIController -> Maybe Handlers
-attack = attack . descriptor
+direction : AIController -> Maybe AIDirection
+direction = direction . aidata
+
+export
+transition : (time : Int) -> (state : AIState) -> AIController -> AIController
+transition time state = record { state = state, transitioned = time }

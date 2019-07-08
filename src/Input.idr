@@ -2,17 +2,12 @@ module Input
 
 import Graphics.SDL2 as SDL2
 
-%access public export
+import Physics.Vector2D
+import Camera
+import Events
 
-data Direction = Left | Right | Up | Down
-
-data Command = Movement Direction
-             | Attack Int Int -- x, y of screen
-
-data InputEvent = CommandStart Command
-                | CommandStop Command
-
-keyToCommand : Key -> Maybe Command
+export
+keyToCommand : Key -> Maybe Action
 keyToCommand KeyUpArrow = Just (Movement Up)
 keyToCommand KeyDownArrow = Just (Movement Down)
 keyToCommand KeyLeftArrow = Just (Movement Left)
@@ -47,40 +42,31 @@ keyToCommand (KeyAny x)
          'd' => Just (Movement Right)
          _ => Nothing
 
--- TODO useless?
-||| Left () for quit, Right (Maybe InputEvent) for event
--- processEvent : Maybe SDL2.Event -> Either () (Maybe InputEvent)
--- processEvent Nothing = Right Nothing
--- processEvent (Just AppQuit) = Left ()
--- processEvent (Just (KeyDown key)) = Right $ CommandStart <$> keyToCommand key
--- processEvent (Just (KeyUp key)) = Right $ CommandStop <$> keyToCommand key
--- processEvent (Just (MouseMotion x y z w)) = Right Nothing
--- processEvent (Just (MouseButtonDown x y z)) = Right $ CommandS
--- processEvent (Just (MouseButtonUp x y z)) = Right Nothing
--- processEvent (Just (Resize x y)) = Right Nothing
-
-processEvents : List SDL2.Event -> Either () (List InputEvent)
-processEvents xs = processEvents' [] xs where
+export
+processEvents : Camera -> List SDL2.Event -> Either () (List Command)
+processEvents camera xs = processEvents' [] xs where
   mutual
     -- both keypresses and mouse button events generate commands, but SDL2 puts
     -- them on different levels of its event hierarchy. this utility function
     -- brings them on the same level in the game input command hierarchy
-    processKey : (acc : List InputEvent) ->
+    processKey : (acc : List Command) ->
                  (ys' : List SDL2.Event) ->
                  (key : Key) ->
-                 (cstr : Command -> InputEvent) ->
-                 Either () (List InputEvent)
+                 (cstr : Action -> Command) ->
+                 Either () (List Command)
     processKey acc ys' key cstr = case keyToCommand key of
       Nothing => processEvents' acc ys'
       Just cmd => processEvents' ((cstr cmd)::acc) ys'
 
-    processEvents' : (acc : List InputEvent) -> (xs' : List SDL2.Event) -> Either () (List InputEvent)
+    processEvents' : (acc : List Command) -> (xs' : List SDL2.Event) -> Either () (List Command)
     processEvents' acc [] = Right acc
     processEvents' acc (sdlEvent :: ys) = case sdlEvent of
-      KeyDown key => processKey acc ys key CommandStart
-      KeyUp key => processKey acc ys key CommandStop
+      KeyDown key => processKey acc ys key Start
+      KeyUp key => processKey acc ys key Stop
       MouseMotion x y z w => processEvents' acc ys
-      MouseButtonDown button x y => processEvents' (CommandStart (Attack x y) :: acc) ys
-      MouseButtonUp button x y => processEvents' (CommandStop (Attack x y) :: acc) ys
+      MouseButtonDown button x y => let scenePos = screenToPosition camera (x, y) in
+        processEvents' (Start (Attack scenePos) :: acc) ys
+      MouseButtonUp button x y => let scenePos = screenToPosition camera (x, y) in
+        processEvents' (Stop (Attack scenePos) :: acc) ys
       Resize x y => processEvents' acc ys
       AppQuit => Left ()

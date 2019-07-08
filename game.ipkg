@@ -14,7 +14,6 @@ modules = Rendering
         , AI
         , AI.AIScript
         , AI.Controller
-        , AI.AIEvents
         , Events
         , Objects
         , Input

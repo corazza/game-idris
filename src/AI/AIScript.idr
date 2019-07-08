@@ -8,10 +8,13 @@ import Objects
 
 public export
 data AIScript : Type -> Type where
-  Event : Events.Event -> AIScript ()
-
+  AICommand : ObjectId -> Command -> AIScript ()
+  Transition : (id : ObjectId) -> AIState -> Maybe AIAction -> AIScript ()
   UpdateData : (id : ObjectId) -> (f : AIData -> AIData) -> AIScript ()
-  GetTime : (id : ObjectId) -> AIScript Int
+  GetStartTime : (id : ObjectId) -> AIScript (Maybe Int) -- time since in this state
+  GetDirection : (id : ObjectId) -> AIScript (Maybe AIDirection)
+
+  GetTime : AIScript Int -- global time
 
   Log : String -> AIScript ()
 
@@ -38,15 +41,33 @@ public export
 UnitAIScript : Type
 UnitAIScript = AIScript ()
 
+timeForState : (time : Int) -> (id : ObjectId) -> Handlers -> UnitAIScript
+timeForState time id (MkHandlers _ (Just (duration, MkTransition state action))) = with AIScript do
+  Just transitioned <- GetStartTime id | pure ()
+  let passed = (cast time) / 1000.0 - (cast transitioned) / 1000.0
+  when (passed > duration) $
+    Transition id state action
+timeForState time id _ = pure ()
+
+-- TODO improve matching, decrease repetition
 export
-leftrightScript : (id : String) -> (duration : Double) -> UnitAIScript
-leftrightScript id duration = Event (MovementStart Leftward id)
+timeScripts : (time : Int) -> (id : ObjectId) -> AIController -> UnitAIScript
+timeScripts time id controller = case state controller of
+  Initial => timeForState time id (initial controller)
+  Roam => case roam controller of
+    Nothing => pure ()
+    Just handlers => timeForState time id handlers
+  Chase => case chase controller of
+    Nothing => pure ()
+    Just handlers => timeForState time id handlers
 
 export
-produceScript : (id : ObjectId) -> AIController -> UnitAIScript
-produceScript id controller = case state controller of
-  Leftright => case leftright controller of
-    Nothing => Pure ()
-    Just (duration, handlers) => leftrightScript id duration
-  Chase => ?dfkkdee_2
-  Attack => ?dfkkdee_3
+actionToScript : (id : ObjectId) -> AIAction -> UnitAIScript
+actionToScript id MoveRight = AICommand id (Start (Movement Right))
+actionToScript id MoveLeft = AICommand id (Start (Movement Left))
+actionToScript id ChangeDirection = with AIScript do
+  Just direction <- GetDirection id | pure ()
+  case direction of
+    Leftward => AICommand id (Start (Movement Right))
+    Rightward => AICommand id (Start (Movement Left))
+actionToScript id Attack = ?sdklfsmhm_4

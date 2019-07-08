@@ -12,6 +12,7 @@ import Descriptors
 import Resources
 import Common
 import Scene.SceneScript
+import Events
 import Data.AVL.DDict
 
 %access public export
@@ -95,14 +96,23 @@ stopMoving direction ctst
           [] => newCtst
           x :: _ => record {facing=x} newCtst
 
-stopDead : ControlState -> ControlState
-stopDead = record { moving = empty }
-
 startJumping : ControlState -> ControlState
 startJumping = record { jumping = True }
 
 stopJumping : ControlState -> ControlState
 stopJumping = record { jumping = False, canJump = True }
+
+startMoveAction : Direction -> ControlState -> ControlState
+startMoveAction Left = startMoving Leftward
+startMoveAction Right = startMoving Rightward
+startMoveAction Up = startJumping
+startMoveAction Down = id
+
+stopMoveAction : Direction -> ControlState -> ControlState
+stopMoveAction Left = stopMoving Leftward
+stopMoveAction Right = stopMoving Rightward
+stopMoveAction Up = stopJumping
+stopMoveAction Down = id
 
 startAttacking : ControlState -> ControlState
 startAttacking = record { attacking = True }

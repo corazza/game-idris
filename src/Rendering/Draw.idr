@@ -52,7 +52,7 @@ interface Draw (m : Type -> Type) where
   initDraw : Int -> Int -> ST m Var [add SDraw]
   quitDraw : (draw : Var) -> ST m () [remove draw SDraw]
 
-  poll : ST m (Either () (List InputEvent)) []
+  poll : STrans m (List SDL2.Event) xs (const xs)
 
   clear : (draw : Var) -> ST m Int [draw ::: SDraw]
   present : (draw : Var) -> ST m () [draw ::: SDraw]
@@ -102,7 +102,7 @@ Draw IO where
     quitCache animationCache
     delete draw
 
-  poll = lift pollEvents >>= pure . processEvents
+  poll = lift pollEvents
 
   clear draw = with ST do
     [srenderer, imageCache, animationCache] <- split draw

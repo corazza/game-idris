@@ -42,11 +42,10 @@ interface Scene (m : Type -> Type) where
 
   registerEvent : (scene : Var) -> Events.Event -> ST m () [scene ::: SScene]
   registerEvents : (scene : Var) -> (List Events.Event) -> ST m () [scene ::: SScene]
-  controlEvent : (scene : Var) ->
-                 (id : String) ->
-                 (camera : Camera) ->
-                 List InputEvent ->
-                 ST m () [scene ::: SScene]
+
+  handleCommand : (scene : Var) -> ObjectId -> Command -> ST m () [scene ::: SScene]
+  handleCommands : (scene : Var) -> ObjectId -> List Command -> ST m () [scene ::: SScene]
+  handleCommands' : (scene : Var) -> List (ObjectId, List Command) -> ST m () [scene ::: SScene]
 
   iterate : (scene : Var) -> (ticks : Int) -> ST m () [scene ::: SScene]
 
@@ -203,8 +202,7 @@ export
     write spscene (record {events $= (events'++)} !(read spscene))
     combine scene [spscene, physics, objectCache, ai]
 
-  controlEvent scene id camera xs
-    = registerEvents scene (catMaybes $ map (inputToEvent id camera) xs)
+    -- = registerEvents scene (catMaybes $ map (inputToEvent id camera) xs)
 
   iterate scene ticks = with ST do
     affectPhysics scene
@@ -272,9 +270,9 @@ export
 
   iterateAI scene ticks = with ST do
     [pscene, world, objectCache, ai] <- split scene
-    aiEvents <- decisions ai ticks
+    aiCommands <- decisions ai ticks
     combine scene [pscene, world, objectCache, ai]
-    registerEvents scene aiEvents
+    handleCommands' scene (toList aiCommands)
 
   affectPhysics scene = with ST do
     [spscene, physics, objectCache, ai] <- split scene
@@ -329,7 +327,7 @@ export
     pscene <- read spscene
     let eventList = events pscene
     write spscene (record {events=[]} pscene)
-    -- handleEvents ai empty
+    handleEvents ai eventList
     combine scene [spscene, physics, objectCache, ai]
     handleEvents' scene eventList
 
@@ -342,18 +340,6 @@ export
     let scripts = map (\f => f cdata) scripts'
     runScript scene (sequence_ scripts)
 
-  handle scene (MovementStart direction id)
-    = updateObject scene id (updateControl $ startMoving direction)
-  handle scene (MovementStop direction id)
-    = updateObject scene id (updateControl $ stopMoving direction)
-  handle scene (AttackStart pos id)
-    = updateObject scene id (updateControl startAttacking)
-  handle scene (AttackStop pos id) = with ST do
-    updateObject scene id (updateControl stopAttacking)
-    Just (Just attack_script) <- queryObject scene id (attack . scripts) | pure ()
-    runScript scene (attack_script (MkActionParameters id pos))
-  handle scene (JumpStart id) = updateObject scene id (updateControl startJumping)
-  handle scene (JumpStop id) = updateObject scene id (updateControl stopJumping)
   handle scene (CollisionStart one two)
     = let cdata = buildCollisionData one two in with ST do
           handleCollision scene (cdata First)
@@ -361,6 +347,25 @@ export
   handle scene (CollisionStop one two) = with ST do
     updateObject scene (id one) (removeTouching (id two))
     updateObject scene (id two) (removeTouching (id one))
+
+  handleCommand scene id (Start (Movement direction))
+    = updateObject scene id (updateControl $ startMoveAction direction)
+  handleCommand scene id (Stop (Movement direction))
+    = updateObject scene id (updateControl $ stopMoveAction direction)
+  handleCommand scene id (Start (Attack pos))
+    = updateObject scene id (updateControl startAttacking)
+  handleCommand scene id (Stop (Attack pos)) = with ST do
+    updateObject scene id (updateControl stopAttacking)
+    Just (Just attack_script) <- queryObject scene id (attack . scripts) | pure ()
+    runScript scene (attack_script (MkActionParameters id pos))
+
+  handleCommands scene id [] = pure ()
+  handleCommands scene id (command :: xs) = handleCommand scene id command >>=
+    const (handleCommands scene id xs)
+
+  handleCommands' scene [] = pure ()
+  handleCommands' scene ((id, commands) :: xs) = handleCommands scene id commands >>=
+    const (handleCommands' scene xs)
 
   runScript scene (GetPosition id) = queryObject scene id position
   runScript scene (GetVelocity id) = queryObject scene id velocity

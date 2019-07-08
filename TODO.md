@@ -1,3 +1,5 @@
+Rename `Command` to `Command`
+
 Cleanup `Common.idr`
 
 Move `Events`, `Scripts`, into `Scene/`

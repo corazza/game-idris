@@ -3,6 +3,7 @@ module Main
 import Control.ST
 import Control.ST.ImplicitCall
 import Data.AVL.Set
+import Graphics.SDL2 as SDL2
 
 import GameIO
 import Rendering
@@ -53,24 +54,29 @@ iterateCarry scene dt time = if time > dt
 loop : (GameIO m, Scene m, Draw m) =>
        (state : Var) -> Settings -> ST m () [state ::: GameState {m}]
 loop state settings = with ST do
-  let (MkSettings uiSettings displaySettings sceneSettings) = settings
   beforems <- ticks
-  Right events <- poll | pure ()
   [draw, scene, camera', lastms, carry', characterId'] <- split state
-  characterId <- read characterId'
   let passed = beforems - !(read lastms)
-  carry <- read carry'
-  write lastms beforems
   camera <- read camera'
-  controlEvent scene characterId camera events
-  newCarry <- iterateCarry scene (timeStep sceneSettings) (passed+carry)
-  write carry' newCarry
-  Just position <- runScript scene $ GetPosition characterId
-                | combine state [draw, scene, camera', lastms, carry', characterId']
-  write camera' (translate (position + (0, yd camera)) camera)
-  combine state [draw, scene, camera', lastms, carry', characterId']
-  render state uiSettings
-  loop state settings
+  sdl_events <- poll
+  case processEvents camera sdl_events of
+    Left () => with ST do
+      combine state [draw, scene, camera', lastms, carry', characterId']
+      pure ()
+    Right events => with ST do
+      characterId <- read characterId'
+      handleCommands scene characterId events
+      carry <- read carry'
+      let dt = timeStep (sceneSettings settings)
+      newCarry <- iterateCarry scene dt (passed+carry)
+      Just position <- runScript scene $ GetPosition characterId
+                    | combine state [draw, scene, camera', lastms, carry', characterId']
+      write camera' (translate (position + (0, yd camera)) camera)
+      write lastms beforems
+      write carry' newCarry
+      combine state [draw, scene, camera', lastms, carry', characterId']
+      render state (uiSettings settings)
+      loop state settings
 
 game : (GameIO m, Draw m, Scene m) =>
        Settings -> String -> Character -> ST m () []

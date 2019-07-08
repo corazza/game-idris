@@ -202,3 +202,15 @@ toChecked (Left e) (Left es) = fail $ e ++ "\n" ++ es
 toChecked (Left e) (Right r) = fail e
 toChecked (Right aparams) (Left e) = fail e
 toChecked (Right aparams) (Right ps) = pure $ aparams :: ps
+
+export
+maybeFromString : (name : String) ->
+                  (conv : String -> Checked a) ->
+                  (dict : Dict String JSON) ->
+                  Checked (Maybe a)
+maybeFromString name conv dict = case lookup name dict of
+  Nothing => pure Nothing
+  Just (JString x) => case conv x of
+    Left e => fail e
+    Right r => pure $ Just r
+  _ => fail $ name ++ " must be string"

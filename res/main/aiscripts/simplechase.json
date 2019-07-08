@@ -1,26 +1,43 @@
 {
-  "leftright": {
-    "duration": 3,
+  "initial": {
+    "onTime": {
+      "time": 0,
+      "transition": {
+        "state": "roam",
+        "action": "move left"
+      }
+    }
+  },
+
+  "roam": {
+    "onTime": {
+      "time": 3,
+      "transition": {
+        "state": "roam",
+        "action": "change direction"
+      }
+    },
+
     "onCollision": {
-      "transition": "chase"
+      "transition": {
+        "state": "chase"
+      }
     }
   },
 
   "chase": {
     "onTime": {
       "time": 10,
-      "transition": "leftright"
+      "transition": {
+        "state": "roam"
+      }
     },
 
     "onCollision": {
-      "transition": "attack"
-    }
-  },
-
-  "attack": {
-    "onTime": {
-      "time": 2,
-      "transition": "chase"
+      "transition": {
+        "state": "chase",
+        "action": "attack"
+      }
     }
   }
 }
