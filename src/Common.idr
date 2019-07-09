@@ -49,6 +49,7 @@ record ActionParameters where
   constructor MkActionParameters
   id : ObjectId
   position : Vector2D
+%name ActionParameters action_parameters
 
 -- TODO shouldn't be here, but in Objects
 public export

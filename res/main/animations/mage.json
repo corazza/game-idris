@@ -1,5 +1,6 @@
 {
-  "sheet": "main/images/character/Large/idle.png",
-  "dimensions": [199, 501],
-  "nx": 10
+  "sheet": "main/images/andromalius/mage-1-85x94.png",
+  "dimensions": [85, 99],
+  "nx": 4,
+  "ny": 2
 }

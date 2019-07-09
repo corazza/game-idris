@@ -21,6 +21,7 @@ import GameIO
 import Camera
 import Settings
 import AI
+import AI.PAI
 
 public export
 interface Scene (m : Type -> Type) where
@@ -50,11 +51,13 @@ interface Scene (m : Type -> Type) where
   iterate : (scene : Var) -> (ticks : Int) -> ST m () [scene ::: SScene]
 
   private
+  newId : (scene : Var) -> ST m ObjectId [scene ::: SScene]
+  private
+  correctId : (scene : Var) -> Creation -> ST m (Creation, ObjectId) [scene ::: SScene]
+  private
   addBody : (scene : Var) -> (object : Object) -> ST m (Int, Body) [scene ::: SScene]
   private
-  addWithId : (scene : Var) -> (object : Object) -> ST m String [scene ::: SScene]
-  private
-  addObject : (scene : Var) -> (object : Object) -> ST m String [scene ::: SScene]
+  addObject : (scene : Var) -> (object : Object) -> ST m () [scene ::: SScene]
   private
   addAI : (scene : Var) -> (id : ObjectId) -> (desc : ObjectDescriptor) -> ST m () [scene ::: SScene]
   private
@@ -164,7 +167,8 @@ export
     pure dimensions'
 
   create scene creation = with ST do
-    let ref = ref creation
+    (creation', sceneId) <- correctId scene creation
+    let ref = ref creation'
     [spscene, physics, objectCache, ai] <- split scene
     Right desc <- get {m} {r=ObjectDescriptor} objectCache ref
                 | Left e => with ST do
@@ -173,11 +177,11 @@ export
                       putStrLn e
                       pure Nothing
     combine scene [spscene, physics, objectCache, ai]
-    Just object <- fromDescriptorCreation' desc creation | pure Nothing
-    sceneId <- addObject scene object
+    Just object <- fromDescriptorCreation' desc creation' | pure Nothing
+    addObject scene object
     addAI scene sceneId desc
-    applyImpulse scene sceneId (impulseOnCreation (creationData creation))
-    pure (Just sceneId)
+    applyImpulse scene sceneId (impulseOnCreation (creationData creation'))
+    pure $ Just sceneId
 
   createMany scene [] = pure () -- TODO return list of id's
   createMany scene (x :: xs) = with ST do create scene x; createMany scene xs
@@ -187,6 +191,7 @@ export
     [pscene, world, objectCache, ai] <- split scene
     lift $ destroy !(read world) body
     write pscene (record { objects $= DDict.delete id } !(read pscene))
+    removeController ai id
     combine scene [pscene, world, objectCache, ai]
 
   destroyMany scene [] = pure ()
@@ -201,8 +206,6 @@ export
     [spscene, physics, objectCache, ai] <- split scene
     write spscene (record {events $= (events'++)} !(read spscene))
     combine scene [spscene, physics, objectCache, ai]
-
-    -- = registerEvents scene (catMaybes $ map (inputToEvent id camera) xs)
 
   iterate scene ticks = with ST do
     affectPhysics scene
@@ -227,7 +230,7 @@ export
         combine scene [pscene, physics, objectCache, ai]
 
   -- PROOF that id isn't empty
-  addWithId scene object = with ST do
+  addObject scene object = with ST do
     (bodyId, body) <- addBody scene object
     mass' <- lift $ getMass body
     let object' = physicsUpdate (record { mass=mass' }) object
@@ -235,17 +238,20 @@ export
     update spscene (record { objects    $= addObjectBody (object', body),
                              physicsIds $= insert bodyId (id object') })
     combine scene [spscene, physics, objectCache, ai]
-    pure (id object')
 
-  -- TODO FIX
-  addObject scene object@(MkObject "" _ _ _ _ _ _ _ _) = with ST do
+  newId scene = with ST do
     [spscene, physics, objectCache, ai] <- split scene
     pscene <- read spscene
     let idString = "autoid_" ++ show (idCounter pscene)
     write spscene (record {idCounter $= (+1)} pscene)
     combine scene [spscene, physics, objectCache, ai]
-    addWithId scene (record {id = idString} object)
-  addObject scene object = addWithId scene object
+    pure idString
+
+  correctId scene creation = case Creation.id creation of
+    Nothing => with ST do
+      id <- newId scene
+      pure (record { id = Just id } creation, id)
+    Just existing => pure (creation, existing)
 
   queryObject scene id f = pure $ map f !(getObject scene id)
 
@@ -270,7 +276,9 @@ export
 
   iterateAI scene ticks = with ST do
     [pscene, world, objectCache, ai] <- split scene
-    aiCommands <- decisions ai ticks
+    relevant_objects <- relevantObjects ai
+    let scene_objects = objects !(read pscene)
+    aiCommands <- decisions ai ticks (objectInfoUpdates scene_objects relevant_objects)
     combine scene [pscene, world, objectCache, ai]
     handleCommands' scene (toList aiCommands)
 
@@ -347,6 +355,8 @@ export
   handle scene (CollisionStop one two) = with ST do
     updateObject scene (id one) (removeTouching (id two))
     updateObject scene (id two) (removeTouching (id one))
+  handle scene (Hit attacker target damage) = pure ()
+
 
   handleCommand scene id (Start (Movement direction))
     = updateObject scene id (updateControl $ startMoveAction direction)
@@ -378,6 +388,7 @@ export
     if not alive then destroy scene id else pure ()
   runScript scene (DeactivateCollision name id)
     = updateObject scene id (deactivateCollision name)
+  runScript scene (ProduceEvent event) = registerEvent scene event
   runScript scene (Log what) = log what
   runScript scene (Pure res) = pure res
   runScript scene (x >>= f) = runScript scene x >>= (runScript scene) . f

@@ -188,10 +188,17 @@ getStrings key dict = (case lookup key dict of
       getStrings' acc (JString x :: xs) = getStrings' (x :: acc) xs
       getStrings' acc (_ :: xs) = fail $ "not a string (in array " ++ key ++ ")"
 
+-- TODO fix, should typecheck
 export
 getDoubleOrDefault : String -> Double -> Dict String JSON -> Double
 getDoubleOrDefault key default dict = case lookup key dict of
   Just (JNumber x) => x
+  _ => default
+
+export
+getIntOrDefault : String -> Int -> Dict String JSON -> Int
+getIntOrDefault key default dict = case lookup key dict of
+  Just (JNumber x) => cast x
   _ => default
 
 export

@@ -1,6 +1,6 @@
 {
-  "name": "Disciple",
-  "health": 100,
+  "name": "Mage",
+  "health": 150,
   "tags": [],
 
   "body": {
@@ -24,14 +24,24 @@
   },
 
   "control": {
-    "speed": 4,
+    "speed": 3,
     "jump": 6,
-    "ai": "main/aiscripts/hold-chase.json"
+    "ai": "main/aiscripts/roam-chase.json"
   },
 
   "render": {
-    "type": "single",
-    "image": "main/images/disciple.png",
-    "dimensions": [0.5, 0.8]
+    "type": "animated",
+    "states": {
+      "moving": {
+        "animation": "main/animations/mage.json",
+        "dimensions": [0.914286, 0.8192],
+        "speed": 0.1
+      },
+      "resting": {
+        "animation": "main/animations/mage.json",
+        "dimensions": [0.4, 0.8],
+        "speed": 0.1
+      }
+    }
   }
 }

@@ -1,0 +1,29 @@
+{
+  "initial": {
+    "onTime": {
+      "time": 0,
+      "transition": {
+        "state": "hold",
+        "action": "stop"
+      }
+    }
+  },
+
+  "hold": {
+    "onHit": {
+      "transition": {
+        "state": "chase"
+      }
+    }
+  },
+
+  "chase": {
+    "onTime": {
+      "time": 5,
+      "transition": {
+        "state": "hold",
+        "action": "stop"
+      }
+    }
+  }
+}

@@ -84,7 +84,7 @@ game {m} settings@(MkSettings uiSettings displaySettings sceneSettings)
      characterId character@(MkCharacter name object position map) = with ST do
   let r = resolution displaySettings
   let playerCreation = MkCreation
-    (Just characterId) object position 0 empty (BoxData Nothing)
+    (Just characterId) object position 0 empty (BoxData Nothing) Nothing
   mapCache <- initCache {r=MapDescriptor}
   Right map <- get {m} {r=MapDescriptor} mapCache map | with ST do
     log $ "can't load map \"" ++ map ++ "\""

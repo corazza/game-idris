@@ -20,6 +20,7 @@ record Animation where
   sheet : ResourceReference
   dimensions : (Int, Int) -- width and height of single sprite in pixels
   nx : Int
+  ny : Int
   facingRight : Bool
 
 ObjectCaster Animation where
@@ -27,8 +28,9 @@ ObjectCaster Animation where
     sheet <- getString "sheet" dict
     dimensions <- getIntPair "dimensions" dict
     nx <- getInt "nx" dict
+    let ny = getIntOrDefault "ny" 1 dict
     facingRight <- getBoolOrDefault True "facingRight" dict
-    pure $ MkAnimation sheet dimensions nx facingRight
+    pure $ MkAnimation sheet dimensions nx ny facingRight
 
 GameIO m => SimpleLoader m Animation where
   load id = checkedJSONLoad (refToFilepath id)

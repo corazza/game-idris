@@ -146,7 +146,7 @@ noScripts : Scripts
 noScripts = MkScripts Nothing empty
 
 decideScripts : ObjectDescriptor -> Creation -> Scripts
-decideScripts desc creation = MkScripts (decideAttack desc) (decideCollisions desc creation)
+decideScripts desc creation = MkScripts (decideAttack desc creation) (decideCollisions desc creation)
 
 export
 activeCollisions : Scripts -> List (CollisionData -> UnitScript)
@@ -397,7 +397,7 @@ getPhysicsProperties bdesc creation irdesc = with Maybe do
 
 fromDescriptorCreation : ObjectDescriptor -> Creation -> Maybe Object
 fromDescriptorCreation desc creation = with Maybe do
-  let id = getOrDefault "" (id creation)
+  id <- Creation.id creation
   let tags = tags creation `union` tags desc
   let health = map fromFull (health desc)
   let scripts = decideScripts desc creation

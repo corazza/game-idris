@@ -10,6 +10,7 @@ import Objects
 import Events
 import Descriptors
 import GameIO
+import AI.PAI
 
 %access public export
 
@@ -109,3 +110,9 @@ getOutside dimensions@(w, h) (object :: xs) = let (x, y) = position object in
   if x > w || x < -w || y > h || y < -h
     then id object :: getOutside dimensions xs
     else getOutside dimensions xs
+
+getInfo : ObjectId -> SceneObjects -> Maybe ObjectInfo
+getInfo dict = map (toInfo . fst) . lookup dict
+
+objectInfoUpdates : SceneObjects -> List ObjectId -> List ObjectInfo
+objectInfoUpdates dict = catMaybes . foldr (\x, xs => (getInfo x dict :: xs)) []

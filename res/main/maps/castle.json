@@ -37,6 +37,10 @@
     {
       "ref": "main/objects/disciple.json",
       "position": [0, 5]
+    },
+    {
+      "ref": "main/objects/mage.json",
+      "position": [5, 5]
     }
   ]
 }

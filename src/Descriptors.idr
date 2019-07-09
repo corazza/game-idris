@@ -309,6 +309,7 @@ record Creation where
   angle : Double
   tags : Set ObjectTag
   creationData : CreationData
+  creator : Maybe ObjectId
 %name Creation creation
 
 getId : Dict String JSON -> Maybe String
@@ -338,7 +339,7 @@ ObjectCaster Creation where
     pos <- getVector "position" dict
     creationData <- getCreationData dict
     let angle = getDoubleOrDefault "angle" 0 dict
-    pure $ MkCreation id ref pos angle (getTags' dict) creationData
+    pure $ MkCreation id ref pos angle (getTags' dict) creationData Nothing
 
 public export
 record Background where

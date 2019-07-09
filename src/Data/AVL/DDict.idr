@@ -46,8 +46,13 @@ lookup key (MkDDict dict) = case lookup key dict of
   Nothing => Nothing
   (Just x) => x
 
-keys : DDict k v -> List k
-keys (MkDDict dict) = keys dict
+isIn : Ord k => Dict k (Maybe v) -> k -> Bool
+isIn dict key = case lookup key dict of
+  Nothing => False
+  Just x => isJust x
+
+keys : Ord k => DDict k v -> List k
+keys (MkDDict dict) = filter (isIn dict) (keys dict)
 
 values : DDict k v -> List v
 values (MkDDict dict) = catMaybes $ values dict

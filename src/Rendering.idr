@@ -71,10 +71,12 @@ drawObject {m} draw camera object = let deg_angle = -(angle object) / (2.0*pi) *
                         | Left e => log e
         Just sheet <- getTexture draw (sheet animation)
                    | log ("missing texture " ++ sheet animation)
-        let frames = ticks `div` cast (1000 * speed aparams)
-        let frame = frames `mod` nx animation
+        let passed_frames = ticks `div` cast (1000 * speed aparams)
+        let frame = passed_frames `mod` nx animation * ny animation
+        let framex = frame `div` ny animation
+        let framey = frame `div` nx animation
         let (w, h) = dimensions animation
-        let src = MkSDLRect (frame*w) 0 w h
+        let src = MkSDLRect (framex*w) (framey*h) w h
         let dst = getRect camera (position object) (dimensions aparams)
         drawCenter draw sheet src dst deg_angle (getFlip object animation)
     TileWith textureRef tileDims@(w, h) howMany@(nx, ny) => with ST do

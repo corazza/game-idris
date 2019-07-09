@@ -1,3 +1,5 @@
+Everything possible to `export` instead of `public export`, or better yet private
+
 Rename `Command` to `Command`
 
 Cleanup `Common.idr`
