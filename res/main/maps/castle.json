@@ -18,29 +18,28 @@
       "position": [1.5, -2],
       "repeat": [10, 1]
     },
+
     {
       "ref": "main/objects/wooden_crate.json",
       "position": [-4, 10]
     },
     {
       "ref": "main/objects/wooden_crate.json",
-      "position": [0, -6]
+      "position": [2, -6]
+    },
+
+
+    {
+      "ref": "main/objects/mage-1.json",
+      "position": [-10, -9]
     },
     {
-      "ref": "main/objects/wooden_crate.json",
-      "position": [4, -3]
+      "ref": "main/objects/mage-2.json",
+      "position": [5, 0.5]
     },
     {
-      "ref": "main/objects/wooden_crate.json",
-      "position": [8, -1]
-    },
-    {
-      "ref": "main/objects/disciple.json",
-      "position": [0, 5]
-    },
-    {
-      "ref": "main/objects/mage.json",
-      "position": [5, 5]
+      "ref": "main/objects/mage-3.json",
+      "position": [10, -9]
     }
   ]
 }

@@ -105,3 +105,7 @@ emptyCommandsFor id = record { commands $= insert id empty }
 export
 getPosition : ObjectId -> PAI -> Maybe Vector2D
 getPosition id pai = map position $ join $ DDict.lookup id $ objects pai
+
+export
+getLastHit : ObjectId -> PAI -> Maybe ObjectId
+getLastHit id pai = join $ map lastHit $ DDict.lookup id $ controllers pai

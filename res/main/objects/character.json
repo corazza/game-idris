@@ -1,5 +1,5 @@
 {
-  "name": "Disciple",
+  "name": "Tristram",
   "health": 100,
   "tags": [],
 
@@ -33,11 +33,16 @@
     "states": {
       "moving": {
         "animation": "main/animations/run-large.json",
-        "dimensions": [0.914286, 0.8192],
-        "speed": 0.07
+        "dimensions": [0.8, 0.8],
+        "speed": 0.05
       },
       "resting": {
         "animation": "main/animations/rest-large.json",
+        "dimensions": [0.35, 0.77],
+        "speed": 0.07
+      },
+      "walking": {
+        "animation": "main/animations/walk-large.json",
         "dimensions": [0.4, 0.8],
         "speed": 0.05
       }

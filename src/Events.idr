@@ -20,11 +20,13 @@ Show Direction where
 public export
 data Action = Movement Direction
             | Attack Vector2D -- x, y of screen
+            | Walk
 
 export
 Show Action where
   show (Movement x) = "move " ++ show x
   show (Attack x) = "attack " ++ show x
+  show Walk = "walk"
 
 public export
 data Command = Start Action

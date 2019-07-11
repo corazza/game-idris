@@ -1,4 +1,7 @@
 {
+  "states": ["initial", "hold", "chase"],
+  "start": "initial",
+
   "initial": {
     "onTime": {
       "time": 0,
@@ -12,7 +15,8 @@
   "hold": {
     "onHit": {
       "transition": {
-        "state": "chase"
+        "state": "chase",
+        "action": "begin chase"
       }
     }
   },
@@ -20,9 +24,10 @@
   "chase": {
     "onTime": {
       "time": 5,
+      "time_parameter": "chase_duration",
       "transition": {
         "state": "hold",
-        "action": "stop"
+        "actions": ["end chase", "stop"]
       }
     }
   }

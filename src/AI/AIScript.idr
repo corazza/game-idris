@@ -10,13 +10,14 @@ import Physics.Vector2D
 public export
 data AIScript : Type -> Type where
   AICommand : (id : ObjectId) -> Command -> AIScript ()
-  Transition : (id : ObjectId) -> AIState -> Maybe AIAction -> AIScript ()
+  Transition : (id : ObjectId) -> AIState -> List AIAction -> AIScript ()
   UpdateData : (id : ObjectId) -> (f : AIData -> AIData) -> AIScript ()
   GetStartTime : (id : ObjectId) -> AIScript (Maybe Int) -- time since in this state
   GetDirection : (id : ObjectId) -> AIScript (Maybe AIDirection)
   GetController : (id : ObjectId) -> AIScript (Maybe AIController)
 
-  SetTarget : (id : ObjectId) -> (target_id : ObjectId) -> AIScript ()
+  SetLastHit : (id : ObjectId) -> (target_id : ObjectId) -> AIScript ()
+  GetLastHit : (id : ObjectId) -> AIScript (Maybe ObjectId)
   GetPosition : (id : ObjectId) -> AIScript (Maybe Vector2D)
 
   GetTime : AIScript Int -- global time
@@ -52,7 +53,7 @@ runGenericHandler : (id : ObjectId) ->
                     UnitAIScript
 runGenericHandler id controller getHandler = case getHandler controller of
   Nothing => pure ()
-  Just (MkTransition state action) => Transition id state action
+  Just (MkTransition state actions) => Transition id state actions
 
 collisionScript : CollisionData -> AIController -> UnitAIScript
 collisionScript (MkCollisionData self other) controller
@@ -69,7 +70,7 @@ eventScript (CollisionStart one two) = with AIScript do
 eventScript (CollisionStop x y) = pure ()
 eventScript (Hit attacker target damage) = with AIScript do
   Just controller <- GetController target | pure ()
-  SetTarget target attacker -- implicit action: target last hit
+  SetLastHit target attacker -- implicit action: target last hit
   runGenericHandler target controller hitHandler
 
 export
@@ -78,24 +79,23 @@ timeScript time id controller = case currentHandlers controller of
   Nothing => pure ()
   Just handlers => case onTime handlers of
     Nothing => pure ()
-    Just (duration, MkTransition state action) => with AIScript do
+    Just (duration, time_parameter, MkTransition state actions) => with AIScript do
+      let duration' = getDoubleParameterOrDefault duration time_parameter controller
       Just transitioned <- GetStartTime id | pure ()
       let passed = (cast time) / 1000.0 - (cast transitioned) / 1000.0
-      when (passed > duration) $
-        Transition id state action
+      when (passed > duration') $
+        Transition id state actions
 
-export
+export -- get chase_id as second argument
 chaseScript : (id : ObjectId) -> AIController -> UnitAIScript
-chaseScript id controller = case state controller of
-  Chase => case target controller of
-    Nothing => pure ()
-    Just target_id => with AIScript do
-      Just target_position <- GetPosition target_id | pure ()
-      Just my_position <- GetPosition id | pure ()
-      if (fst my_position > fst target_position)
-        then AICommand id $ Start $ Movement Left
-        else AICommand id $ Start $ Movement Right
-  _ => pure ()
+chaseScript id controller = case chasing $ aidata controller of
+  Nothing => pure ()
+  Just chase_id => with AIScript do
+    Just chase_position <- GetPosition chase_id | pure ()
+    Just my_position <- GetPosition id | pure ()
+    if (fst my_position > fst chase_position)
+      then AICommand id $ Start $ Movement Left
+      else AICommand id $ Start $ Movement Right
 
 export
 mainScript : (time : Int) -> (id : ObjectId) -> AIController -> UnitAIScript
@@ -113,8 +113,18 @@ actionToScript id ChangeDirection = with AIScript do
     Leftward => AICommand id (Start (Movement Right))
     Rightward => AICommand id (Start (Movement Left))
 actionToScript id Attack = pure ()
-actionToScript id Stop = with AIScript do
+actionToScript id Stop = with AIScript do -- TODO we have direction
   AICommand id (Stop (Movement Right))
   AICommand id (Stop (Movement Left))
   AICommand id (Stop (Movement Up))
   AICommand id (Stop (Movement Down))
+actionToScript id BeginChase = with AIScript do
+  Just hitter <- GetLastHit id | pure ()
+  UpdateData id (beginChase hitter)
+actionToScript id EndChase = UpdateData id endChase
+actionToScript id BeginWalk = AICommand id (Start Walk)
+actionToScript id EndWalk = AICommand id (Stop Walk)
+
+export
+actionsToScript : (id : ObjectId) -> List AIAction -> UnitAIScript
+actionsToScript id xs = sequence_ (map (actionToScript id) xs)

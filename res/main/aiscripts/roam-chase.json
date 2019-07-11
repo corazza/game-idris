@@ -1,10 +1,13 @@
 {
+  "states": ["initial", "roam", "chase"],
+  "start": "initial",
+
   "initial": {
     "onTime": {
       "time": 0,
       "transition": {
         "state": "roam",
-        "action": "move left"
+        "actions": ["move left", "begin walk"]
       }
     }
   },
@@ -12,6 +15,7 @@
   "roam": {
     "onTime": {
       "time": 3,
+      "time_parameter": "roam_duration",
       "transition": {
         "state": "roam",
         "action": "change direction"
@@ -20,7 +24,8 @@
 
     "onHit": {
       "transition": {
-        "state": "chase"
+        "state": "chase",
+        "actions": ["begin chase", "end walk"]
       }
     }
   },
@@ -28,8 +33,10 @@
   "chase": {
     "onTime": {
       "time": 5,
+      "time_parameter": "chase_duration",
       "transition": {
-        "state": "roam"
+        "state": "roam",
+        "actions": ["end chase", "stop", "begin walk"]
       }
     }
   }

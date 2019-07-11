@@ -1,0 +1,78 @@
+{
+  "name": "Mage",
+  "health": 150,
+  "tags": [],
+
+  "body": {
+    "type": "dynamic",
+    "fixedRotation": true,
+    "bullet": true,
+    "fixtures": [
+      {
+        "shape": {
+          "type": "box",
+          "dimensions": [0.4, 0.8]
+        },
+        "density": 5,
+        "friction": 0.3
+      },
+      {
+        "shape": {
+          "type": "circle",
+          "radius": 0.4
+        },
+        "offset": [0, -0.8],
+        "density": 5,
+        "friction": 0.3
+      },
+      {
+        "shape": {
+          "type": "circle",
+          "radius": 0.4
+        },
+        "offset": [0, 0.8],
+        "density": 5,
+        "friction": 0.3
+      }
+    ]
+  },
+
+  "attack": {
+    "type": "create",
+    "ref": "main/objects/wooden_arrow.json",
+    "impulse": 8
+  },
+
+  "control": {
+    "speed": 3,
+    "jump": 6,
+    "ai": "main/aiscripts/roam-chase.json",
+    "ai_parameters": {
+      "double_parameters": {
+        "chase_duration": 3,
+        "roam_duration": 2
+      }
+    }
+  },
+
+  "render": {
+    "type": "animated",
+    "states": {
+      "moving": {
+        "animation": "main/animations/mage-1.json",
+        "dimensions": [1.35638, 1.5],
+        "speed": 0.1
+      },
+      "resting": {
+        "animation": "main/animations/mage-1.json",
+        "dimensions": [1.35638, 1.5],
+        "speed": 0.1
+      },
+      "walking": {
+        "animation": "main/animations/mage-1.json",
+        "dimensions": [1.35638, 1.5],
+        "speed": 0.1
+      }
+    }
+  }
+}

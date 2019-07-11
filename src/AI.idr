@@ -24,8 +24,8 @@ interface AI (m : Type -> Type) where
   startAI : ST m Var [add SAI]
   endAI : (ai : Var) -> ST m () [remove ai SAI]
 
-  addController : (ai : Var) -> (id : ObjectId) ->
-                  (ref : ResourceReference) -> ST m () [ai ::: SAI]
+  addController : (ai : Var) -> (id : ObjectId) -> (ref : ResourceReference) ->
+                  (ai_parameters : Maybe AIParameters) -> ST m () [ai ::: SAI]
   removeController : (ai : Var) -> (id : ObjectId) -> ST m () [ai ::: SAI]
 
 
@@ -73,14 +73,14 @@ export
     quitCache {r=AIDescriptor} cache
     delete ai
 
-  addController ai id ref = with ST do
+  addController ai id ref ai_parameters = with ST do
     [pai, cache] <- split ai
     Right desc <- get {m} {r=AIDescriptor} cache ref
                | Left e => with ST do
                     combine ai [pai, cache]
                     putStrLn $ "couldn't get AI descriptor of " ++ ref ++ ", error: "
                     putStrLn e
-    update pai $ addControllerPAI (fromDescriptor desc) id
+    update pai $ addControllerPAI (fromDescriptorParameters desc ai_parameters) id
     update pai $ emptyCommandsFor id
     update pai $ addInfo id
     combine ai [pai, cache]
@@ -148,25 +148,27 @@ export
     [pai, cache] <- split ai
     update pai $ updateController id $ updateData f
     combine ai [pai, cache]
-  runAIScript ai (Transition id state action) = with ST do
-    lift $ GameIO.log $ id ++ " transitioning to " ++ show state
+  runAIScript ai (Transition id state actions) = with ST do
     [pai, cache] <- split ai
     let time' = time !(read pai)
     update pai $ updateController id $ transition time' state
     combine ai [pai, cache]
-    case action of
-      Nothing => pure ()
-      Just x => runAIScript ai (actionToScript id x)
+    runAIScript ai (actionsToScript id actions)
   runAIScript ai GetTime = with ST do
     [pai, cache] <- split ai
     let time' = time !(read pai)
     combine ai [pai, cache]
     pure time'
-  runAIScript ai (SetTarget id target_id) = with ST do
+  runAIScript ai (SetLastHit id target_id) = with ST do
     [pai, cache] <- split ai
     update pai $ addInfo target_id
-    update pai $ updateController id $ updateData $ setTarget target_id
+    update pai $ updateController id $ updateData $ setLastHit target_id
     combine ai [pai, cache]
+  runAIScript ai (GetLastHit id) = with ST do
+    [pai, cache] <- split ai
+    pai' <- read pai
+    combine ai [pai, cache]
+    pure $ getLastHit id pai'
   runAIScript ai (GetPosition id) = with ST do
     [pai, cache] <- split ai
     pai' <- read pai

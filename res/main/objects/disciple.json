@@ -26,7 +26,13 @@
   "control": {
     "speed": 4,
     "jump": 6,
-    "ai": "main/aiscripts/hold-chase.json"
+    "ai": "main/aiscripts/roam-chase.json",
+    "ai_parameters": {
+      "double_parameters": {
+        "chase_duration": 3,
+        "roam_duration": 5
+      }
+    }
   },
 
   "render": {

@@ -51,7 +51,7 @@ getCharacters dict = case lookup "characters" dict of
   Nothing => fail "missing characters list"
   Just (JObject xs) => with Checked do
     let attempt = map toCharacter xs
-    characters <- foldr toChecked (pure empty) attempt
+    characters <- listCheckedtoCheckedList attempt
     pure $ fromList characters
   _ => fail "characters aren't JObject"
 

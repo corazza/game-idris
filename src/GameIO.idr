@@ -99,6 +99,12 @@ getCastable name dict = with Checked do
   the (Checked a) (cast aJSON)
 
 export
+getCastableMaybe : ObjectCaster a => (name : String) -> (dict : Dict String JSON) -> Checked (Maybe a)
+getCastableMaybe name dict = case hasKey name dict of
+  False => pure Nothing
+  True => getCastable name dict >>= pure . Just
+
+export
 getCastableOrDefault : ObjectCaster a => a -> (name : String) -> (dict : Dict String JSON) -> a
 getCastableOrDefault x name dict = let castable = eitherToMaybe (getCastable name dict) in
   fromMaybe x castable
@@ -167,17 +173,6 @@ getArray key dict = case lookup key dict of
   Just (JArray xs) => pure xs
   _ => fail $ "not an array (" ++ key ++ ")"
 
--- TODO why doesn't this works?
--- export
--- getArrayOf : Cast JSON (Checked a) => (a : Type) -> String -> Dict String JSON -> Checked (List a)
--- getArrayOf a key dict = (with Checked do
---   array <- getArray key dict
---   getArrayOf' [] array) where
---   getArrayOf' : Cast JSON (Checked a) => List a -> List JSON -> Checked (List a)
---   getArrayOf' acc [] = pure acc
---   getArrayOf' acc (x :: xs) = case the (Checked a) (cast x) of
---     val => ?sdsd
-
 export
 getStrings : String -> Dict String JSON -> Checked (List String)
 getStrings key dict = (case lookup key dict of
@@ -202,15 +197,6 @@ getIntOrDefault key default dict = case lookup key dict of
   _ => default
 
 export
-toChecked : (elem : Checked (String, a)) ->
-            (acc : Checked (List (String, a))) ->
-            Checked (List (String, a))
-toChecked (Left e) (Left es) = fail $ e ++ "\n" ++ es
-toChecked (Left e) (Right r) = fail e
-toChecked (Right aparams) (Left e) = fail e
-toChecked (Right aparams) (Right ps) = pure $ aparams :: ps
-
-export
 maybeFromString : (name : String) ->
                   (conv : String -> Checked a) ->
                   (dict : Dict String JSON) ->
@@ -221,3 +207,18 @@ maybeFromString name conv dict = case lookup name dict of
     Left e => fail e
     Right r => pure $ Just r
   _ => fail $ name ++ " must be string"
+
+
+export
+listCheckedtoCheckedList : List (Checked a) -> Checked (List a)
+listCheckedtoCheckedList = foldr toChecked (pure empty) where
+  toChecked : (elem : Checked a) -> (acc : Checked (List a)) -> Checked (List a)
+  toChecked (Left e) (Left es) = fail $ e ++ "\n" ++ es
+  toChecked (Left e) (Right _) = fail e
+  toChecked (Right as) (Left e) = fail e
+  toChecked (Right x) (Right as) = pure $ x :: as
+
+export
+jsonToString : JSON -> Checked String
+jsonToString (JString x) = pure x
+jsonToString _ = fail "not a string"

@@ -65,17 +65,25 @@ record ControlState where
   jumping : Bool
   canJump : Bool
   attacking : Bool
+  walking : Bool
 %name ControlState controlState
 
 Show ControlState where
-  show (MkControlState moving facing jumping canJump attacking)
+  show (MkControlState moving facing jumping canJump attacking walking)
     = "(moving: " ++ show moving ++ "," ++
       " facing: " ++ show facing ++ "," ++
       " jumping: " ++ show jumping ++ "," ++
-      " attacking: " ++ show attacking ++ ")"
+      " attacking: " ++ show attacking ++ ")" ++
+      " walking: " ++ show walking
 
 noControl : MoveDirection -> ControlState
-noControl facing = MkControlState empty facing False False False
+noControl facing = MkControlState empty facing False False False False
+
+startWalking : ControlState -> ControlState
+startWalking = record { walking = True }
+
+stopWalking : ControlState -> ControlState
+stopWalking = record { walking = False }
 
 moveSign : ControlState -> Double
 moveSign controlState = case moving controlState of
@@ -191,6 +199,11 @@ record ObjectControl where
   controlParameters : ControlParameters
 %name ObjectControl control
 
+speed : ObjectControl -> Double
+speed (MkObjectControl controlState controlParameters)
+  = let speed = speed controlParameters
+      in if walking controlState then 0.5 * speed else speed
+
 initialControl : ControlParameters -> ObjectControl
 initialControl = MkObjectControl (noControl Rightward)
 
@@ -204,7 +217,7 @@ Show ObjectControl where
 controlFromDescriptor : ObjectDescriptor -> Maybe ObjectControl
 controlFromDescriptor desc = case control desc of
   Nothing => Nothing
-  Just (MkControlDescriptor speed jump ai) => Just $
+  Just (MkControlDescriptor speed jump ai ai_parameters) => Just $
     initialControl (MkControlParameters speed jump)
 
 resetObjectControl : ObjectControl -> ObjectControl
@@ -248,12 +261,6 @@ controlState = map controlState . control
 facing : Object -> Maybe MoveDirection
 facing = map facing . controlState
 
--- ai : Object -> Maybe AI
--- ai = join . map ai . control
---
--- aiInfo : Object -> Maybe (AIDescriptor, ObjectId)
--- aiInfo object = map (\x => (x, id object)) (map descriptor (ai object))
-
 forceDirection : Object -> MoveDirection
 forceDirection object = case facing object of
   Nothing => Rightward
@@ -264,7 +271,7 @@ animationState object = case controlState object of
   Nothing => "resting"
   Just ctst => case moving ctst of
     [] => "resting"
-    _ => "moving"
+    _ => if walking ctst then "walking" else "moving"
 
 updateAnimationState : (ticks : Int) -> Object -> Object
 updateAnimationState ticks object = case renderDescription object of
@@ -352,9 +359,9 @@ onGround object = size (touching object) > 0
 movementImpulse : Object -> Vector2D
 movementImpulse object = case control object of
   Nothing => nullVector
-  Just (MkObjectControl controlState controlParameters) => let
+  Just objectControl@(MkObjectControl controlState controlParameters) => let
     (x, y) = velocity object
-    x' = (speed controlParameters) * (moveSign controlState)
+    x' = (speed objectControl) * (moveSign controlState)
     y' = if jumping controlState && canJump controlState && (onGround object)
               then jump controlParameters else 0
     x_correction = if abs (x' - x) < 0.01 then 0 else x' - x

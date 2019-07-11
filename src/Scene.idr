@@ -222,11 +222,11 @@ export
 
   addAI scene id desc = case control desc of
     Nothing => pure ()
-    Just x => case ai x of
-      Nothing => pure ()
-      Just ref => with ST do
+    Just x => case (ai x, ai_parameters x) of
+      (Nothing, _) => pure ()
+      (Just ref, ai_parameters) => with ST do
         [pscene, physics, objectCache, ai] <- split scene
-        addController ai id ref
+        addController ai id ref ai_parameters
         combine scene [pscene, physics, objectCache, ai]
 
   -- PROOF that id isn't empty
@@ -362,6 +362,10 @@ export
     = updateObject scene id (updateControl $ startMoveAction direction)
   handleCommand scene id (Stop (Movement direction))
     = updateObject scene id (updateControl $ stopMoveAction direction)
+  handleCommand scene id (Start Walk)
+    = updateObject scene id $ updateControl startWalking
+  handleCommand scene id (Stop Walk)
+    = updateObject scene id $ updateControl stopWalking
   handleCommand scene id (Start (Attack pos))
     = updateObject scene id (updateControl startAttacking)
   handleCommand scene id (Stop (Attack pos)) = with ST do

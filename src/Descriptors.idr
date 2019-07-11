@@ -71,7 +71,8 @@ getAnimationStates dict = case lookup "states" dict of
   Nothing => fail "missing animation states"
   Just (JObject xs) => with Checked do
     let attempt = map toParameters xs
-    aparams <- foldr toChecked (pure empty) attempt
+    -- aparams <- foldr toChecked (pure empty) attempt
+    aparams <- listCheckedtoCheckedList attempt
     pure $ fromList aparams
   _ => fail "animation states aren't JObject"
 
@@ -215,6 +216,47 @@ getScript name dict = case lookup name dict of
   Nothing => fail "no script"
   Just x => cast x
 
+public export
+record AIParameters where
+  constructor MkAIParameters
+  intParameters : Dict String Int
+  doubleParameters : Dict String Double
+  stringlistParameters : Dict String (List String)
+%name AIParameters ai_parameters
+
+export
+Show AIParameters where
+  show ai_parameters =  "int parameters: " ++ show (intParameters ai_parameters)
+                     ++ ", " ++ show (stringlistParameters ai_parameters)
+
+allToInt : (String, JSON) -> Checked (String, Int)
+allToInt (name, JNumber x) = pure (name, cast x)
+allToInt (name, _) = fail $ name ++ " not a number"
+
+allToDouble : (String, JSON) -> Checked (String, Double)
+allToDouble (name, JNumber x) = pure (name, x)
+allToDouble (name, _) = fail $ name ++ " not a number"
+
+allToStringlist : (String, JSON) -> Checked (String, List String)
+allToStringlist (name, JArray xs)
+  = listCheckedtoCheckedList (map jsonToString xs) >>= pure . MkPair name
+allToStringlist (name, _) = fail $ name ++ " not an array"
+
+getParameterType : (name : String) ->
+                   (f : (String, JSON) -> Checked (String, a)) ->
+                   (dict : Dict String JSON) ->
+                   Checked (Dict String a)
+getParameterType name f dict = case lookup name dict of
+  Nothing => pure empty
+  Just (JObject xs) => listCheckedtoCheckedList (map f xs) >>= pure . fromList
+  _ => fail $ name ++ " must be JObject"
+
+ObjectCaster AIParameters where
+  objectCast dict = with Checked do
+    intParameters <- getParameterType "int_parameters" allToInt dict
+    doubleParameters <- getParameterType "double_parameters" allToDouble dict
+    stringlistParameters <- getParameterType "stringlist_parameters" allToStringlist dict
+    pure $ MkAIParameters intParameters doubleParameters stringlistParameters
 
 public export
 record ControlDescriptor where
@@ -222,20 +264,26 @@ record ControlDescriptor where
   speed : Double
   jump : Double
   ai : Maybe ResourceReference
+  ai_parameters : Maybe AIParameters
   -- attack : Maybe ScriptDescriptor
 %name ControlDescriptor cdesc
 
 export
 Show ControlDescriptor where
-  show (MkControlDescriptor speed jump ai) =
-    "{ speed: " ++ show speed ++ ", jump: " ++ show jump ++ ", ai: " ++ show  ai ++ " }"
+  show (MkControlDescriptor speed jump ai ai_parameters)
+  =  "{ speed: " ++ show speed
+    ++ ", jump: " ++ show jump
+    ++ ", ai: " ++ show ai
+    ++ ", ai_parameters: " ++ show ai_parameters
+    ++ " }"
 
 ObjectCaster ControlDescriptor where
   objectCast dict = with Maybe do
     speed <- getDouble "speed" dict
     jump <- getDouble "jump" dict
     let ai = eitherToMaybe $ getString "ai" dict
-    pure $ MkControlDescriptor speed jump ai
+    ai_parameters <- the (Checked (Maybe AIParameters)) $ getCastableMaybe "ai_parameters" dict
+    pure $ MkControlDescriptor speed jump ai ai_parameters
 
 getControl : Maybe JSON -> Checked (Maybe ControlDescriptor)
 getControl Nothing = pure Nothing
