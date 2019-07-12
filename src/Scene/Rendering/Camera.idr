@@ -1,10 +1,13 @@
-module Camera
+module Scene.Rendering.Camera
 
 import Graphics.SDL2 as SDL2
-
 import Physics.Vector2D
-import Settings
-import Common
+
+round : Double -> Int
+round x = if x < 0.0 then cast (x - 0.5) else cast (x + 0.5)
+
+Cast (Int, Int) (Double, Double) where
+  cast (x, y) = (cast x, cast y)
 
 public export
 record Camera where
@@ -16,11 +19,17 @@ record Camera where
   yd : Double
 %name Camera camera
 
-export
-defaultCamera : Camera
-defaultCamera = MkCamera
-  (0, 0) (zoom defaultDisplaySettings) 0 (resolution defaultDisplaySettings)
-  (cameraYD defaultDisplaySettings)
+-- export
+-- defaultCamera : Camera
+-- defaultCamera = MkCamera
+--   (0, 0) (zoom defaultDisplaySettings) 0 (resolution defaultDisplaySettings)
+--   (cameraYD defaultDisplaySettings)
+
+-- export
+-- fromSettings : DisplaySettings -> Camera
+-- fromSettings settings = record { resolution = resolution settings,
+--                                  yd = cameraYD settings,
+--                                  zoom = zoom settings } defaultCamera
 
 export
 resolution' : Camera -> (Double, Double)
@@ -30,11 +39,6 @@ export
 translate : Vector2D -> Camera -> Camera
 translate a = record { position = a }
 
-export
-fromSettings : DisplaySettings -> Camera
-fromSettings settings = record { resolution = resolution settings,
-                                 yd = cameraYD settings,
-                                 zoom = zoom settings } defaultCamera
 
 export
 positionToScreen : Camera -> Vector2D -> (Int, Int)

@@ -4,7 +4,6 @@ import Control.ST
 import public Language.JSON
 import Graphics.SDL2 as SDL2
 import public Data.AVL.Dict
-import Common
 import Physics.Vector2D
 import Physics.Box2D
 import Physics.Box2D.Definitions
@@ -83,9 +82,19 @@ GameIO IO where
   pollEvent = Box2D.pollEvent
   pollEvents = Box2D.pollEvents
 
+
+public export
+ResourceReference : Type
+ResourceReference = String
+%name ResourceReference ref
+
+public export
+JSONDict : Type
+JSONDict = Dict String JSON
+
 export
 interface ObjectCaster a where
-  objectCast : Dict String JSON -> Checked a
+  objectCast : JSONDict -> Checked a
 
 export
 ObjectCaster a => Cast JSON (Checked a) where
@@ -93,88 +102,80 @@ ObjectCaster a => Cast JSON (Checked a) where
   cast _ = fail "not a JSON object"
 
 export
-getCastable : ObjectCaster a => (name : String) -> (dict : Dict String JSON) -> Checked a
+getCastable : ObjectCaster a => (name : String) -> (dict : JSONDict) -> Checked a
 getCastable name dict = with Checked do
   aJSON <- maybeToEither ("JSON lookup fail for " ++ name) (lookup name dict)
   the (Checked a) (cast aJSON)
 
 export
-getCastableMaybe : ObjectCaster a => (name : String) -> (dict : Dict String JSON) -> Checked (Maybe a)
+getCastableMaybe : ObjectCaster a => (name : String) -> (dict : JSONDict) -> Checked (Maybe a)
 getCastableMaybe name dict = case hasKey name dict of
   False => pure Nothing
   True => getCastable name dict >>= pure . Just
 
 export
-getCastableOrDefault : ObjectCaster a => a -> (name : String) -> (dict : Dict String JSON) -> a
+getCastableOrDefault : ObjectCaster a => a -> (name : String) -> (dict : JSONDict) -> a
 getCastableOrDefault x name dict = let castable = eitherToMaybe (getCastable name dict) in
   fromMaybe x castable
-
-export
-getColor : (name : String) -> (dict : Dict String JSON) -> Checked Color
-getColor name dict = with Checked do
-  JArray [JNumber r, JNumber g, JNumber b, JNumber a] <-
-    maybeToEither ("color \"" ++ name ++ "\" inexistent") (lookup name dict)
-                  | fail "color format fail (must be [r, g, b])"
-  pure $ MkColor (cast r) (cast g) (cast b) (cast a)
 
 total
 keyError : (type : String) -> (key : String) -> String
 keyError type key = type ++ "\"" ++ key ++ "\"" ++ "inexistent"
 
 export total
-getVector : (name : String) -> (dict : Dict String JSON) -> Checked Vector2D
+getVector : (name : String) -> (dict : JSONDict) -> Checked Vector2D
 getVector name dict = with Checked do
   JArray [JNumber x, JNumber y] <- maybeToEither (keyError "vector" name) (lookup name dict)
                                 | fail ("vector format fail" ++ name)
   pure (x, y)
 
 export total
-getInt : (name : String) -> (dict : Dict String JSON) -> Checked Int
+getInt : (name : String) -> (dict : JSONDict) -> Checked Int
 getInt name dict = with Checked do
   JNumber x <- maybeToEither (keyError "int" name) (lookup name dict)
             | fail ("int format fail " ++ name)
   pure (cast x)
 
 export total
-getIntPair : (name : String) -> (dict : Dict String JSON) -> Checked (Int, Int)
+getIntPair : (name : String) -> (dict : JSONDict) -> Checked (Int, Int)
 getIntPair name dict = with Checked do
   JArray [JNumber x, JNumber y] <- maybeToEither (keyError "int pair" name) (lookup name dict)
                                 | fail ("int pair format fail " ++ name)
   pure (cast x, cast y)
 
 export
-getDouble : String -> Dict String JSON -> Checked Double
+getDouble : String -> JSONDict -> Checked Double
 getDouble key dict = case lookup key dict of
   Just (JNumber x) => pure x
   _ => fail $ "not a double (" ++ key ++ ")"
 
 export
-getBool : String -> Dict String JSON -> Checked Bool
+getBool : String -> JSONDict -> Checked Bool
 getBool key dict = case lookup key dict of
   Just (JBoolean x) => pure x
   _ => fail $ "not a boolean (" ++ key ++ ")"
 
 export
-getBoolOrDefault : Bool -> String -> Dict String JSON -> Checked Bool
+getBoolOrDefault : Bool -> String -> JSONDict -> Checked Bool
 getBoolOrDefault default key dict = case lookup key dict of
   Nothing => pure default
   Just (JBoolean x) => pure x
   _ => fail $ "not a boolean (" ++ key ++ ")"
 
 export
-getString : String -> Dict String JSON -> Checked String
+getString : String -> JSONDict -> Checked String
 getString key dict = case lookup key dict of
   Just (JString x) => pure x
   _ => fail $ "not a string (" ++ key ++ ")"
 
 export
-getArray : String -> Dict String JSON -> Checked (List JSON)
+getArray : String -> JSONDict -> Checked (List JSON)
 getArray key dict = case lookup key dict of
   Just (JArray xs) => pure xs
   _ => fail $ "not an array (" ++ key ++ ")"
 
 export
-getStrings : String -> Dict String JSON -> Checked (List String)
+getStrings : String -> JSONDict -> Checked (List String)
 getStrings key dict = (case lookup key dict of
   Just (JArray xs) => getStrings' [] xs
   Nothing => fail $ "not an array (" ++ key ++ ")") where
@@ -185,13 +186,13 @@ getStrings key dict = (case lookup key dict of
 
 -- TODO fix, should typecheck
 export
-getDoubleOrDefault : String -> Double -> Dict String JSON -> Double
+getDoubleOrDefault : String -> Double -> JSONDict -> Double
 getDoubleOrDefault key default dict = case lookup key dict of
   Just (JNumber x) => x
   _ => default
 
 export
-getIntOrDefault : String -> Int -> Dict String JSON -> Int
+getIntOrDefault : String -> Int -> JSONDict -> Int
 getIntOrDefault key default dict = case lookup key dict of
   Just (JNumber x) => cast x
   _ => default
@@ -199,7 +200,7 @@ getIntOrDefault key default dict = case lookup key dict of
 export
 maybeFromString : (name : String) ->
                   (conv : String -> Checked a) ->
-                  (dict : Dict String JSON) ->
+                  (dict : JSONDict) ->
                   Checked (Maybe a)
 maybeFromString name conv dict = case lookup name dict of
   Nothing => pure Nothing
@@ -222,3 +223,7 @@ export
 jsonToString : JSON -> Checked String
 jsonToString (JString x) = pure x
 jsonToString _ = fail "not a string"
+
+export
+refToFilepath : ResourceReference -> String
+refToFilepath = (++) "res/"

@@ -6,30 +6,20 @@ pkgs = sdl2, contrib, containers, box2d
 
 sourcedir = src
 
-modules = Rendering
-        , Rendering.Draw
-        , Scene
-        , Scene.Util
-        , Scene.SceneScript
-        , AI
-        , AI.AIScript
-        , AI.Controller
-        , AI.PAI
-        , Events
-        , Objects
-        , Input
-        , Physics
-        , Resources
-        , Descriptors
+modules = Data.AVL.DDict
         , GameIO
-        , Scripts
-        , Common
-        , Settings
-        , Camera
-        , Data.AVL.DDict
         , Exception
-        , Timeline
         , Main
+        , SDL
+        , SDL.Color
+        , Scene
+        , Scene.Objects
+        , Scene.Dynamics
+        , Scene.Dynamics.PDynamics
+        , Scene.Dynamics.Control
+        , Scene.Rendering
+        , Scene.Rendering.PRendering
+        , Scene.Rendering.Camera
 
 main = Main
 

@@ -1,10 +1,5 @@
-# game-idris
+# game-idris-2
 
-Game made in Idris
+Game made in Idris--new iteration/rewrite
 
-- `name` is always display-name
-
-# Physics properties
-
-- restitution: 0 (no bounce) to 1 (full bounce)
-- friction: 0 (no friction) to 1, but can go higher
+The previous codebase had an ad-hoc architecture that would've been hard to adapt to a networked mode, therefore the major systems had to be rewritten.
