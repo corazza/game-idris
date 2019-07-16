@@ -61,17 +61,17 @@
       "moving": {
         "animation": "main/animations/mage-1.json",
         "dimensions": [1.35638, 1.5],
-        "speed": 0.1
+        "fps": 10
       },
       "resting": {
         "animation": "main/animations/mage-1.json",
         "dimensions": [1.35638, 1.5],
-        "speed": 0.1
+        "fps": 10
       },
       "walking": {
         "animation": "main/animations/mage-1.json",
         "dimensions": [1.35638, 1.5],
-        "speed": 0.1
+        "fps": 10
       }
     }
   }

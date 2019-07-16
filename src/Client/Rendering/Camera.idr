@@ -1,7 +1,9 @@
-module Scene.Rendering.Camera
+module Client.Rendering.Camera
 
 import Graphics.SDL2 as SDL2
 import Physics.Vector2D
+
+import Settings
 
 round : Double -> Int
 round x = if x < 0.0 then cast (x - 0.5) else cast (x + 0.5)
@@ -18,6 +20,15 @@ record Camera where
   resolution : (Int, Int)
   yd : Double
 %name Camera camera
+
+export -- TODO this should receive player position
+fromSettings : CameraSettings -> Camera
+fromSettings settings = let position = nullVector
+                            zoom = zoom settings
+                            rotation = 0
+                            resolution = resolution settings
+                            yd = yd settings
+                            in MkCamera position zoom rotation resolution yd
 
 -- export
 -- defaultCamera : Camera

@@ -1,0 +1,11 @@
+{
+  "name": "Wall",
+
+  "fixtureParameters": {
+    "friction": 0.3
+  },
+
+  "render": {
+    "type": "invisible"
+  }
+}

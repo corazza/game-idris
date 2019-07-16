@@ -60,17 +60,17 @@
       "moving": {
         "animation": "main/animations/mage-3.json",
         "dimensions": [0.988636, 1.25],
-        "speed": 0.1
+        "fps": 10
       },
       "resting": {
         "animation": "main/animations/mage-3.json",
         "dimensions": [0.988636, 1.25],
-        "speed": 0.1
+        "fps": 10
       },
       "walking": {
         "animation": "main/animations/mage-3.json",
         "dimensions": [0.988636, 1.25],
-        "speed": 0.1
+        "fps": 10
       }
     }
   }

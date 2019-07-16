@@ -1,11 +1,11 @@
-module SDL
+module Client.SDL
 
 import Data.AVL.Dict
 import Control.ST
 import Control.ST.ImplicitCall
 import public Graphics.SDL2 as SDL2
 
-import public SDL.Color
+import public Descriptions.Color
 import Exception
 import GameIO
 

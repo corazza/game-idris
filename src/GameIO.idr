@@ -11,13 +11,8 @@ import Exception
 
 public export
 interface (Monad m, ConsoleIO m) => GameIO (m : Type -> Type) where
-  EmptyContext : Type
-  createEmptyContext : ST m Var [add EmptyContext]
-  deleteEmptyContext : (c : Var) -> ST m () [remove c EmptyContext]
-
   ticks : STrans m Int xs (const xs)
   loadJSON : (filepath : String) -> m (Maybe JSON)
-
   checkedJSONLoad : (Cast JSON (Checked r), GameIO m) => (filepath : String) -> m (Checked r)
 
   log : String -> m ()
@@ -45,10 +40,6 @@ interface (Monad m, ConsoleIO m) => GameIO (m : Type -> Type) where
 
 public export
 GameIO IO where
-  EmptyContext = State () -- TODO ugly get rid of it
-  createEmptyContext = new ()
-  deleteEmptyContext c = delete c
-
   ticks = lift getTicks
 
   loadJSON filepath = do
@@ -91,8 +82,9 @@ ResourceReference = String
 public export
 JSONDict : Type
 JSONDict = Dict String JSON
+%name JSONDict dict
 
-export
+public export
 interface ObjectCaster a where
   objectCast : JSONDict -> Checked a
 
@@ -143,11 +135,25 @@ getIntPair name dict = with Checked do
                                 | fail ("int pair format fail " ++ name)
   pure (cast x, cast y)
 
+export total
+getNatPair : (name : String) -> (dict : JSONDict) -> Checked (Nat, Nat)
+getNatPair name dict = with Checked do
+  JArray [JNumber x, JNumber y] <- maybeToEither (keyError "nat pair" name) (lookup name dict)
+                                | fail ("nat pair format fail " ++ name)
+  pure (toNat $ the Int $ cast x, toNat $ the Int $ cast y)
+
+
 export
 getDouble : String -> JSONDict -> Checked Double
 getDouble key dict = case lookup key dict of
   Just (JNumber x) => pure x
   _ => fail $ "not a double (" ++ key ++ ")"
+
+export
+getDoubleMaybe : String -> JSONDict -> Checked (Maybe Double)
+getDoubleMaybe key dict = case hasKey key dict of
+  False => pure Nothing
+  True => getDouble key dict >>= pure . Just
 
 export
 getBool : String -> JSONDict -> Checked Bool
@@ -208,16 +214,6 @@ maybeFromString name conv dict = case lookup name dict of
     Left e => fail e
     Right r => pure $ Just r
   _ => fail $ name ++ " must be string"
-
-
-export
-listCheckedtoCheckedList : List (Checked a) -> Checked (List a)
-listCheckedtoCheckedList = foldr toChecked (pure empty) where
-  toChecked : (elem : Checked a) -> (acc : Checked (List a)) -> Checked (List a)
-  toChecked (Left e) (Left es) = fail $ e ++ "\n" ++ es
-  toChecked (Left e) (Right _) = fail e
-  toChecked (Right as) (Left e) = fail e
-  toChecked (Right x) (Right as) = pure $ x :: as
 
 export
 jsonToString : JSON -> Checked String

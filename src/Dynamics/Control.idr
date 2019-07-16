@@ -1,10 +1,18 @@
-module Scene.Dynamics.Control
+module Dynamics.Control
+
+import Descriptions
+import Descriptions.ObjectDescription.ControlDescription
 
 public export
 record ControlParameters where
   constructor MkControlParameters
   speed : Double
   jump : Double
+
+export
+parametersFromDescription : ControlDescription -> ControlParameters
+parametersFromDescription desc = MkControlParameters (speed desc) (jump desc)
+
 
 export
 Show ControlParameters where
@@ -45,8 +53,8 @@ Show ControlState where
       " walking: " ++ show walking
 
 export
-noControl : (facing : MoveDirection) -> ControlState
-noControl facing = MkControlState empty facing False False False
+initialControlStateFacing : (facing : MoveDirection) -> ControlState
+initialControlStateFacing facing = MkControlState empty facing False False False
 
 export
 startWalking : ControlState -> ControlState
@@ -116,8 +124,9 @@ speed (MkObjectControl controlState controlParameters)
   = let speed = speed controlParameters
       in if walking controlState then 0.5 * speed else speed
 
+export
 initialControl : ControlParameters -> ObjectControl
-initialControl = MkObjectControl (noControl Rightward)
+initialControl = MkObjectControl (initialControlStateFacing Rightward)
 
 Show ObjectControl where
   show (MkObjectControl ctst ctp)
@@ -130,5 +139,6 @@ Show ObjectControl where
 resetObjectControl : ObjectControl -> ObjectControl
 resetObjectControl = record { controlState $= resetControlState }
 
-updateObjectControl : (f : ControlState -> ControlState) -> ObjectControl -> ObjectControl
-updateObjectControl f = record { controlState $= f }
+export -- TODO UGLY FIX
+promoteToObjectControl : (f : ControlState -> ControlState) -> ObjectControl -> ObjectControl
+promoteToObjectControl f = record { controlState $= f }

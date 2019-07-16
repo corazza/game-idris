@@ -1,0 +1,164 @@
+module Dynamics
+
+import Control.ST
+import Control.ST.ImplicitCall
+import Physics.Box2D
+import Physics.Vector2D
+
+import Dynamics.PDynamics
+import Dynamics.Control
+import Dynamics.DynamicsEvent
+import GameIO
+import Objects
+import Exception
+import Settings
+import Descriptions
+import Descriptions.ObjectDescription.BodyDescription
+
+public export
+interface Dynamics (m : Type -> Type) where
+  SDynamics : Type
+
+  startDynamics : (settings : DynamicsSettings) -> ST m Var [add SDynamics]
+  endDynamics : (dynamics : Var) -> ST m () [remove dynamics SDynamics]
+
+  addBody : (dynamics : Var) ->
+            (id : ObjectId) ->
+            (def : BodyDefinition) ->
+            (fixtures : List FixtureDefinition) ->
+            (control : Maybe ControlParameters) ->
+            (effects : List PhysicsEffect) ->
+            ST m () [dynamics ::: SDynamics]
+
+  removeBody : (dynamics : Var) -> (id : ObjectId) -> ST m () [dynamics ::: SDynamics]
+
+  updateControl : (dynamics : Var) ->
+                  (id : ObjectId) ->
+                  (f : ControlState -> ControlState) ->
+                  ST m () [dynamics ::: SDynamics]
+
+  runCommand : (dynamics : Var) -> (command : DynamicsCommand) -> ST m () [dynamics ::: SDynamics]
+
+  iterate : (dynamics : Var) ->
+            (dt : Int) ->
+            ST m (List DynamicsEvent, Objects BodyData) [dynamics ::: SDynamics]
+
+  private
+  updateFromBody : (dynamics : Var) -> (ObjectId, BodyData) -> ST m () [dynamics ::: SDynamics]
+  private
+  updatesFromBody : (dynamics : Var) -> List (ObjectId, BodyData) -> ST m () [dynamics ::: SDynamics]
+  private
+  applyControl : (dynamics : Var) -> BodyData -> ST m () [dynamics ::: SDynamics]
+  private
+  applyControls : (dynamics : Var) -> List BodyData -> ST m () [dynamics ::: SDynamics]
+  private
+  applyEffect : (dynamics : Var) -> BodyData -> PhysicsEffect -> ST m () [dynamics ::: SDynamics]
+  private
+  applyEffects : (dynamics : Var) -> BodyData -> List PhysicsEffect -> ST m () [dynamics ::: SDynamics]
+  private
+  applyEffectss : (dynamics : Var) -> List BodyData -> ST m () [dynamics ::: SDynamics]
+
+  private
+  handleEvent : (dynamics : Var) -> (event : DynamicsEvent) -> ST m () [dynamics ::: SDynamics]
+  private
+  handleEvents : (dynamics : Var) -> (events : List DynamicsEvent) -> ST m () [dynamics ::: SDynamics]
+
+  private
+  idExists : (dynamics : Var) -> (id : ObjectId) -> ST m Bool [dynamics ::: SDynamics]
+  private
+  getWorld : (dynamics : Var) -> ST m Box2D.World [dynamics ::: SDynamics]
+
+export
+Dynamics IO where
+  SDynamics = State PDynamics
+
+  startDynamics settings = with ST do
+    world <- lift $ createWorld $ gravity settings
+    pdynamics <- new (pdynamicsFromWorld world)
+    pure pdynamics
+
+  endDynamics dynamics = with ST do
+    dynamics' <- read dynamics
+    lift $ destroyWorld (world dynamics')
+    delete dynamics
+
+  addBody dynamics id def fixtures control effects = case !(idExists dynamics id) of
+    True => pure ()
+    False => with ST do
+      box2d <- lift $ addBody' !(getWorld dynamics) def fixtures
+      let objectControl = map initialControl control
+      update dynamics $ pdynamicsAddObject
+        id (position def) (fromMaybe 0 $ angle def) box2d objectControl effects
+
+  removeBody dynamics id = case getBody id !(read dynamics) of
+    Nothing => pure ()
+    Just body => with ST do
+      update dynamics $ pdynamicsRemoveObject id
+      lift $ destroy !(getWorld dynamics) body
+
+  updateControl dynamics id f = update dynamics $ pdynamicsUpdateControl id f
+
+  runCommand dynamics (Create id def fixtures control effects impulse) -- TODO applyImpulse
+    = addBody dynamics id def fixtures control effects
+  runCommand dynamics (Destroy id) = removeBody dynamics id
+  runCommand dynamics (UpdateControl id f) = updateControl dynamics id f
+
+  iterate dynamics dt = with ST do
+    dynamics' <- read dynamics
+    let world = world dynamics'
+    let bodyDatas = values $ objects dynamics'
+    applyControls dynamics bodyDatas
+    applyEffectss dynamics bodyDatas
+    lift $ step world (0.001 * cast dt) 6 2
+    updatesFromBody dynamics (toList $ objects dynamics')
+    events <- lift $ pollEvents world
+    let dynamicsEvents = catMaybes $ map (box2DEventToDynamicsEvent dynamics') events
+    handleEvents dynamics dynamicsEvents
+    pure (dynamicsEvents, objects dynamics')
+
+  updateFromBody dynamics (id, bodyData) = with ST do
+    let body = body bodyData
+    newPosition <- lift $ getPosition body
+    newAngle <- lift $ getAngle body
+    newVelocity <- lift $ getVelocity body
+    update dynamics $ pdynamicsUpdateObject id (record {
+      position = newPosition,
+      angle = newAngle,
+      velocity = newVelocity
+    })
+
+  updatesFromBody dynamics [] = pure ()
+  updatesFromBody dynamics (x::xs) = updateFromBody dynamics x >>= const (updatesFromBody dynamics xs)
+
+  applyControl dynamics bodyData = lift $ applyImpulse (body bodyData) (movementImpulse bodyData)
+
+  applyControls dynamics [] = pure ()
+  applyControls dynamics (x::xs) = applyControl dynamics x >>= const (applyControls dynamics xs)
+
+  -- TODO move to execute effect... = lift $ executeEffect bodyData effect
+  applyEffect dynamics bodyData (Drag factor offset) = with ST do
+    let velocity = velocity bodyData
+    let norm = norm velocity
+    if norm > 0.001
+      then with ST do
+        let direction = negate $ normed velocity
+        let force = (0.5 * factor * norm * norm) `scale` direction
+        lift $ applyForce (body bodyData) force offset
+      else pure ()
+
+  applyEffects dynamics bodyData [] = pure ()
+  applyEffects dynamics bodyData (x::xs)
+    = applyEffect dynamics bodyData x >>= const (applyEffects dynamics bodyData xs)
+
+  applyEffectss dynamics [] = pure ()
+  applyEffectss dynamics (bodyData::xs)
+    = applyEffects dynamics bodyData (effects bodyData) >>= const (applyEffectss dynamics xs)
+
+  handleEvent dynamics (CollisionStart one two) = update dynamics $ touched (id one) (id two)
+  handleEvent dynamics (CollisionStop one two) = update dynamics $ untouched (id one) (id two)
+
+  handleEvents dynamics [] = pure ()
+  handleEvents dynamics (x::xs) = handleEvent dynamics x >>= const (handleEvents dynamics xs)
+
+  idExists dynamics id = pure $ hasKey id $ objects !(read dynamics)
+  getWorld dynamics = pure $ world !(read dynamics)

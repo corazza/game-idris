@@ -1,12 +1,8 @@
 {
   "name": "Marble ground",
-  "tags": [],
 
-  "body": {
-    "type": "static",
-    "immaterial": {
-      "friction": 0.3
-    }
+  "fixtureParameters": {
+    "friction": 0.3
   },
 
   "render": {

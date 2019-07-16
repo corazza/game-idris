@@ -1,10 +1,16 @@
-module SDL.Color
+module Descriptions.Color
 
 import GameIO
 import Exception
 
 public export
 data Color = MkColor Int Int Int Int
+%name Color color
+
+export
+Show Color where
+  show (MkColor r g b a)
+    = "rgba(" ++ show r ++ ", " ++ show g ++ ", " ++ show b ++ ", " ++ show a ++ ")"
 
 export
 getColor : (name : String) -> (dict : JSONDict) -> Checked Color

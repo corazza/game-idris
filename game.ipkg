@@ -9,17 +9,31 @@ sourcedir = src
 modules = Data.AVL.DDict
         , GameIO
         , Exception
+        , JSONCache
+        , Commands
+        , Descriptions
+        , Descriptions.Color
+        , Descriptions.MapDescription
+        , Descriptions.WallDescription
+        , Descriptions.AnimationDescription
+        , Descriptions.ObjectDescription
+        , Descriptions.ObjectDescription.BodyDescription
+        , Descriptions.ObjectDescription.ControlDescription
+        , Descriptions.ObjectDescription.RenderDescription
+        , Settings
         , Main
-        , SDL
-        , SDL.Color
-        , Scene
-        , Scene.Objects
-        , Scene.Dynamics
-        , Scene.Dynamics.PDynamics
-        , Scene.Dynamics.Control
-        , Scene.Rendering
-        , Scene.Rendering.PRendering
-        , Scene.Rendering.Camera
+        , Dynamics
+        , Dynamics.Control
+        , Dynamics.PDynamics
+        , Server
+        , Server.PServer
+        , Client
+        , Client.PClient
+        , Client.SDL
+        , Client.Input
+        , Client.Rendering
+        , Client.Rendering.Camera
+        , Client.Rendering.PRendering
 
 main = Main
 

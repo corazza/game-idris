@@ -1,0 +1,31 @@
+{
+  "objects": [
+    "main/objects/character.json",
+    "main/objects/wooden_arrow.json",
+    "main/objects/wooden_crate.json",
+    "main/objects/mage-1.json",
+    "main/objects/mage-2.json",
+    "main/objects/mage-3.json"
+  ],
+
+  "walls": [
+    "main/walls/invisible_wall.json",
+    "main/walls/marble_ground.json"
+  ],
+
+  "animations": [
+    "main/animations/mage-1.json",
+    "main/animations/mage-2.json",
+    "main/animations/mage-3.json",
+    "main/animations/rest-large.json",
+    "main/animations/rest-low.json",
+    "main/animations/run-large.json",
+    "main/animations/run-low.json",
+    "main/animations/walk-large.json",
+    "main/animations/walk-low.json"
+  ],
+
+  "maps": [
+    "main/maps/castle.json"
+  ]
+}

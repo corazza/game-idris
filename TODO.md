@@ -1,12 +1,3 @@
-Everything possible to `export` instead of `public export`, or better yet private
+# Major
 
-Rename `Command` to `Command`
-
-Cleanup `Common.idr`
-
-Move `Events`, `Scripts`, into `Scene/`
-
-# Far off
-
-- make `ObjectCaster` independent of backend (JSON atm.)
-- preload, should be `: Animation` and not `: ResourceReference`, when the resource can be loaded immediately
+Wall should remain separate in the map description, but should also be just normal creations. Walls should also be normal objects that are merely parametrized by their creations. Which means ObjectDescriptions must be parametrizable.
