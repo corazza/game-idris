@@ -9,7 +9,7 @@ import Exception
 
 public export
 data WallRenderDescription = InvisibleWall
-                           | TiledWall ResourceReference Vector2D -- tiledims
+                           | TiledWall ContentReference Vector2D -- tiledims
                            | ColoredWall Color
 %name WallRenderDescription wall_render_description
 

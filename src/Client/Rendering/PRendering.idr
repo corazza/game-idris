@@ -6,9 +6,11 @@ import Control.ST.ImplicitCall
 import Client.Rendering.Camera
 import Client.SDL
 import Dynamics
+import Dynamics.PDynamics
 import GameIO
 import Objects
 import Descriptions
+import JSONCache
 import Descriptions.ObjectDescription.RenderDescription
 
 public export
@@ -21,13 +23,24 @@ record PRendering where
   layers : Dict Nat (Objects RenderDescription)
   animationStates : Objects AnimationState
   camera : Camera
+  following : Maybe ObjectId
+  bodyData : Objects BodyData
+  preload : PreloadResults
+
+export
+prenderingInitial : Background -> Camera -> PreloadResults -> PRendering
+prenderingInitial background camera preload
+  = MkPRendering background empty empty camera Nothing empty preload
 
 export
 addToLayer : (id : ObjectId) ->
              (desc : RenderDescription) ->
              (layer : Nat) ->
              PRendering -> PRendering
-addToLayer id desc layer = record { layers $= update layer (insert id desc) }
+addToLayer id desc layer prendering = case hasKey layer (layers prendering) of
+  False => let layerDict = the (Objects RenderDescription) $ insert id desc empty
+               in record { layers $= insert layer layerDict } prendering
+  True => record { layers $= update layer (insert id desc) } prendering
 
 export
 removeFromLayer : (id : ObjectId) -> (layer : Nat) -> PRendering -> PRendering
@@ -54,9 +67,37 @@ addInitialAnimationState id clock
   = record { animationStates $= addObject id (MkAnimationState clock) }
 
 export
+getAnimationState : (id : ObjectId) -> PRendering -> Maybe AnimationState
+getAnimationState id prendering = lookup id (animationStates prendering)
+
+export
 setAnimationState : (id : ObjectId) -> (state : AnimationState) -> PRendering -> PRendering
 setAnimationState id state = record { animationStates $= updateObject id (const state) }
 
 export
 removeAnimationState : (id : ObjectId) -> PRendering -> PRendering
 removeAnimationState id = record { animationStates $= removeObject id }
+
+export
+setBodyData : (bodyData : Objects BodyData) -> PRendering -> PRendering
+setBodyData bodyData = record { bodyData = bodyData }
+
+export
+setFollowing : ObjectId -> PRendering -> PRendering
+setFollowing id = record { following = Just id }
+
+export
+unsetFollowing : PRendering -> PRendering
+unsetFollowing = record { following = Nothing }
+
+export
+setCameraOn : ObjectId -> PRendering -> PRendering
+setCameraOn id prendering = case lookup id (bodyData prendering) of
+  Nothing => prendering
+  Just body_data => record { camera $= translate (position body_data) } prendering
+
+export
+updateCamera : PRendering -> PRendering
+updateCamera prendering = case following prendering of
+  Nothing => prendering
+  Just id => setCameraOn id prendering

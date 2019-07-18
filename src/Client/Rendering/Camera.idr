@@ -1,7 +1,7 @@
 module Client.Rendering.Camera
 
 import Graphics.SDL2 as SDL2
-import Physics.Vector2D
+import public Physics.Vector2D
 
 import Settings
 

@@ -75,9 +75,9 @@ GameIO IO where
 
 
 public export
-ResourceReference : Type
-ResourceReference = String
-%name ResourceReference ref
+ContentReference : Type
+ContentReference = String
+%name ContentReference ref
 
 public export
 JSONDict : Type
@@ -221,5 +221,5 @@ jsonToString (JString x) = pure x
 jsonToString _ = fail "not a string"
 
 export
-refToFilepath : ResourceReference -> String
+refToFilepath : ContentReference -> String
 refToFilepath = (++) "res/"

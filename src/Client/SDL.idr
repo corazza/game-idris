@@ -10,7 +10,7 @@ import Exception
 import GameIO
 
 TextureCache : Type
-TextureCache = Dict ResourceReference Texture
+TextureCache = Dict ContentReference Texture
 
 loadTexture : (renderer : Renderer) -> (filepath : String) -> IO (Checked Texture)
 loadTexture renderer filepath = with IO do
@@ -35,14 +35,14 @@ interface SDL (m : Type -> Type) where
   -- TODO the SDL lib should obviously accept Maybe SDLRect so these two methods
   -- could be unified
   drawWholeCenter : (draw : Var) ->
-                    (ref : ResourceReference) ->
+                    (ref : ContentReference) ->
                     (dst : SDLRect) ->
                     (angle : Double) ->
                     (flip : Int) ->
                     ST m () [draw ::: SSDL]
 
   drawCenter : (draw : Var) ->
-               (ref : ResourceReference) ->
+               (ref : ContentReference) ->
                (src : SDLRect) ->
                (dst : SDLRect) ->
                (angle : Double) ->
@@ -54,7 +54,7 @@ interface SDL (m : Type -> Type) where
   -- TODO resetCache : ...
 
   private
-  getTexture : (sdl : Var) -> (ref : ResourceReference) -> ST m (Checked Texture) [sdl ::: SSDL]
+  getTexture : (sdl : Var) -> (ref : ContentReference) -> ST m (Checked Texture) [sdl ::: SSDL]
 
 export
 SDL IO where

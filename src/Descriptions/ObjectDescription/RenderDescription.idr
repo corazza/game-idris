@@ -9,15 +9,15 @@ import Exception
 public export
 record AnimationParameters where
   constructor MkAnimationParameters
-  sheet : ResourceReference
+  ref : ContentReference
   dimensions : Vector2D
   fps : Double
 %name AnimationParameters animation_parameters
 
 export
 Show AnimationParameters where
-  show (MkAnimationParameters sheet dimensions fps)
-    =  "{ sheet: " ++ show sheet
+  show (MkAnimationParameters ref dimensions fps)
+    =  "{ ref: " ++ show ref
     ++ ", dimensions: " ++ show dimensions
     ++ ", fps: " ++ show fps
     ++ " }"
@@ -32,9 +32,9 @@ ObjectCaster AnimationParameters where
 
 public export
 data RenderDescription = Invisible
-                       | Tiled ResourceReference Vector2D (Nat, Nat)
+                       | Tiled ContentReference Vector2D (Nat, Nat)
                        | Colored Color
-                       | Single ResourceReference Vector2D
+                       | Single ContentReference Vector2D
                        | Animated (Dict String AnimationParameters)
 %name RenderDescription render_description
 

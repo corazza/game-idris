@@ -2,11 +2,12 @@ module Descriptions.AnimationDescription
 
 import GameIO
 import Exception
+import SDL
 
 public export
 record AnimationDescription where
   constructor MkAnimationDescription
-  sheet : ResourceReference
+  sheet : ContentReference
   dimensions : (Int, Int) -- width and height of single sprite in pixels
   nx : Int
   ny : Int
@@ -32,3 +33,13 @@ ObjectCaster AnimationDescription where
     let ny = getIntOrDefault "ny" 1 dict
     facingRight <- getBoolOrDefault True "facingRight" dict
     pure $ MkAnimationDescription sheet dimensions nx ny facingRight
+
+export
+getSrc : (clock : Int) -> (fps : Double) -> AnimationDescription -> SDLRect
+getSrc clock fps animation_description
+  = let passed_frames = clock `div` cast (1000 / fps)
+        frame = passed_frames `mod` (nx animation_description * ny animation_description)
+        framex = frame `div` ny animation_description
+        framey = frame `div` nx animation_description
+        (w, h) = dimensions animation_description
+        in MkSDLRect (framex*w) (framey*h) w h

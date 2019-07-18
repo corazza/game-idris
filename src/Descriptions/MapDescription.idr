@@ -10,11 +10,12 @@ import Descriptions.WallDescription
 import Descriptions.Color
 import GameIO
 import Exception
+import Timeline
 
 public export -- loaded by server, received by client
 record Creation where
   constructor MkCreation
-  ref : ResourceReference
+  ref : ContentReference
   position : Vector2D
   impulse : Maybe Vector2D
   angle : Maybe Double
@@ -36,6 +37,10 @@ export
 creationBodyDescriptionToDefinition : Creation -> BodyDescription -> BodyDefinition
 creationBodyDescriptionToDefinition creation desc = MkBodyDefinition
   (type desc) (position creation) (angle creation) (fixedRotation desc) (bullet desc)
+
+export
+forCharacter : Character -> Creation
+forCharacter character = MkCreation (ref character) (position character) Nothing Nothing
 
 public export
 data WallData = Repeat (Nat, Nat)
@@ -90,7 +95,7 @@ public export -- loaded both by server and client
 record WallCreation where
   constructor MkWallCreation
   id : String
-  ref : ResourceReference -- points to a wall description
+  ref : ContentReference -- points to a wall description
   position : Vector2D
   angle : Maybe Double
   wall_data : WallData
@@ -123,7 +128,7 @@ wallCreationBodyDescriptionToCreation creation desc = MkBodyDefinition
 public export
 record Background where
   constructor MkBackground
-  image : ResourceReference
+  image : ContentReference
   dimensions : Vector2D
 
 export

@@ -1,6 +1,6 @@
 module Commands
 
-import Physics.Vector2D
+import public Physics.Vector2D
 
 import Objects
 
@@ -28,6 +28,11 @@ Show Action where
 public export
 data Command = Start Action ObjectId
              | Stop Action ObjectId
+
+export
+getId : Command -> ObjectId
+getId (Start x y) = y
+getId (Stop x y) = y
 
 export
 Show Command where

@@ -22,6 +22,8 @@ interface Dynamics (m : Type -> Type) where
   startDynamics : (settings : DynamicsSettings) -> ST m Var [add SDynamics]
   endDynamics : (dynamics : Var) -> ST m () [remove dynamics SDynamics]
 
+  queryPDynamics : (dynamics : Var) -> (q : PDynamics -> a) -> ST m a [dynamics ::: SDynamics]
+
   addBody : (dynamics : Var) ->
             (id : ObjectId) ->
             (def : BodyDefinition) ->
@@ -38,25 +40,24 @@ interface Dynamics (m : Type -> Type) where
                   ST m () [dynamics ::: SDynamics]
 
   runCommand : (dynamics : Var) -> (command : DynamicsCommand) -> ST m () [dynamics ::: SDynamics]
+  runCommands : (dynamics : Var) -> (commands : List DynamicsCommand) -> ST m () [dynamics ::: SDynamics]
 
-  iterate : (dynamics : Var) ->
-            (dt : Int) ->
-            ST m (List DynamicsEvent, Objects BodyData) [dynamics ::: SDynamics]
+  iterate : (dynamics : Var) -> ST m (List DynamicsEvent) [dynamics ::: SDynamics]
 
   private
   updateFromBody : (dynamics : Var) -> (ObjectId, BodyData) -> ST m () [dynamics ::: SDynamics]
   private
   updatesFromBody : (dynamics : Var) -> List (ObjectId, BodyData) -> ST m () [dynamics ::: SDynamics]
   private
-  applyControl : (dynamics : Var) -> BodyData -> ST m () [dynamics ::: SDynamics]
+  applyControl : (dynamics : Var) -> (ObjectId, BodyData) -> ST m () [dynamics ::: SDynamics]
   private
-  applyControls : (dynamics : Var) -> List BodyData -> ST m () [dynamics ::: SDynamics]
+  applyControls : (dynamics : Var) -> List (ObjectId, BodyData) -> ST m () [dynamics ::: SDynamics]
   private
-  applyEffect : (dynamics : Var) -> BodyData -> PhysicsEffect -> ST m () [dynamics ::: SDynamics]
+  applyEffect : (dynamics : Var) -> (ObjectId, BodyData) -> PhysicsEffect -> ST m () [dynamics ::: SDynamics]
   private
-  applyEffects : (dynamics : Var) -> BodyData -> List PhysicsEffect -> ST m () [dynamics ::: SDynamics]
+  applyEffects : (dynamics : Var) -> (ObjectId, BodyData) -> List PhysicsEffect -> ST m () [dynamics ::: SDynamics]
   private
-  applyEffectss : (dynamics : Var) -> List BodyData -> ST m () [dynamics ::: SDynamics]
+  applyEffectss : (dynamics : Var) -> List (ObjectId, BodyData) -> ST m () [dynamics ::: SDynamics]
 
   private
   handleEvent : (dynamics : Var) -> (event : DynamicsEvent) -> ST m () [dynamics ::: SDynamics]
@@ -74,13 +75,15 @@ Dynamics IO where
 
   startDynamics settings = with ST do
     world <- lift $ createWorld $ gravity settings
-    pdynamics <- new (pdynamicsFromWorld world)
+    pdynamics <- new (pdynamicsInStart world (timeStep settings))
     pure pdynamics
 
   endDynamics dynamics = with ST do
     dynamics' <- read dynamics
     lift $ destroyWorld (world dynamics')
     delete dynamics
+
+  queryPDynamics dynamics q = read dynamics >>= pure . q
 
   addBody dynamics id def fixtures control effects = case !(idExists dynamics id) of
     True => pure ()
@@ -89,6 +92,8 @@ Dynamics IO where
       let objectControl = map initialControl control
       update dynamics $ pdynamicsAddObject
         id (position def) (fromMaybe 0 $ angle def) box2d objectControl effects
+      mass <- lift $ getMass (snd box2d)
+      update dynamics $ setMass id mass
 
   removeBody dynamics id = case getBody id !(read dynamics) of
     Nothing => pure ()
@@ -101,12 +106,17 @@ Dynamics IO where
   runCommand dynamics (Create id def fixtures control effects impulse) -- TODO applyImpulse
     = addBody dynamics id def fixtures control effects
   runCommand dynamics (Destroy id) = removeBody dynamics id
-  runCommand dynamics (UpdateControl id f) = updateControl dynamics id f
+  runCommand dynamics (UpdateControl id f) = with ST do
+    updateControl dynamics id f
 
-  iterate dynamics dt = with ST do
+  runCommands dynamics [] = pure ()
+  runCommands dynamics (cmd::xs) = runCommand dynamics cmd >>= const (runCommands dynamics xs)
+
+  iterate dynamics = with ST do
     dynamics' <- read dynamics
     let world = world dynamics'
-    let bodyDatas = values $ objects dynamics'
+    let bodyDatas = toList $ objects dynamics'
+    dt <- queryPDynamics dynamics timeStep
     applyControls dynamics bodyDatas
     applyEffectss dynamics bodyDatas
     lift $ step world (0.001 * cast dt) 6 2
@@ -114,7 +124,7 @@ Dynamics IO where
     events <- lift $ pollEvents world
     let dynamicsEvents = catMaybes $ map (box2DEventToDynamicsEvent dynamics') events
     handleEvents dynamics dynamicsEvents
-    pure (dynamicsEvents, objects dynamics')
+    pure dynamicsEvents
 
   updateFromBody dynamics (id, bodyData) = with ST do
     let body = body bodyData
@@ -130,13 +140,15 @@ Dynamics IO where
   updatesFromBody dynamics [] = pure ()
   updatesFromBody dynamics (x::xs) = updateFromBody dynamics x >>= const (updatesFromBody dynamics xs)
 
-  applyControl dynamics bodyData = lift $ applyImpulse (body bodyData) (movementImpulse bodyData)
+  applyControl dynamics (id, bodyData) = with ST do
+    lift $ applyImpulse (body bodyData) (movementImpulse bodyData)
+    updateControl dynamics id resetControlState
 
   applyControls dynamics [] = pure ()
   applyControls dynamics (x::xs) = applyControl dynamics x >>= const (applyControls dynamics xs)
 
   -- TODO move to execute effect... = lift $ executeEffect bodyData effect
-  applyEffect dynamics bodyData (Drag factor offset) = with ST do
+  applyEffect dynamics (id, bodyData) (Drag factor offset) = with ST do
     let velocity = velocity bodyData
     let norm = norm velocity
     if norm > 0.001
@@ -151,8 +163,8 @@ Dynamics IO where
     = applyEffect dynamics bodyData x >>= const (applyEffects dynamics bodyData xs)
 
   applyEffectss dynamics [] = pure ()
-  applyEffectss dynamics (bodyData::xs)
-    = applyEffects dynamics bodyData (effects bodyData) >>= const (applyEffectss dynamics xs)
+  applyEffectss dynamics (both@(id, bodyData)::xs)
+    = applyEffects dynamics both (effects bodyData) >>= const (applyEffectss dynamics xs)
 
   handleEvent dynamics (CollisionStart one two) = update dynamics $ touched (id one) (id two)
   handleEvent dynamics (CollisionStop one two) = update dynamics $ untouched (id one) (id two)

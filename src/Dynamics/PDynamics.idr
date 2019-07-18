@@ -10,6 +10,7 @@ import GameIO
 import Objects
 import Descriptions
 import Descriptions.ObjectDescription.BodyDescription
+import Commands
 
 -- indirect way of calling methods because I don't know how to pass the dynamics
 -- Var to the Client and Server directly
@@ -23,6 +24,24 @@ data DynamicsCommand
            (Maybe Vector2D) -- impulse
   | Destroy ObjectId
   | UpdateControl ObjectId (ControlState -> ControlState)
+
+export
+fromCommand : Command -> DynamicsCommand
+fromCommand command = UpdateControl (getId command) (fromCommand' command) where
+  fromCommand' : Command -> ControlState -> ControlState
+  fromCommand' (Start (Movement direction) id) = startMoveAction direction
+  fromCommand' (Stop (Movement direction) id) = stopMoveAction direction
+  fromCommand' (Start Walk id) = startWalking
+  fromCommand' (Stop Walk id) = stopWalking
+  fromCommand' (Start (Attack x) id) = startAttacking
+  fromCommand' (Stop (Attack x) id) = stopAttacking
+
+export
+filterControl : ObjectId -> List DynamicsCommand -> List DynamicsCommand
+filterControl id = filter notSame where
+  notSame : DynamicsCommand -> Bool
+  notSame (UpdateControl id' f) = id /= id'
+  notSame _ = True
 
 export
 Show DynamicsCommand where
@@ -72,6 +91,38 @@ record BodyData where
   effects : List PhysicsEffect
 %name BodyData body_data
 
+export
+Show BodyData where
+  show bodyData
+    =  "{ position: " ++ show (position bodyData)
+    ++ ", angle: " ++ show (angle bodyData)
+    ++ " }"
+
+export
+controlState : BodyData -> Maybe ControlState
+controlState = map controlState . controls
+
+export
+facing : BodyData -> Maybe MoveDirection
+facing = map facing . controlState
+
+export
+forceDirection : BodyData -> MoveDirection
+forceDirection body_data = case facing body_data of
+  Nothing => Rightward
+  Just x => x
+
+-- TODO dynamics iterate should receive clock and update a BodyData field
+-- movementLastChanged, which is read on render animation
+
+export
+animationState : BodyData -> String
+animationState object = case controlState object of
+  Nothing => "resting"
+  Just ctst => case moving ctst of
+    [] => "resting"
+    _ => if walking ctst then "walking" else "moving"
+
 addTouching : (id : ObjectId) -> BodyData -> BodyData
 addTouching id = record { touching $= insert id }
 
@@ -103,6 +154,7 @@ record PDynamics where
   world : Box2D.World
   objects : Objects BodyData
   ids : Ids Int
+  timeStep : Int
 %name PDynamics dynamics
 
 pairUpdate : (f : ObjectId -> BodyData -> BodyData) -> ObjectId -> ObjectId -> PDynamics -> PDynamics
@@ -117,8 +169,8 @@ untouched : (one : ObjectId) -> (two : ObjectId) -> PDynamics -> PDynamics
 untouched = pairUpdate removeTouching
 
 export
-pdynamicsFromWorld : Box2D.World -> PDynamics
-pdynamicsFromWorld world = MkPDynamics world emptyObjects emptyIds
+pdynamicsInStart : (world : Box2D.World) -> (timeStep : Int) -> PDynamics
+pdynamicsInStart world timeStep = MkPDynamics world emptyObjects emptyIds timeStep
 
 export
 addBody' : (GameIO m, Monad m) =>
@@ -154,6 +206,10 @@ pdynamicsRemoveObject id dynamics = case lookup id (objects dynamics) of
 export
 pdynamicsUpdateObject : (id : ObjectId) -> (f : BodyData -> BodyData) -> PDynamics -> PDynamics
 pdynamicsUpdateObject id f = record { objects $= updateObject id f }
+
+export
+setMass : ObjectId -> Double -> PDynamics -> PDynamics
+setMass id mass' = pdynamicsUpdateObject id $ record { mass = mass' }
 
 export
 pdynamicsUpdateControl : (id : ObjectId) -> (f : ControlState -> ControlState) -> PDynamics -> PDynamics

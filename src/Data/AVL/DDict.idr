@@ -76,8 +76,8 @@ hasValue val (MkDDict dict) = hasValue (Just val) dict
 --      (==) (MkDict {h = h} x) (MkDict {h = h} y)  | Yes Refl = x == y
 --      (==) (MkDict {h = h} x) (MkDict {h = h'} y) | No _     = False
 
--- (Show k, Show v) => Show (Dict k v) where
---   show (MkDDict dict) = show dict
+(Show k, Show v) => Show (DDict k v) where
+  show (MkDDict dict) = show dict
 
 Ord a => Functor (DDict a) where
   map func x = fromList $ (\(a, b) => (a, func b)) <$> toList x

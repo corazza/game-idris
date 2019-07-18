@@ -7,7 +7,9 @@ import Objects
 import Dynamics.PDynamics
 import Commands
 import Descriptions
+import Exception
 import JSONCache
+import Timeline
 
 public export
 record MapData where
@@ -20,9 +22,12 @@ mapDescriptionToMapData : MapDescription -> MapData
 mapDescriptionToMapData desc = MkMapData (name desc) (dimensions desc) (background desc)
 
 -- these are intended to be sent over the network, dynamics commands are always local
+-- which means that a separate client dynamics system will need an additional
+-- BodyData parameter in Create
 public export
 data ServerCommand
-  = Create ObjectId ResourceReference -- client gets other parameters from dynamics
+  = Create ObjectId ContentReference -- client gets other parameters from dynamics
+  | Destroy ObjectId
   | Control Command
   | InfoUpdate
 
@@ -33,13 +38,36 @@ Show ServerCommand where
   show InfoUpdate = "info update"
 
 public export
+LoginResponse : Type
+LoginResponse = Checked (ObjectId, List DynamicsCommand, List ServerCommand)
+
+export
+loginFail : (name : String) -> (error : String) -> LoginResponse
+loginFail name error = fail $ "couldn't login " ++ name ++ ", error: " ++ error
+
+export
+loginSuccess : (id : ObjectId) ->
+               (character : Character) ->
+               (character_object : ObjectDescription) ->
+               LoginResponse
+loginSuccess id character character_object
+  = pure (id, dynamicsCommands, serverCommands) where
+      dynamicsCommands : List DynamicsCommand
+      dynamicsCommands = [createObjectCommand (forCharacter character) character_object id]
+
+      serverCommands : List ServerCommand
+      serverCommands = [Create id (ref character)]
+
+public export
 record PServer where
   constructor MkPServer
   idCounter : Nat
   preload : PreloadResults
-  dynamicsCommands : List DynamicsCommand
-  serverCommands : List ServerCommand
   mapData : MapData
+  loggedIn : Objects Character
+  dynamicsCommands : List DynamicsCommand -- output
+  serverCommands : List ServerCommand -- output
+  clientCommands : List Command -- input
 
 export
 scounter : PServer -> PServer
@@ -48,16 +76,44 @@ scounter = record { idCounter $= S }
 export
 fromMapPreload : MapDescription -> PreloadResults -> PServer
 fromMapPreload desc preload
-  = MkPServer 0 preload empty empty (mapDescriptionToMapData desc)
+  = MkPServer 0 preload (mapDescriptionToMapData desc) empty empty empty empty
+
+export
+addLoggedIn : ObjectId -> Character -> PServer -> PServer
+addLoggedIn id character = record { loggedIn $= addObject id character }
 
 export
 addDynamicsCommand : DynamicsCommand -> PServer -> PServer
 addDynamicsCommand cmd = record { dynamicsCommands $= (::) cmd }
 
 export
-addClientCommand : ServerCommand -> PServer -> PServer
-addClientCommand cmd = record { serverCommands $= (::) cmd }
+addDynamicsCommands : List DynamicsCommand -> PServer -> PServer
+addDynamicsCommands cmds = record { dynamicsCommands $= (++) cmds }
 
 export
-flushCommands : PServer -> PServer
-flushCommands = record { serverCommands = empty, dynamicsCommands = empty }
+addServerCommand : ServerCommand -> PServer -> PServer
+addServerCommand cmd = record { serverCommands $= (::) cmd }
+
+export
+addClientCommand : Command -> PServer -> PServer
+addClientCommand cmd = record { clientCommands $= (::) cmd }
+
+export
+flushDynamicsCommands : PServer -> PServer
+flushDynamicsCommands = record { dynamicsCommands = empty }
+
+export
+flushServerCommands : PServer -> PServer
+flushServerCommands = record { serverCommands = empty }
+
+export
+flushClientCommands : PServer -> PServer
+flushClientCommands = record { clientCommands = empty }
+
+export
+flushOutput : PServer -> PServer
+flushOutput = flushDynamicsCommands . flushServerCommands
+
+export
+flushInput : PServer -> PServer
+flushInput = flushClientCommands

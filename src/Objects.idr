@@ -5,6 +5,7 @@ import public Data.AVL.DDict
 public export
 ObjectId : Type
 ObjectId = String
+%name ObjectId id
 
 public export
 Objects : Type -> Type

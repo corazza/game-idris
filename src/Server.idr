@@ -7,6 +7,7 @@ import Physics.Box2D
 import Server.PServer
 import Dynamics
 import Dynamics.PDynamics
+import Dynamics.DynamicsEvent
 import Commands
 import GameIO
 import Objects
@@ -15,13 +16,14 @@ import Exception
 import Descriptions
 import Settings
 import Exception
+import Timeline
 
 public export
 interface Server (m : Type -> Type) where
   SServer : Type
 
   startServer : (settings : ServerSettings) ->
-                (map_ref : ResourceReference) ->
+                (map_ref : ContentReference) ->
                 (preload : PreloadResults) ->
                 ST m (Checked Var) [addIfRight SServer]
 
@@ -29,9 +31,23 @@ interface Server (m : Type -> Type) where
 
   queryPServer : (server : Var) -> (q : PServer -> a) -> ST m a [server ::: SServer]
 
+  receiveClientCommand : (server : Var) -> Command -> ST m () [server ::: SServer]
+  receiveClientCommands : (server : Var) -> List Command -> ST m () [server ::: SServer]
+
   iterate : (server : Var) ->
-            (dt : Int) ->
-            ST m (List DynamicsCommand, List ServerCommand) [server ::: SServer]
+            (dynamicsEvents : List DynamicsEvent) ->
+            (bodyData : Objects BodyData) ->
+            ST m (List DynamicsCommand) [server ::: SServer]
+
+  getServerCommands : (server : Var) -> ST m (List ServerCommand) [server ::: SServer]
+  -- TODO temporary, should be included in startServer, which should return
+  -- Checked (Var, List DynamicsCommand)
+  getDynamicsCommands : (server : Var) -> ST m (List DynamicsCommand) [server ::: SServer]
+
+  login : (server : Var) -> Character -> ST m LoginResponse [server ::: SServer]
+
+  private
+  clientToDynamics : (server : Var) -> ST m () [server ::: SServer]
 
   private
   loadWalls : (server : Var) ->
@@ -70,11 +86,42 @@ export
 
   queryPServer server q = pure $ q !(read server)
 
-  iterate server dt = with ST do
-    dynamicsOutput <- queryPServer server dynamicsCommands
+
+  receiveClientCommand server command = update server $ addClientCommand command
+
+  receiveClientCommands server [] = pure ()
+  receiveClientCommands server (cmd::xs) = receiveClientCommand server cmd >>=
+    const (receiveClientCommands server xs)
+
+  iterate server dynamicsEvents bodyData = with ST do
+    clientToDynamics server
+    -- run rules, ai
+    getDynamicsCommands server
+
+  getServerCommands server = with ST do
     clientOutput <- queryPServer server serverCommands
-    update server flushCommands
-    pure (dynamicsOutput, clientOutput)
+    update server flushServerCommands
+    pure clientOutput
+
+  getDynamicsCommands server = with ST do
+    dynamicsOutput <- queryPServer server dynamicsCommands
+    update server flushDynamicsCommands
+    pure dynamicsOutput
+
+  login server character = with ST do
+    preload <- queryPServer server preload
+    let ref = ref character
+    case getObjectDescription ref preload of
+      Left e => pure $ loginFail ref e
+      Right character_object => with ST do
+        id <- newId server
+        update server $ addLoggedIn id character
+        pure $ loginSuccess id character character_object
+
+  clientToDynamics server = with ST do
+    clientCommands <- queryPServer server clientCommands
+    update server flushInput
+    update server $ addDynamicsCommands $ map fromCommand clientCommands
 
   loadWalls server map_description
     = queryPServer server preload >>= pure . flip getWallsAsObjects map_description
@@ -97,7 +144,7 @@ export
   addObject server creation object_description = with ST do
     id <- newId server
     update server $ addDynamicsCommand $ createObjectCommand creation object_description id
-    update server $ addClientCommand $ Create id (ref creation)
+    update server $ addServerCommand $ Create id (ref creation)
 
   addObjects server [] = pure ()
   addObjects server ((creation, desc)::xs) = addObject server creation desc >>=

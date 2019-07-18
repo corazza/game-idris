@@ -2,6 +2,8 @@ module Dynamics.Control
 
 import Descriptions
 import Descriptions.ObjectDescription.ControlDescription
+import Commands
+import Objects
 
 public export
 record ControlParameters where
@@ -42,19 +44,22 @@ record ControlState where
   jumping : Bool
   canJump : Bool
   walking : Bool
+  attacking : Bool
 %name ControlState controlState
 
 export
 Show ControlState where
-  show (MkControlState moving facing jumping canJump walking)
-    = "(moving: " ++ show moving ++ "," ++
-      " facing: " ++ show facing ++ "," ++
-      " jumping: " ++ show jumping ++ "," ++
-      " walking: " ++ show walking
+  show (MkControlState moving facing jumping canJump walking attacking)
+    = "(moving: " ++ show moving ++ ", " ++
+      "facing: " ++ show facing ++ ", " ++
+      "jumping: " ++ show jumping ++ ", " ++
+      "walking: " ++ show walking ++ ", " ++
+      "attacking: " ++ show attacking
 
 export
 initialControlStateFacing : (facing : MoveDirection) -> ControlState
-initialControlStateFacing facing = MkControlState empty facing False False False
+initialControlStateFacing facing
+  = MkControlState empty facing False False False False
 
 export
 startWalking : ControlState -> ControlState
@@ -94,19 +99,27 @@ export
 stopJumping : ControlState -> ControlState
 stopJumping = record { jumping = False, canJump = True }
 
--- export
--- startMoveAction : Direction -> ControlState -> ControlState
--- startMoveAction Left = startMoving Leftward
--- startMoveAction Right = startMoving Rightward
--- startMoveAction Up = startJumping
--- startMoveAction Down = id
---
--- export
--- stopMoveAction : Direction -> ControlState -> ControlState
--- stopMoveAction Left = stopMoving Leftward
--- stopMoveAction Right = stopMoving Rightward
--- stopMoveAction Up = stopJumping
--- stopMoveAction Down = id
+export
+startMoveAction : Direction -> ControlState -> ControlState
+startMoveAction Left = startMoving Leftward
+startMoveAction Right = startMoving Rightward
+startMoveAction Up = startJumping
+startMoveAction Down = id
+
+export
+stopMoveAction : Direction -> ControlState -> ControlState
+stopMoveAction Left = stopMoving Leftward
+stopMoveAction Right = stopMoving Rightward
+stopMoveAction Up = stopJumping
+stopMoveAction Down = id
+
+export
+startAttacking : ControlState -> ControlState
+startAttacking = record { attacking = True }
+
+export
+stopAttacking : ControlState -> ControlState
+stopAttacking = record { attacking = False }
 
 export
 resetControlState : ControlState -> ControlState

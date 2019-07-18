@@ -27,6 +27,7 @@ modules = Data.AVL.DDict
         , Dynamics.PDynamics
         , Server
         , Server.PServer
+        , Server.Rules
         , Client
         , Client.PClient
         , Client.SDL

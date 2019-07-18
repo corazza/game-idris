@@ -12,6 +12,7 @@ import Server.PServer
 import Descriptions
 import Descriptions.ObjectDescription.RenderDescription
 import Dynamics
+import Dynamics.PDynamics
 import JSONCache
 import GameIO
 import Settings
@@ -24,17 +25,18 @@ interface Client (m : Type -> Type) where
   SClient : Type
 
   startClient : (settings : ClientSettings) ->
-                (map : ResourceReference) ->
+                (map : ContentReference) ->
                 (preload : PreloadResults) ->
                 (characterId : ObjectId) ->
+                (initialCommands : List ServerCommand) ->
                 ST m (Checked Var) [addIfRight SClient]
   endClient : (client : Var) -> ST m () [remove client SClient]
 
   queryPClient : (client : Var) -> (q : PClient -> a) -> ST m a [client ::: SClient]
 
   -- processes server commands and strips own controls NETWORKING
-  processServerCommand : (client : Var) -> ServerCommand -> ST m () [client ::: SClient]
-  processServerCommands : (client : Var) -> List ServerCommand -> ST m () [client ::: SClient]
+  runServerCommand : (client : Var) -> ServerCommand -> ST m () [client ::: SClient]
+  runServerCommands : (client : Var) -> List ServerCommand -> ST m () [client ::: SClient]
 
   -- gets input, converts to own commands, processes them, returns for sending to server
   iterate : (client : Var) ->
@@ -42,9 +44,12 @@ interface Client (m : Type -> Type) where
             ST m (Either () (List Command)) [client ::: SClient]
 
   private
-  processCommand : (client : Var) -> (command : Command) -> ST m () [client ::: SClient]
+  runCommand : (client : Var) -> (command : Command) -> ST m () [client ::: SClient]
   private
-  processCommands : (client : Var) -> (commands : List Command) -> ST m () [client ::: SClient]
+  runCommands : (client : Var) -> (commands : List Command) -> ST m () [client ::: SClient]
+
+  private
+  addObject : (client : Var) -> (id : ObjectId) -> (ref : ContentReference) -> ST m () [client ::: SClient]
 
   private
   loadWalls : (client : Var) ->
@@ -62,16 +67,19 @@ export
 (GameIO m, Rendering m, SDL m) => Client m where
   SClient = Composite [State PClient, SRendering {m}, SSDL {m}]
 
-  startClient settings map_ref preload characterId = with ST do
+  startClient settings map_ref preload characterId initialCommands = with ST do
     case getMapDescription map_ref preload of
       Left e => pure $ fail $ "client couldn't get map description, error:\n" ++ e
       Right map_description => with ST do
         pclient <- new $ fromMapPreload characterId map_description preload
-        rendering <- startRendering (renderingSettings settings) (background map_description)
+        rendering <- startRendering
+          (renderingSettings settings) (background map_description) preload
+        follow rendering characterId
         sdl <- startSDL (resolutionX settings) (resolutionY settings)
         client <- new ()
         combine client [pclient, rendering, sdl]
         loadMap client map_description
+        runServerCommands client initialCommands
         pure (Right client)
 
   endClient client = with ST do
@@ -87,18 +95,34 @@ export
     combine client [pclient, rendering, sdl]
     pure $ q pclient'
 
-  processCommand client command = with ST do
+  runCommand client command = with ST do
     [pclient, rendering, sdl] <- split client
-    Rendering.processCommand rendering command
+    Rendering.runCommand rendering command
     combine client [pclient, rendering, sdl]
 
-  processCommands client [] = pure ()
-  processCommands client (cmd::xs)
-    = processCommand client cmd >>= const (processCommands client xs)
+  runCommands client [] = pure ()
+  runCommands client (cmd::xs)
+    = runCommand client cmd >>= const (runCommands client xs)
+
+  runServerCommand client (Create id ref) = addObject client id ref
+  runServerCommand client (Destroy id) = with ST do
+    [pclient, rendering, sdl] <- split client
+    removeObject rendering id
+    combine client [pclient, rendering, sdl]
+  runServerCommand client (Control cmd)
+    = case getId cmd == !(queryPClient client characterId) of
+        False => runCommand client cmd
+        True => pure ()
+  runServerCommand client InfoUpdate = pure ()
+
+  runServerCommands client [] = pure ()
+  runServerCommands client (cmd::xs)
+    = runServerCommand client cmd >>= const (runServerCommands client xs)
 
   iterate client bodyData = with ST do
     [pclient, rendering, sdl] <- split client
-    render rendering sdl bodyData
+    updateBodyData rendering bodyData
+    render rendering sdl
     sdl_events <- poll
     camera <- getCamera rendering
     combine client [pclient, rendering, sdl]
@@ -107,8 +131,17 @@ export
       Right events => with ST do
         characterId <- queryPClient client characterId
         let commands = map (\x => x characterId) events
-        processCommands client commands
+        runCommands client commands
         pure $ Right commands
+
+  addObject client id ref = with ST do
+    preload <- queryPClient client preload
+    case getObjectDescription ref preload of
+      Left e => lift $ log $ "couldn't get object description, error:\n " ++ e
+      Right object_description => with ST do
+        [pclient, rendering, sdl] <- split client
+        addObject rendering id (render object_description) 1
+        combine client [pclient, rendering, sdl]
 
   loadWalls client map_description
     = queryPClient client preload >>= pure . flip getWallsAsObjects map_description

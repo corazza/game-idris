@@ -52,7 +52,7 @@ record ControlDescription where
   constructor MkControlDescription
   speed : Double
   jump : Double
-  ai : Maybe (ResourceReference, Maybe AIParameters)
+  ai : Maybe (ContentReference, Maybe AIParameters)
 
 export
 Show ControlDescription where

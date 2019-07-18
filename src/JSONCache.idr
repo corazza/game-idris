@@ -14,10 +14,10 @@ import Descriptions
 public export
 record Preload where
   constructor MkPreload
-  objects : List ResourceReference
-  walls : List ResourceReference
-  animations : List ResourceReference
-  maps : List ResourceReference
+  objects : List ContentReference
+  walls : List ContentReference
+  animations : List ContentReference
+  maps : List ContentReference
 %name Preload preload
 
 export
@@ -40,7 +40,7 @@ ObjectCaster Preload where
 
 public export
 CacheType : Type -> Type
-CacheType ty = Dict ResourceReference ty
+CacheType ty = Dict ContentReference ty
 
 public export
 record PreloadResults where
@@ -55,32 +55,32 @@ export
 emptyPreloadResults : PreloadResults
 emptyPreloadResults = MkPreloadResults empty empty empty empty
 
-lookupError : (ref : ResourceReference) -> (type : String) -> String
+lookupError : (ref : ContentReference) -> (type : String) -> String
 lookupError type ref = "can't find " ++ type ++ " " ++ show ref
 
 export
-getObjectDescription : (ref : ResourceReference) ->
+getObjectDescription : (ref : ContentReference) ->
                        (preload : PreloadResults) ->
                        Checked ObjectDescription
 getObjectDescription ref
   = maybeToEither (lookupError "object description" ref) . lookup ref . objects
 
 export
-getWallDescription : (ref : ResourceReference) ->
+getWallDescription : (ref : ContentReference) ->
                      (preload : PreloadResults) ->
                      Checked WallDescription
 getWallDescription ref
   = maybeToEither (lookupError "wall description" ref) . lookup ref . walls
 
 export
-getAnimationDescription : (ref : ResourceReference) ->
+getAnimationDescription : (ref : ContentReference) ->
                           (preload : PreloadResults) ->
                           Checked AnimationDescription
 getAnimationDescription ref
   = maybeToEither (lookupError "animation description" ref) . lookup ref . animations
 
 export
-getMapDescription : (ref : ResourceReference) ->
+getMapDescription : (ref : ContentReference) ->
                     (preload : PreloadResults) ->
                     Checked MapDescription
 getMapDescription ref
@@ -117,11 +117,11 @@ public export
 interface JSONCache (m : Type -> Type) where
   SJSONCache : Type -> Type
 
-  startCache : ObjectCaster r => List ResourceReference -> ST m Var [add (SJSONCache r)]
+  startCache : ObjectCaster r => List ContentReference -> ST m Var [add (SJSONCache r)]
   endCache : ObjectCaster r => (cache : Var) -> ST m () [remove cache (SJSONCache r)]
 
-  preload : ObjectCaster r => (cache : Var) -> (ref : ResourceReference) -> ST m () [cache ::: SJSONCache r]
-  preloads : ObjectCaster r => (cache : Var) -> (refs : List ResourceReference) -> ST m () [cache ::: SJSONCache r]
+  preload : ObjectCaster r => (cache : Var) -> (ref : ContentReference) -> ST m () [cache ::: SJSONCache r]
+  preloads : ObjectCaster r => (cache : Var) -> (refs : List ContentReference) -> ST m () [cache ::: SJSONCache r]
 
   getCache : ObjectCaster r => (cache : Var) -> ST m (CacheType r) [cache ::: SJSONCache r]
 
@@ -149,7 +149,7 @@ GameIO m => JSONCache m where
   getCache cache = read cache >>= pure
 
 
-preloadDict : GameIO m => ObjectCaster r => (refs : List ResourceReference) -> ST m (CacheType r) []
+preloadDict : GameIO m => ObjectCaster r => (refs : List ContentReference) -> ST m (CacheType r) []
 preloadDict {r} refs = with ST do
   cache <- startCache {r=r} refs
   dict <- getCache {r=r} cache
