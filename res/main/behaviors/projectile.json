@@ -1,0 +1,26 @@
+{
+  "states": ["before", "after", "garbage"],
+  "start": "before",
+  "end": "garbage",
+
+  "before": {
+    "onCollision": {
+      "transition": {
+        "state": "after",
+        "actions": ["projectile damage"]
+      }
+    }
+  },
+
+  "after": {
+    "onTime": {
+      "time": 5,
+      "time_parameter": "garbage_time",
+      "transition": {
+        "state": "garbage"
+      }
+    }
+  },
+
+  "garbage": {}
+}

@@ -31,15 +31,19 @@ ObjectCaster AnimationParameters where
     pure $ MkAnimationParameters animation dimensions speed
 
 public export
-data RenderDescription = Invisible
+AnimationParametersDict : Type
+AnimationParametersDict = Dict String AnimationParameters
+
+public export
+data RenderMethod = Invisible
                        | Tiled ContentReference Vector2D (Nat, Nat)
                        | Colored Color
                        | Single ContentReference Vector2D
-                       | Animated (Dict String AnimationParameters)
-%name RenderDescription render_description
+                       | Animated AnimationParametersDict
+%name RenderMethod render_description
 
 export
-Show RenderDescription where
+Show RenderMethod where
   show Invisible = "invisible"
   show (Tiled ref tileDims repeat)
     =    "tiled with " ++ show ref
@@ -65,8 +69,7 @@ getAnimationStates dict = case lookup "states" dict of
     pure $ fromList aparams
   _ => fail "animation states aren't JObject"
 
-export
-ObjectCaster RenderDescription where
+ObjectCaster RenderMethod where
   objectCast dict = with Checked do
     type <- getString "type" dict
     case type of
@@ -83,3 +86,37 @@ ObjectCaster RenderDescription where
         pure $ Tiled image tileDims (cast nx, cast ny)
       "animated" => getAnimationStates dict >>= pure . Animated
       _ => fail "render type must be of \"invisible\"|\"single\"|\"tile\"|\"animated\""
+
+public export
+record InfoRenderParameters where
+  constructor MkInfoRenderParameters
+  yd : Double
+
+export
+Show InfoRenderParameters where
+  show info = "{ yd: " ++ show (yd info) ++ " }"
+
+ObjectCaster InfoRenderParameters where
+  objectCast dict = with Checked do
+    yd <- getDouble "yd" dict
+    pure $ MkInfoRenderParameters yd
+
+public export
+record RenderDescription where
+  constructor MkRenderDescription
+  method : RenderMethod
+  info : Maybe InfoRenderParameters
+
+export
+Show RenderDescription where
+  show rd
+    =  "{ method: " ++ show (method rd)
+    ++ ", info: " ++ show (info rd)
+    ++ " }"
+
+export
+ObjectCaster RenderDescription where
+  objectCast dict = with Checked do
+    method <- the (Checked RenderMethod) $ getCastable "method" dict
+    info <- the (Checked (Maybe InfoRenderParameters)) $ getCastableMaybe "info" dict
+    pure $ MkRenderDescription method info

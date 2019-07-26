@@ -6,13 +6,13 @@ import Physics.Box2D
 import Physics.Vector2D
 
 import Dynamics.PDynamics
-import Dynamics.Control
+import Dynamics.DynamicsControl
 import Dynamics.DynamicsEvent
 import GameIO
 import Objects
 import Exception
 import Settings
-import Descriptions
+-- import Descriptions
 import Descriptions.ObjectDescription.BodyDescription
 
 public export
@@ -33,6 +33,8 @@ interface Dynamics (m : Type -> Type) where
             ST m () [dynamics ::: SDynamics]
 
   removeBody : (dynamics : Var) -> (id : ObjectId) -> ST m () [dynamics ::: SDynamics]
+
+  applyImpulse : (dynamics : Var) -> (id : ObjectId) -> Vector2D -> ST m () [dynamics ::: SDynamics]
 
   updateControl : (dynamics : Var) ->
                   (id : ObjectId) ->
@@ -101,13 +103,19 @@ Dynamics IO where
       update dynamics $ pdynamicsRemoveObject id
       lift $ destroy !(getWorld dynamics) body
 
+  applyImpulse dynamics id impulse = with ST do
+    Just body <- queryPDynamics dynamics $ getBody id
+    lift $ applyImpulse body impulse
+
   updateControl dynamics id f = update dynamics $ pdynamicsUpdateControl id f
 
-  runCommand dynamics (Create id def fixtures control effects impulse) -- TODO applyImpulse
-    = addBody dynamics id def fixtures control effects
+  runCommand dynamics (Create id def fixtures control effects impulse) = with ST do
+    addBody dynamics id def fixtures control effects
+    case impulse of
+      Nothing => pure ()
+      Just x => applyImpulse dynamics id x
   runCommand dynamics (Destroy id) = removeBody dynamics id
-  runCommand dynamics (UpdateControl id f) = with ST do
-    updateControl dynamics id f
+  runCommand dynamics (UpdateControl id f) = updateControl dynamics id f
 
   runCommands dynamics [] = pure ()
   runCommands dynamics (cmd::xs) = runCommand dynamics cmd >>= const (runCommands dynamics xs)

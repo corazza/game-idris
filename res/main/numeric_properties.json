@@ -1,0 +1,10 @@
+{
+  "health": {
+    "type": "bar",
+    "name": "Health",
+    "fullWidth": 2,
+    "height": 0.15,
+    "yd": 1,
+    "color": [33, 168, 115, 53]
+  }
+}

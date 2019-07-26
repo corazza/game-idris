@@ -37,41 +37,56 @@
     ]
   },
 
-  "attack": {
-    "type": "create",
-    "ref": "main/objects/wooden_arrow.json",
-    "impulse": 8
-  },
+  "rules": {
+    "numericProperties": {
+      "health": {
+        "full": 150
+      }
+    },
 
-  "control": {
-    "speed": 3,
-    "jump": 6,
-    "ai": "main/aiscripts/hold-chase.json",
-    "ai_parameters": {
+    "attack": {
+      "type": "throw",
+      "ref": "main/objects/wooden_arrow.json",
+      "impulse": 8
+    },
+
+    "behavior": {
+      "ref": "main/behaviors/hold-chase.json",
       "double_parameters": {
-        "chase_duration": 4
+        "chase_duration": 1
       }
     }
   },
 
+  "control": {
+    "speed": 3,
+    "jump": 6
+  },
+
   "render": {
-    "type": "animated",
-    "states": {
-      "moving": {
-        "animation": "main/animations/mage-3.json",
-        "dimensions": [0.988636, 1.25],
-        "fps": 10
-      },
-      "resting": {
-        "animation": "main/animations/mage-3.json",
-        "dimensions": [0.988636, 1.25],
-        "fps": 10
-      },
-      "walking": {
-        "animation": "main/animations/mage-3.json",
-        "dimensions": [0.988636, 1.25],
-        "fps": 10
+    "method": {
+      "type": "animated",
+      "states": {
+        "moving": {
+          "animation": "main/animations/mage-3.json",
+          "dimensions": [0.988636, 1.25],
+          "fps": 15
+        },
+        "resting": {
+          "animation": "main/animations/mage-3.json",
+          "dimensions": [0.988636, 1.25],
+          "fps": 15
+        },
+        "walking": {
+          "animation": "main/animations/mage-3.json",
+          "dimensions": [0.988636, 1.25],
+          "fps": 15
+        }
       }
+    },
+
+    "info": {
+      "yd": 1
     }
   }
 }

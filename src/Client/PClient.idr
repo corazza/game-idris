@@ -1,7 +1,7 @@
 module Client.PClient
 
 import JSONCache
-import Descriptions
+import Descriptions.MapDescription
 import Objects
 
 public export

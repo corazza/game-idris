@@ -8,18 +8,18 @@ import GameIO
 import Exception
 
 public export
-data WallRenderDescription = InvisibleWall
+data WallRenderMethod = InvisibleWall
                            | TiledWall ContentReference Vector2D -- tiledims
                            | ColoredWall Color
-%name WallRenderDescription wall_render_description
+%name WallRenderMethod wall_render_description
 
 export
-Show WallRenderDescription where
+Show WallRenderMethod where
   show InvisibleWall = "invisible"
   show (TiledWall ref tileDims) = ref ++ " (" ++ show tileDims ++ ")"
   show (ColoredWall color) = "colored with " ++ show color
 
-ObjectCaster WallRenderDescription where
+ObjectCaster WallRenderMethod where
   objectCast dict = with Checked do
     type <- getString "type" dict
     case type of
@@ -36,7 +36,7 @@ record WallDescription where
   constructor MkWallDescription
   name : String
   fixture_parameters : FixtureParameters
-  render : WallRenderDescription
+  render : WallRenderMethod
 %name WallDescription wall_description
 
 export
@@ -56,5 +56,5 @@ ObjectCaster WallDescription where
   objectCast dict = with Checked do
     name <- getString "name" dict
     fixture_parameters <- the (Checked FixtureParameters) $ getCastable "fixtureParameters" dict
-    render <- the (Checked WallRenderDescription) $ getCastable "render" dict
+    render <- the (Checked WallRenderMethod) $ getCastable "render" dict
     pure $ MkWallDescription name fixture_parameters render

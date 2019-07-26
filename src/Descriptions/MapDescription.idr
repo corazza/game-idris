@@ -6,11 +6,13 @@ import Descriptions.ObjectDescription
 import Descriptions.ObjectDescription.BodyDescription
 import Descriptions.ObjectDescription.RenderDescription
 import Descriptions.ObjectDescription.ControlDescription
+import Descriptions.ObjectDescription.RulesDescription
 import Descriptions.WallDescription
 import Descriptions.Color
 import GameIO
 import Exception
 import Timeline
+import Objects
 
 public export -- loaded by server, received by client
 record Creation where
@@ -18,6 +20,7 @@ record Creation where
   ref : ContentReference
   position : Vector2D
   impulse : Maybe Vector2D
+  creator : Maybe ObjectId
   angle : Maybe Double
 %name Creation creation
 
@@ -30,8 +33,8 @@ ObjectCaster Creation where
     ref <- getString "ref" dict
     position <- getVector "position" dict
     case hasKey "angle" dict of
-      False => pure $ MkCreation ref position Nothing Nothing
-      True => getDouble "angle" dict >>= pure . MkCreation ref position Nothing . Just
+      False => pure $ MkCreation ref position Nothing Nothing Nothing
+      True => getDouble "angle" dict >>= pure . MkCreation ref position Nothing Nothing . Just
 
 export
 creationBodyDescriptionToDefinition : Creation -> BodyDescription -> BodyDefinition
@@ -40,7 +43,7 @@ creationBodyDescriptionToDefinition creation desc = MkBodyDefinition
 
 export
 forCharacter : Character -> Creation
-forCharacter character = MkCreation (ref character) (position character) Nothing Nothing
+forCharacter character = MkCreation (ref character) (position character) Nothing Nothing Nothing
 
 public export
 data WallData = Repeat (Nat, Nat)
@@ -63,8 +66,9 @@ export
 wallDescToObjectDesc : WallDescription -> WallData -> Checked ObjectDescription
 wallDescToObjectDesc wall_desc wall_data = (with Checked do
   bodyDesc <- getBodyDesc
-  renderDesc <- getRenderDesc
-  pure $ MkObjectDescription (name wall_desc) bodyDesc renderDesc Nothing) where
+  method <- getRenderMethod
+  let renderDesc = MkRenderDescription method Nothing
+  pure $ MkObjectDescription (name wall_desc) bodyDesc renderDesc Nothing Nothing) where
     getShape : Checked Shape
     getShape = case wall_data of
       Repeat (nx, ny) => case render wall_desc of
@@ -83,8 +87,8 @@ wallDescToObjectDesc wall_desc wall_data = (with Checked do
       fixture <- getFixture
       pure $ MkBodyDescription Static (Just True) (Just False) [fixture] empty
 
-    getRenderDesc : Checked RenderDescription
-    getRenderDesc = case render wall_desc of
+    getRenderMethod : Checked RenderMethod
+    getRenderMethod = case render wall_desc of
       InvisibleWall => pure Invisible
       TiledWall ref tileDims => case wall_data of
         Repeat nxny => pure $ Tiled ref tileDims nxny

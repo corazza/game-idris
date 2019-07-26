@@ -6,32 +6,48 @@ import Physics.Box2D
 
 import Client.Rendering.Camera
 import Client.Rendering.PRendering
+import Client.Rendering.Info
 import Client.SDL
-import Dynamics
 import JSONCache
-import Dynamics.PDynamics
-import Dynamics.Control
 import GameIO
 import Exception
 import Settings
 import Objects
-import Descriptions
-import Descriptions.ObjectDescription.RenderDescription
 import Commands
+import Dynamics
+import Dynamics.PDynamics
+import Dynamics.DynamicsControl
+import Descriptions
+import Descriptions.ObjectDescription
+import Descriptions.AnimationDescription
+import Descriptions.MapDescription
+import Descriptions.Color
+import Descriptions.ObjectDescription.RenderDescription
+import Descriptions.ObjectDescription.RulesDescription
+import Descriptions.NumericPropertyRender
 
 public export
 interface SDL m => Rendering (m : Type -> Type) where
   SRendering : Type
 
-  startRendering : (settings : RenderingSettings) -> Background -> PreloadResults -> ST m Var [add SRendering]
+  startRendering : (settings : RenderingSettings) ->
+                   Background ->
+                   PreloadResults ->
+                   ST m Var [add SRendering]
   endRendering : (rendering : Var) -> ST m () [remove rendering SRendering]
 
-  queryPRendering : (rendering : Var) -> (q : PRendering -> a) -> ST m a [rendering ::: SRendering]
+  queryPRendering : (rendering : Var) ->
+                    (q : PRendering -> a) ->
+                    ST m a [rendering ::: SRendering]
+  updatePRendering : (rendering : Var) ->
+                     (f : PRendering -> PRendering) ->
+                     ST m () [rendering ::: SRendering]
+
   getCamera : (rendering : Var) -> ST m Camera [rendering ::: SRendering]
 
   addObject : (rendering : Var) ->
               (id : ObjectId) ->
-              (desc : RenderDescription) ->
+              (desc : ObjectDescription) ->
               (layer : Nat) ->
               ST m () [rendering ::: SRendering]
 
@@ -42,6 +58,14 @@ interface SDL m => Rendering (m : Type -> Type) where
   updateBodyData : (rendering : Var) -> (bodyData : Objects BodyData) -> ST m () [rendering ::: SRendering]
 
   follow : (rendering : Var) -> ObjectId -> ST m () [rendering ::: SRendering]
+
+  zoom : (rendering : Var) -> (x : Int) -> ST m () [rendering ::: SRendering]
+
+  private
+  initAnimation : (rendering : Var) ->
+                  (id : ObjectId) ->
+                  (desc : RenderMethod) ->
+                  ST m () [rendering ::: SRendering]
 
 export
 (GameIO m, SDL m) => Rendering m where
@@ -54,17 +78,25 @@ export
   endRendering rendering = delete rendering
 
   queryPRendering rendering q = read rendering >>= pure . q
+  updatePRendering rendering f = update rendering f
+
   getCamera rendering = queryPRendering rendering camera
 
   addObject rendering id desc layer = with ST do
-    update rendering $ addToLayer id desc layer
-    case desc of
-      Animated stateDict => ticks >>= update rendering . addInitialAnimationState id
-      _ => pure ()
+    update rendering $ addToLayer id (render desc) layer
+    initAnimation rendering id $ method $ render desc
+    case rules desc of
+      Nothing => pure ()
+      Just rules_desc => update rendering $ addInfo id rules_desc
+
+  initAnimation rendering id (Animated stateDict)
+    = ticks >>= update rendering . addInitialAnimationState id
+  initAnimation rendering id _ = pure ()
 
   removeObject rendering id = with ST do
     update rendering $ removeFromLayers id
     update rendering $ removeAnimationState id
+
 
   runCommand rendering (Start (Movement Left) id) = ticks >>=
     update rendering . setAnimationState id . MkAnimationState
@@ -85,10 +117,12 @@ export
   runCommand rendering (Stop Walk id) = pure ()
 
   updateBodyData rendering bodyData =
-    update rendering $ (updateCamera . setBodyData bodyData)
+    update rendering $ (updateFollow . setBodyData bodyData)
 
   follow rendering id = update rendering $ setFollowing id
 
+  zoom rendering x = let factor = if x > 0 then 1.05 else 0.95 in
+    update rendering $ updateCamera $ zoomFactor $ factor -- * abs (cast x)
 
 missingStateError : (state : String) -> (for : ObjectId) -> String
 missingStateError state for
@@ -148,13 +182,65 @@ tile {m} sdl camera texture (x, y) (w, h) (nx, S ny) = (with ST do
       drawWholeCenter sdl texture rect 0.0 0
       tileRow (x' + w, y') k
 
+renderNumericProperty : SDL m => Rendering m => GameIO m =>
+                        (rendering : Var) ->
+                        (sdl : Var) ->
+                        (camera : Camera) ->
+                        (body_data : BodyData) ->
+                        (info_render : InfoRenderParameters) ->
+                        (info_id : NumericPropertyId) ->
+                        (info : NumericPropertyInfo) ->
+                        ST m () [rendering ::: SRendering {m}, sdl ::: SSDL {m}]
+renderNumericProperty rendering sdl camera body_data info_render info_id info
+  = with ST do
+      preload <- queryPRendering rendering preload
+      case getNumPropRender info_id preload of
+        Left e => lift $ log $ "renderNumericProperty fail, error: " ++ e
+        Right render => with ST do
+          let fullWidth = lengthToScreen camera (fullWidth render)
+          let (object_x, object_y) = positionToScreen camera (position body_data)
+          let x = object_x - (fullWidth `div` 2)
+          let yd_prop = lengthToScreen camera (yd render)
+          let yd_obj = lengthToScreen camera (yd info_render)
+          let y = object_y + yd_prop + yd_obj
+          let w = the Int $ cast $ cast fullWidth * (current info / full info)
+          let h = lengthToScreen camera (height render)
+          let rect = MkSDLRect x y w h
+          filledRect sdl rect (color render)
+
+renderNumericProperties : SDL m => Rendering m => GameIO m =>
+                          (rendering : Var) ->
+                          (sdl : Var) ->
+                          (camera : Camera) ->
+                          (body_data : BodyData) ->
+                          (info_render : InfoRenderParameters) ->
+                          (properties : List (NumericPropertyId, NumericPropertyInfo)) ->
+                          ST m () [rendering ::: SRendering {m}, sdl ::: SSDL {m}]
+renderNumericProperties rendering sdl camera body_data info_render [] = pure ()
+renderNumericProperties rendering sdl camera body_data info_render ((id, info)::xs)
+  = renderNumericProperty rendering sdl camera body_data info_render id info
+
+renderObjectInfoAll : SDL m => Rendering m => GameIO m =>
+                      (rendering : Var) ->
+                      (sdl : Var) ->
+                      (camera : Camera) ->
+                      (body_data : BodyData) ->
+                      (info_render : InfoRenderParameters) ->
+                      (object_info : ObjectInfo) ->
+                      ST m () [rendering ::: SRendering {m}, sdl ::: SSDL {m}]
+renderObjectInfoAll rendering sdl camera body_data info_render object_info
+  = case numericProperties object_info of
+      Nothing => pure ()
+      Just dict => let properties = toList dict in
+          renderNumericProperties rendering sdl camera body_data info_render properties
+
 renderObject : SDL m => Rendering m => GameIO m =>
                (rendering : Var) ->
                (sdl : Var) ->
                (camera : Camera) ->
                (id : ObjectId) ->
                (body_data : BodyData) ->
-               (rendering_description : RenderDescription) ->
+               (rendering_description : RenderMethod) ->
                ST m () [rendering ::: SRendering {m}, sdl ::: SSDL {m}]
 renderObject rendering sdl camera id body_data Invisible = pure ()
 renderObject rendering sdl camera id body_data (Tiled ref tileDims@(w, h) howMany@(nx, ny))
@@ -194,12 +280,26 @@ renderLayer rendering sdl ((id, render_description)::xs) = with ST do
   bodyData <- queryPRendering rendering bodyData
   case lookup id bodyData of
     Nothing =>  with ST do
-      lift $ log id
+      lift $ log $ "renderLayer: no body data for " ++ id
       renderLayer rendering sdl xs
     Just body_data => with ST do
       camera <- queryPRendering rendering camera
-      renderObject rendering sdl camera id body_data render_description
-      renderLayer rendering sdl xs
+      renderObject rendering sdl camera id body_data $ method render_description
+      objects_info <- queryPRendering rendering info
+      case (lookup id objects_info, info render_description) of
+        (Just object_info, Just info_render) => with ST do
+          renderObjectInfoAll rendering sdl camera body_data info_render object_info
+          renderLayer rendering sdl xs
+        _ => renderLayer rendering sdl xs
+
+          -- case getScreenDimensions camera body_data render_description of
+          --   Nothing => lift $ log $ "couldn't get screen dimensions for " ++ id
+          --
+          --   -- HERE
+          --   -- the yd parameter for info changes, but it should be constant
+          --   -- probably add as a render parameter
+          --
+          --   Just screenDimensions => with ST do
 
 renderLayers : SDL m => Rendering m => GameIO m =>
                (rendering : Var) ->

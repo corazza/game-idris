@@ -50,6 +50,13 @@ export
 translate : Vector2D -> Camera -> Camera
 translate a = record { position = a }
 
+export
+zoomFactor : Double -> Camera -> Camera
+zoomFactor factor = record { zoom $= (*) factor }
+
+export
+dimToScreen : Camera -> Vector2D -> (Int, Int)
+dimToScreen (MkCamera _ zoom _ _ _) (x, y) = (round $ zoom * x, round $ zoom * y)
 
 export
 positionToScreen : Camera -> Vector2D -> (Int, Int)
@@ -57,10 +64,6 @@ positionToScreen camera@(MkCamera (cx, cy) zoom _ resolution yd) (ox, oy)
   = let (rx, ry) = resolution' camera
         (x, y) = zoom `scale` (ox - cx, cy - oy) in
         (round $ x + rx/2, round $ y + ry/2)
-
-export
-dimToScreen : Camera -> Vector2D -> (Int, Int)
-dimToScreen (MkCamera _ zoom _ _ _) (x, y) = (round $ zoom * x, round $ zoom * y)
 
 export
 screenToPosition : Camera -> (Int, Int) -> Vector2D
@@ -77,3 +80,12 @@ getRect camera position dimensions
         (x, y) = positionToScreen camera (position - dimensions')
         (x', y') = positionToScreen camera (position + dimensions')
         (w, h) = (x' - x, y' - y) in MkSDLRect x y w h
+
+export
+dimToScreen' : Camera -> Vector2D -> (Int, Int)
+dimToScreen' camera dims = let (MkSDLRect x y w h) = getRect camera nullVector dims
+                              in (w, h)
+
+export
+lengthToScreen : Camera -> Double -> Int
+lengthToScreen camera x = cast $ zoom camera * x

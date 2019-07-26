@@ -16,6 +16,7 @@ import Dynamics.PDynamics
 import Dynamics.DynamicsEvent
 import Server
 import Server.PServer
+import Server.Rules
 import Client
 import Client.Rendering
 import Client.SDL
@@ -93,11 +94,13 @@ game preload settings character = with ST do
             endDynamics dynamics
   initialCommands <- getDynamicsCommands server
   runCommands dynamics initialCommands
-  Right (character_id, dynamicsCommands, serverCommands) <- login server character
+  Right character_id <- login server character
         | Left e => with ST do
             lift $ log $ "couldn't log in, error:\n" ++ e
             endServer server
             endDynamics dynamics
+  dynamicsCommands <- getDynamicsCommands server
+  serverCommands <- getServerCommands server
   runCommands dynamics dynamicsCommands
   Right client <- startClient (client settings) map_ref preload character_id serverCommands
         | Left e => with ST do
@@ -133,9 +136,12 @@ start = with ST do
     Just character => with ST do
       Right preload_info <- lift $ checkedJSONLoad {r=Preload} "res/main/preload.json"
             | Left e => with ST do
+                  lift $ log "couldn't load preload info, error:"
+                  lift $ log e
+      Right preload <- preloadResults preload_info
+            | Left e => with ST do
                   lift $ log "couldn't load preload, error:"
                   lift $ log e
-      preload <- preloadResults preload_info
       game preload settings character
 
 main : IO ()

@@ -1,6 +1,5 @@
-module Dynamics.Control
+module Dynamics.DynamicsControl
 
-import Descriptions
 import Descriptions.ObjectDescription.ControlDescription
 import Commands
 import Objects
@@ -14,7 +13,6 @@ record ControlParameters where
 export
 parametersFromDescription : ControlDescription -> ControlParameters
 parametersFromDescription desc = MkControlParameters (speed desc) (jump desc)
-
 
 export
 Show ControlParameters where
@@ -132,6 +130,7 @@ record ObjectControl where
   controlParameters : ControlParameters
 %name ObjectControl control
 
+export
 speed : ObjectControl -> Double
 speed (MkObjectControl controlState controlParameters)
   = let speed = speed controlParameters
@@ -147,7 +146,6 @@ Show ObjectControl where
     ++   "controlState: " ++ show ctst
     ++ ", controlParameters: " ++ show ctp
     ++ "}"
-
 
 resetObjectControl : ObjectControl -> ObjectControl
 resetObjectControl = record { controlState $= resetControlState }

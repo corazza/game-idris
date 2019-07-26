@@ -3,6 +3,14 @@ module Objects
 import public Data.AVL.DDict
 
 public export
+NumericPropertyId : Type
+NumericPropertyId = String
+
+public export
+StatId : Type
+StatId = String
+
+public export
 ObjectId : Type
 ObjectId = String
 %name ObjectId id
@@ -29,6 +37,13 @@ export
 emptyObjects : Objects ty
 emptyObjects = empty
 
+export
+getObjects : Objects ty -> List ty
+getObjects = values
+
+export
+getIds : Objects ty -> List ObjectId
+getIds = keys
 
 public export
 Ids : (ty : Type) -> Type
@@ -45,3 +60,7 @@ removeId = delete
 export
 emptyIds : Ord a => Ids a
 emptyIds = empty
+
+export
+append : a -> List a -> List a
+append x xs = xs ++ [x]

@@ -27,5 +27,11 @@
 
   "maps": [
     "main/maps/castle.json"
+  ],
+
+  "behaviors": [
+    "main/behaviors/hold-chase.json",
+    "main/behaviors/roam-chase.json",
+    "main/behaviors/projectile.json"
   ]
 }

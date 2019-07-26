@@ -1,16 +1,16 @@
 module Client.SDL
 
-import Data.AVL.Dict
 import Control.ST
 import Control.ST.ImplicitCall
+import Data.AVL.Dict
 import public Graphics.SDL2 as SDL2
 
-import public Descriptions.Color
+import Descriptions.Color
 import Exception
 import GameIO
 
 TextureCache : Type
-TextureCache = Dict ContentReference Texture
+TextureCache = Dict String Texture
 
 loadTexture : (renderer : Renderer) -> (filepath : String) -> IO (Checked Texture)
 loadTexture renderer filepath = with IO do

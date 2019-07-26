@@ -7,6 +7,7 @@ import public Data.AVL.Dict
 import Physics.Vector2D
 import Physics.Box2D
 import Physics.Box2D.Definitions
+
 import Exception
 
 public export
@@ -173,6 +174,12 @@ getString : String -> JSONDict -> Checked String
 getString key dict = case lookup key dict of
   Just (JString x) => pure x
   _ => fail $ "not a string (" ++ key ++ ")"
+
+export
+getStringMaybe : String -> JSONDict -> Checked (Maybe String)
+getStringMaybe key dict = case hasKey key dict of
+  False => pure Nothing
+  True => getString key dict >>= pure . Just
 
 export
 getArray : String -> JSONDict -> Checked (List JSON)

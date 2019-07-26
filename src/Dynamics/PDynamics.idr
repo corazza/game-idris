@@ -4,13 +4,14 @@ import Physics.Box2D
 import Physics.Vector2D
 import Data.AVL.Set
 
-import Dynamics.Control
+import Dynamics.DynamicsControl
 import Dynamics.DynamicsEvent
 import GameIO
 import Objects
-import Descriptions
-import Descriptions.ObjectDescription.BodyDescription
 import Commands
+import Descriptions.MapDescription
+import Descriptions.ObjectDescription
+import Descriptions.ObjectDescription.BodyDescription
 
 -- indirect way of calling methods because I don't know how to pass the dynamics
 -- Var to the Client and Server directly
@@ -75,7 +76,8 @@ createObjectCommand creation object_description id
         fixtures = fixtures body_description
         effects = effects body_description
         control = map parametersFromDescription $ control object_description
-        in Create id bodyDef fixtures control effects Nothing
+        impulse  = impulse creation
+        in Create id bodyDef fixtures control effects impulse
 
 public export
 record BodyData where
@@ -140,9 +142,9 @@ export
 movementImpulse : BodyData -> Vector2D
 movementImpulse bodyData = case controls bodyData of
   Nothing => nullVector
-  Just (MkObjectControl controlState controlParameters) =>
+  Just object_control@(MkObjectControl controlState controlParameters) =>
     let (x, y) = velocity bodyData
-        x' = speed controlParameters * moveSign controlState
+        x' = speed object_control * moveSign controlState
         y' = if jumping controlState && canJump controlState && onGround bodyData
                   then jump controlParameters else 0
         x_correction = if abs (x' - x) < 0.01 then 0 else x' - x
@@ -218,6 +220,14 @@ pdynamicsUpdateControl id f = pdynamicsUpdateObject id (updateControlInBody f)
 export
 getBody : (id : ObjectId) -> PDynamics -> Maybe Body
 getBody id = map BodyData.body . lookup id . objects
+
+export
+getControlState : (id : ObjectId) -> PDynamics -> Maybe ControlState
+getControlState id pdynamics = case lookup id (objects pdynamics) of
+  Nothing => Nothing
+  (Just x) => case controls x of
+    Nothing => Nothing
+    (Just x) => Just $ controlState x
 
 collisionConvert : (ids : Ids Int) ->
                    (one : CollisionForBody) ->

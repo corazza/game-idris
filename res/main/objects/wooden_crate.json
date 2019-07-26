@@ -1,6 +1,5 @@
 {
   "name": "Wooden crate",
-  "health": 50,
   "tags": [],
 
   "body": {
@@ -17,9 +16,23 @@
       }
   },
 
+  "rules": {
+    "numericProperties": {
+      "health": {
+        "full": 100
+      }
+    }
+  },
+
   "render": {
+    "method": {
       "type": "single",
       "image": "main/images/wooden_crate.png",
       "dimensions": [0.5, 0.5]
+    },
+
+    "info": {
+      "yd": 1
+    }
   }
 }

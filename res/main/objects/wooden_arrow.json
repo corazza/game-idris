@@ -33,9 +33,21 @@
     }
   },
 
+  "rules": {
+    "stats": {
+      "damage": 50
+    },
+
+    "behavior": {
+      "ref": "main/behaviors/projectile.json"
+    }
+  },
+
   "render": {
-    "type": "single",
-    "image": "main/images/arrow_1.png",
-    "dimensions": [0.07, 0.5]
+    "method": {
+      "type": "single",
+      "image": "main/images/arrow_1.png",
+      "dimensions": [0.07, 0.5]
+    }
   }
 }

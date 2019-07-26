@@ -6,7 +6,7 @@ import GameIO
 import Objects
 import Dynamics.PDynamics
 import Commands
-import Descriptions
+import Descriptions.MapDescription
 import Exception
 import JSONCache
 import Timeline
@@ -29,34 +29,31 @@ data ServerCommand
   = Create ObjectId ContentReference -- client gets other parameters from dynamics
   | Destroy ObjectId
   | Control Command
-  | InfoUpdate
+  | UpdateNumericProperty ObjectId NumericPropertyId Double
 
 export
 Show ServerCommand where
   show (Create id ref) = "create " ++ id ++ " " ++ ref
   show (Control cmd) = "control " ++ show cmd
-  show InfoUpdate = "info update"
+  show (UpdateNumericProperty object_id prop_id current) = "info update"
 
 public export
 LoginResponse : Type
-LoginResponse = Checked (ObjectId, List DynamicsCommand, List ServerCommand)
+LoginResponse = Checked ObjectId
 
 export
 loginFail : (name : String) -> (error : String) -> LoginResponse
 loginFail name error = fail $ "couldn't login " ++ name ++ ", error: " ++ error
 
-export
-loginSuccess : (id : ObjectId) ->
-               (character : Character) ->
-               (character_object : ObjectDescription) ->
-               LoginResponse
-loginSuccess id character character_object
-  = pure (id, dynamicsCommands, serverCommands) where
-      dynamicsCommands : List DynamicsCommand
-      dynamicsCommands = [createObjectCommand (forCharacter character) character_object id]
-
-      serverCommands : List ServerCommand
-      serverCommands = [Create id (ref character)]
+export -- TODO URGENT unify with Server.createObject
+loginSuccess : (id : ObjectId) -> LoginResponse
+loginSuccess id = pure id
+  -- = pure (id, dynamicsCommands, serverCommands) where
+  --     dynamicsCommands : List DynamicsCommand
+  --     dynamicsCommands = [createObjectCommand (forCharacter character) character_object id]
+  --
+  --     serverCommands : List ServerCommand
+  --     serverCommands = [Create id (ref character)]
 
 public export
 record PServer where
@@ -65,6 +62,7 @@ record PServer where
   preload : PreloadResults
   mapData : MapData
   loggedIn : Objects Character
+  bodyData : Objects BodyData
   dynamicsCommands : List DynamicsCommand -- output
   serverCommands : List ServerCommand -- output
   clientCommands : List Command -- input
@@ -76,7 +74,7 @@ scounter = record { idCounter $= S }
 export
 fromMapPreload : MapDescription -> PreloadResults -> PServer
 fromMapPreload desc preload
-  = MkPServer 0 preload (mapDescriptionToMapData desc) empty empty empty empty
+  = MkPServer 0 preload (mapDescriptionToMapData desc) empty empty empty empty empty
 
 export
 addLoggedIn : ObjectId -> Character -> PServer -> PServer
@@ -84,19 +82,19 @@ addLoggedIn id character = record { loggedIn $= addObject id character }
 
 export
 addDynamicsCommand : DynamicsCommand -> PServer -> PServer
-addDynamicsCommand cmd = record { dynamicsCommands $= (::) cmd }
+addDynamicsCommand cmd = record { dynamicsCommands $= append cmd }
 
 export
 addDynamicsCommands : List DynamicsCommand -> PServer -> PServer
-addDynamicsCommands cmds = record { dynamicsCommands $= (++) cmds }
+addDynamicsCommands cmds = record { dynamicsCommands $= \xs => xs ++ cmds }
 
 export
 addServerCommand : ServerCommand -> PServer -> PServer
-addServerCommand cmd = record { serverCommands $= (::) cmd }
+addServerCommand cmd = record { serverCommands $= append cmd }
 
 export
 addClientCommand : Command -> PServer -> PServer
-addClientCommand cmd = record { clientCommands $= (::) cmd }
+addClientCommand cmd = record { clientCommands $= append cmd }
 
 export
 flushDynamicsCommands : PServer -> PServer
@@ -117,3 +115,19 @@ flushOutput = flushDynamicsCommands . flushServerCommands
 export
 flushInput : PServer -> PServer
 flushInput = flushClientCommands
+
+export
+pserverSetBodyData : Objects BodyData -> PServer -> PServer
+pserverSetBodyData bodyData' = record { bodyData = bodyData' }
+
+export
+pserverGetDimensions : PServer -> Vector2D
+pserverGetDimensions = dimensions . mapData
+
+export
+getOutside : (dimensions : Vector2D) -> List (ObjectId, BodyData) -> List ObjectId
+getOutside (w, h) [] = []
+getOutside dimensions@(w, h) ((id, object) :: xs) = let (x, y) = position object in
+  if x > w || x < -w || y > h || y < -h
+    then id :: getOutside dimensions xs
+    else getOutside dimensions xs

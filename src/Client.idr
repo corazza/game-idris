@@ -4,12 +4,15 @@ import Control.ST
 import Control.ST.ImplicitCall
 
 import Client.Rendering
+import Client.Rendering.PRendering
 import Client.Rendering.Camera
 import Client.PClient
 import Client.SDL
 import Client.Input
+import Client.ClientCommands
 import Server.PServer
-import Descriptions
+import Descriptions.MapDescription
+import Descriptions.ObjectDescription
 import Descriptions.ObjectDescription.RenderDescription
 import Dynamics
 import Dynamics.PDynamics
@@ -44,9 +47,23 @@ interface Client (m : Type -> Type) where
             ST m (Either () (List Command)) [client ::: SClient]
 
   private
+  updatePRendering : (client : Var) ->
+                     (f : PRendering -> PRendering) ->
+                     ST m () [client ::: SClient]
+
+  private
   runCommand : (client : Var) -> (command : Command) -> ST m () [client ::: SClient]
   private
   runCommands : (client : Var) -> (commands : List Command) -> ST m () [client ::: SClient]
+
+  private
+  runClientCommand : (client : Var) ->
+                     (clientCommand : ClientCommand) ->
+                     ST m () [client ::: SClient]
+  private
+  runClientCommands : (client : Var) ->
+                      (clientCommands : List ClientCommand) ->
+                      ST m () [client ::: SClient]
 
   private
   addObject : (client : Var) -> (id : ObjectId) -> (ref : ContentReference) -> ST m () [client ::: SClient]
@@ -104,6 +121,15 @@ export
   runCommands client (cmd::xs)
     = runCommand client cmd >>= const (runCommands client xs)
 
+  runClientCommand client (Zoom x) = with ST do
+    [pclient, rendering, sdl] <- split client
+    zoom rendering x
+    combine client [pclient, rendering, sdl]
+
+  runClientCommands client [] = pure ()
+  runClientCommands client (cmd::xs)
+    = runClientCommand client cmd >>= const (runClientCommands client xs)
+
   runServerCommand client (Create id ref) = addObject client id ref
   runServerCommand client (Destroy id) = with ST do
     [pclient, rendering, sdl] <- split client
@@ -113,7 +139,8 @@ export
     = case getId cmd == !(queryPClient client characterId) of
         False => runCommand client cmd
         True => pure ()
-  runServerCommand client InfoUpdate = pure ()
+  runServerCommand client (UpdateNumericProperty object_id prop_id current)
+    = updatePRendering client $ prenderingUpdateNumericProperty object_id prop_id current
 
   runServerCommands client [] = pure ()
   runServerCommands client (cmd::xs)
@@ -126,11 +153,11 @@ export
     sdl_events <- poll
     camera <- getCamera rendering
     combine client [pclient, rendering, sdl]
-    case processEvents camera sdl_events of
-      Left () => pure $ Left ()
-      Right events => with ST do
-        characterId <- queryPClient client characterId
-        let commands = map (\x => x characterId) events
+    characterId <- queryPClient client characterId
+    case processEvents characterId camera sdl_events of
+      Left _ => pure $ Left ()
+      Right (clientCommands, commands) => with ST do
+        runClientCommands client clientCommands
         runCommands client commands
         pure $ Right commands
 
@@ -140,7 +167,7 @@ export
       Left e => lift $ log $ "couldn't get object description, error:\n " ++ e
       Right object_description => with ST do
         [pclient, rendering, sdl] <- split client
-        addObject rendering id (render object_description) 1
+        addObject rendering id object_description 1
         combine client [pclient, rendering, sdl]
 
   loadWalls client map_description
@@ -148,7 +175,7 @@ export
 
   addWall client wall_creation object_description = with ST do
     [pclient, rendering, sdl] <- split client
-    addObject rendering (id wall_creation) (render object_description) 0
+    addObject rendering (id wall_creation) object_description 0
     combine client [pclient, rendering, sdl]
 
   addWalls client [] = pure ()
@@ -160,3 +187,8 @@ export
       lift $ log $ "client couldn't get walls, error:"
       lift $ log e
     addWalls client walls
+
+  updatePRendering client f = with ST do
+    [pclient, rendering, sdl] <- split client
+    Rendering.updatePRendering rendering f
+    combine client [pclient, rendering, sdl]

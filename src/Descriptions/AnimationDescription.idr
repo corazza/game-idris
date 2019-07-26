@@ -2,7 +2,7 @@ module Descriptions.AnimationDescription
 
 import GameIO
 import Exception
-import SDL
+import Client.SDL
 
 public export
 record AnimationDescription where

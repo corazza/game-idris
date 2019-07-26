@@ -1,6 +1,5 @@
 {
   "name": "Tristram",
-  "health": 100,
   "tags": [],
 
   "body": {
@@ -17,35 +16,49 @@
     }
   },
 
-  "attack": {
-    "type": "create",
-    "ref": "main/objects/wooden_arrow.json",
-    "impulse": 8
-  },
-
   "control": {
     "speed": 6,
     "jump": 6
   },
 
-  "render": {
-    "type": "animated",
-    "states": {
-      "moving": {
-        "animation": "main/animations/run-large.json",
-        "dimensions": [0.8, 0.8],
-        "fps": 20
-      },
-      "resting": {
-        "animation": "main/animations/rest-large.json",
-        "dimensions": [0.35, 0.77],
-        "fps": 15
-      },
-      "walking": {
-        "animation": "main/animations/walk-large.json",
-        "dimensions": [0.4, 0.8],
-        "fps": 20
+  "rules": {
+    "numericProperties": {
+      "health": {
+        "full": 100
       }
+    },
+
+    "attack": {
+      "type": "throw",
+      "ref": "main/objects/wooden_arrow.json",
+      "impulse": 8
+    }
+  },
+
+  "render": {
+    "method": {
+      "type": "animated",
+      "states": {
+        "moving": {
+          "animation": "main/animations/run-large.json",
+          "dimensions": [0.8, 0.8],
+          "fps": 20
+        },
+        "resting": {
+          "animation": "main/animations/rest-large.json",
+          "dimensions": [0.35, 0.77],
+          "fps": 15
+        },
+        "walking": {
+          "animation": "main/animations/walk-large.json",
+          "dimensions": [0.4, 0.8],
+          "fps": 20
+        }
+      }
+    },
+
+    "info": {
+      "yd": 1
     }
   }
 }

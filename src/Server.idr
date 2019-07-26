@@ -5,6 +5,9 @@ import Control.ST.ImplicitCall
 import Physics.Box2D
 
 import Server.PServer
+import Server.Rules
+import Server.Rules.PRules
+import Server.Rules.RulesOutput
 import Dynamics
 import Dynamics.PDynamics
 import Dynamics.DynamicsEvent
@@ -13,7 +16,9 @@ import GameIO
 import Objects
 import JSONCache
 import Exception
-import Descriptions
+import Descriptions.MapDescription
+import Descriptions.ObjectDescription
+import Descriptions.ObjectDescription.RulesDescription
 import Settings
 import Exception
 import Timeline
@@ -30,6 +35,7 @@ interface Server (m : Type -> Type) where
   endServer : (server : Var) -> ST m () [remove server SServer]
 
   queryPServer : (server : Var) -> (q : PServer -> a) -> ST m a [server ::: SServer]
+  updatePServer : (server : Var) -> (f : PServer -> PServer) -> ST m () [server ::: SServer]
 
   receiveClientCommand : (server : Var) -> Command -> ST m () [server ::: SServer]
   receiveClientCommands : (server : Var) -> List Command -> ST m () [server ::: SServer]
@@ -47,7 +53,23 @@ interface Server (m : Type -> Type) where
   login : (server : Var) -> Character -> ST m LoginResponse [server ::: SServer]
 
   private
-  clientToDynamics : (server : Var) -> ST m () [server ::: SServer]
+  updateBodyData : (server : Var) -> Objects BodyData -> ST m () [server ::: SServer]
+
+  private
+  processClientCommands : (server : Var) -> ST m () [server ::: SServer]
+
+  private
+  rulesProcessDynamicsEvents : (server : Var) ->
+                               List DynamicsEvent ->
+                               ST m () [server ::: SServer]
+  private
+  processRulesCommand : (server : Var) -> Command -> ST m () [server ::: SServer]
+  private
+  processRulesOutput : (server : Var) -> RulesOutput -> ST m () [server ::: SServer]
+  private
+  processRulesOutputs : (server : Var) -> List RulesOutput -> ST m () [server ::: SServer]
+  private
+  getAndProcessRulesOutputs : (server : Var) -> ST m () [server ::: SServer]
 
   private
   loadWalls : (server : Var) ->
@@ -64,48 +86,89 @@ interface Server (m : Type -> Type) where
   private
   newId : (server : Var) -> ST m ObjectId [server ::: SServer]
   private
-  addObject : (server : Var) -> Creation -> ObjectDescription -> ST m () [server ::: SServer]
+  addRules : (server : Var) ->
+             (id : ObjectId) ->
+             (desc : ObjectDescription) ->
+             (creator : Maybe ObjectId) ->
+             ST m () [server ::: SServer]
   private
-  addObjects : (server : Var) -> List (Creation, ObjectDescription) -> ST m () [server ::: SServer]
+  removeRules : (server : Var) ->
+                (id : ObjectId) ->
+                ST m () [server ::: SServer]
+  private -- TODO URGENT unify!!!
+  create : (server : Var) -> Creation -> ST m (Checked ObjectId) [server ::: SServer]
+  private
+  createObject : (server : Var) -> Creation -> ObjectDescription -> ST m ObjectId [server ::: SServer]
+  private
+  createObjects : (server : Var) -> List (Creation, ObjectDescription) -> ST m () [server ::: SServer]
   private
   loadMap : (server : Var) -> MapDescription -> ST m () [server ::: SServer]
 
+  private
+  destroy : (server : Var) -> ObjectId -> ST m () [server ::: SServer]
+  private
+  destroyMany : (server : Var) -> List ObjectId -> ST m () [server ::: SServer]
+  private
+  pruneOutside : (server : Var) -> ST m () [server ::: SServer]
+
 export
-(GameIO m, Dynamics m) => Server m where
-  SServer = State PServer
+(GameIO m, Rules m) => Server m where
+  SServer = Composite [State PServer, SRules {m}]
 
   startServer settings map_ref preload = with ST do
     case getMapDescription map_ref preload of
       Left e => pure $ fail $ "server couldn't get map description, error:\n" ++ e
       Right map_description => with ST do
-        server <- new $ fromMapPreload map_description preload
+        pserver <- new $ fromMapPreload map_description preload
+        rules <- startRules preload
+        server <- new ()
+        combine server [pserver, rules]
         loadMap server map_description -- TODO this should also be able to fail
         pure (Right server)
 
-  endServer server = delete server
+  endServer server = with ST do
+    [pserver, rules] <- split server
+    endRules rules
+    delete pserver
+    delete server
 
-  queryPServer server q = pure $ q !(read server)
+  queryPServer server q = with ST do
+    [pserver, rules] <- split server
+    let res = q !(read pserver)
+    combine server [pserver, rules]
+    pure res
 
+  updatePServer server f = with ST do
+    [pserver, rules] <- split server
+    update pserver f
+    combine server [pserver, rules]
 
-  receiveClientCommand server command = update server $ addClientCommand command
+  receiveClientCommand server command = updatePServer server $ addClientCommand command
 
   receiveClientCommands server [] = pure ()
   receiveClientCommands server (cmd::xs) = receiveClientCommand server cmd >>=
     const (receiveClientCommands server xs)
 
   iterate server dynamicsEvents bodyData = with ST do
-    clientToDynamics server
-    -- run rules, ai
+    updateBodyData server bodyData
+    processClientCommands server
+    rulesProcessDynamicsEvents server dynamicsEvents
+    getAndProcessRulesOutputs server
     getDynamicsCommands server
+
+  rulesProcessDynamicsEvents server dynamicsEvents = with ST do
+    [pserver, rules] <- split server
+    processDynamicsEvents rules dynamicsEvents
+    combine server [pserver, rules]
 
   getServerCommands server = with ST do
     clientOutput <- queryPServer server serverCommands
-    update server flushServerCommands
+    updatePServer server flushServerCommands
     pure clientOutput
 
   getDynamicsCommands server = with ST do
     dynamicsOutput <- queryPServer server dynamicsCommands
-    update server flushDynamicsCommands
+    updatePServer server flushDynamicsCommands
     pure dynamicsOutput
 
   login server character = with ST do
@@ -114,14 +177,43 @@ export
     case getObjectDescription ref preload of
       Left e => pure $ loginFail ref e
       Right character_object => with ST do
-        id <- newId server
-        update server $ addLoggedIn id character
-        pure $ loginSuccess id character character_object
+        id <- createObject server (forCharacter character) character_object
+        updatePServer server $ addLoggedIn id character
+        pure $ loginSuccess id
 
-  clientToDynamics server = with ST do
+  updateBodyData server bodyData = with ST do
+    updatePServer server $ pserverSetBodyData bodyData
+    [pserver, rules] <- split server
+    updatePRules rules $ prulesSetBodyData bodyData
+    combine server [pserver, rules]
+
+  processClientCommands server = with ST do
     clientCommands <- queryPServer server clientCommands
-    update server flushInput
-    update server $ addDynamicsCommands $ map fromCommand clientCommands
+    updatePServer server flushInput
+    updatePServer server $ addDynamicsCommands $ map fromCommand clientCommands
+    [pserver, rules] <- split server
+    runCommands rules clientCommands
+    combine server [pserver, rules]
+
+  processRulesCommand server command = with ST do
+    updatePServer server $ addServerCommand $ Control command
+    updatePServer server $ addDynamicsCommand $ fromCommand command
+
+  processRulesOutput server (Create creation) = do create server creation; pure ()
+  processRulesOutput server (RuleCommand command) = processRulesCommand server command
+  processRulesOutput server (Death id) = destroy server id
+  processRulesOutput server (NumericPropertyCurrent object_id prop_id current)
+    = updatePServer server $ addServerCommand $ UpdateNumericProperty object_id prop_id current
+
+  processRulesOutputs server [] = pure ()
+  processRulesOutputs server (rule_output::xs)
+    = processRulesOutput server rule_output >>= const (processRulesOutputs server xs)
+
+  getAndProcessRulesOutputs server = with ST do
+    [pserver, rules] <- split server
+    rules_output <- getRulesOutputs rules
+    combine server [pserver, rules]
+    processRulesOutputs server rules_output
 
   loadWalls server map_description
     = queryPServer server preload >>= pure . flip getWallsAsObjects map_description
@@ -130,7 +222,9 @@ export
     = queryPServer server preload >>= pure . flip getObjectsFromMap map_description
 
   addWall server wall_creation object_description
-    = update server $ addDynamicsCommand $ createWallCommand wall_creation object_description
+    = updatePServer server
+    $ addDynamicsCommand
+    $ createWallCommand wall_creation object_description
 
   addWalls server [] = pure ()
   addWalls server ((creation, desc)::xs) = addWall server creation desc >>=
@@ -138,17 +232,40 @@ export
 
   newId server = with ST do
     id_num <- queryPServer server idCounter
-    update server scounter
+    updatePServer server scounter
     pure $ "server_autoid_" ++ show id_num
 
-  addObject server creation object_description = with ST do
-    id <- newId server
-    update server $ addDynamicsCommand $ createObjectCommand creation object_description id
-    update server $ addServerCommand $ Create id (ref creation)
+  addRules server id object_description creator = case rules object_description of
+    Nothing => pure ()
+    Just rules_description => with ST do
+      [pserver, rules] <- split server
+      addObject rules id rules_description creator
+      combine server [pserver, rules]
 
-  addObjects server [] = pure ()
-  addObjects server ((creation, desc)::xs) = addObject server creation desc >>=
-    const (addObjects server xs)
+  removeRules server id = with ST do
+    [pserver, rules] <- split server
+    removeObject rules id
+    combine server [pserver, rules]
+
+  create server creation = with ST do
+    preload <- queryPServer server preload
+    case getObjectDescription (ref creation) preload of
+      Left e => with ST do
+        lift $ log $ "can't create " ++ ref creation ++ ", error:\n" ++ e
+        pure $ fail e
+      Right object_description =>
+        createObject server creation object_description >>= pure . Right
+
+  createObject server creation object_description = with ST do
+    id <- newId server
+    updatePServer server $ addDynamicsCommand $ createObjectCommand creation object_description id
+    updatePServer server $ addServerCommand $ Create id (ref creation)
+    addRules server id object_description (creator creation)
+    pure id
+
+  createObjects server [] = pure ()
+  createObjects server ((creation, desc)::xs) = createObject server creation desc >>=
+    const (createObjects server xs)
 
   loadMap server map_description = with ST do
     Right walls <- loadWalls server map_description | Left e => with ST do
@@ -158,6 +275,18 @@ export
       lift $ log $ "couldn't get objects, error:"
       lift $ log e
     addWalls server walls
-    addObjects server objects
+    createObjects server objects
 
-  -- pruneOutside
+  destroy server id = with ST do
+    updatePServer server $ addDynamicsCommand $ PDynamics.Destroy id
+    updatePServer server $ addServerCommand $ PServer.Destroy id
+    removeRules server id
+
+  destroyMany server [] = pure ()
+  destroyMany server (id::xs) = destroy server id >>= const (destroyMany server xs)
+
+  pruneOutside server = with ST do
+    dimensions <- queryPServer server pserverGetDimensions
+    bodyData <- queryPServer server bodyData
+    let outside = getOutside dimensions (toList bodyData)
+    destroyMany server outside

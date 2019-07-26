@@ -9,7 +9,13 @@ import Physics.Vector2D -- needed only for empty/dummy/default objects REMOVE
 
 import Exception
 import GameIO
-import Descriptions
+import Objects
+import Descriptions.ObjectDescription
+import Descriptions.ObjectDescription.RulesDescription.BehaviorDescription
+import Descriptions.MapDescription
+import Descriptions.WallDescription
+import Descriptions.AnimationDescription
+import Descriptions.NumericPropertyRender
 
 public export
 record Preload where
@@ -18,15 +24,17 @@ record Preload where
   walls : List ContentReference
   animations : List ContentReference
   maps : List ContentReference
+  behaviors : List ContentReference
 %name Preload preload
 
 export
 Show Preload where
-  show (MkPreload objects walls animations maps)
+  show (MkPreload objects walls animations maps behaviors)
     =  "{ objects: " ++ show objects
     ++ ", walls: " ++ show walls
     ++ ", animations: " ++ show animations
     ++ ", maps: " ++ show maps
+    ++ ", behaviors: " ++ show behaviors
     ++ " }"
 
 export
@@ -36,7 +44,8 @@ ObjectCaster Preload where
     walls <- getStrings "walls" dict
     animations <- getStrings "animations" dict
     maps <- getStrings "maps" dict
-    pure $ MkPreload objects walls animations maps
+    behaviors <- getStrings "behaviors" dict
+    pure $ MkPreload objects walls animations maps behaviors
 
 public export
 CacheType : Type -> Type
@@ -49,11 +58,13 @@ record PreloadResults where
   walls : CacheType WallDescription
   animations : CacheType AnimationDescription
   maps : CacheType MapDescription
+  behaviors : CacheType BehaviorDescription
+  numPropRender : NumPropRenderDescriptionDict
 %name PreloadResults preload
 
-export
-emptyPreloadResults : PreloadResults
-emptyPreloadResults = MkPreloadResults empty empty empty empty
+-- export
+-- emptyPreloadResults : PreloadResults
+-- emptyPreloadResults = MkPreloadResults empty empty empty empty
 
 lookupError : (ref : ContentReference) -> (type : String) -> String
 lookupError type ref = "can't find " ++ type ++ " " ++ show ref
@@ -85,6 +96,21 @@ getMapDescription : (ref : ContentReference) ->
                     Checked MapDescription
 getMapDescription ref
   = maybeToEither (lookupError "map description" ref) . lookup ref . maps
+
+export
+getBehaviorDescription : (ref : ContentReference) ->
+                         (preload : PreloadResults) ->
+                         Checked BehaviorDescription
+getBehaviorDescription ref
+  = maybeToEither (lookupError "behavior description" ref) . lookup ref . behaviors
+
+export
+getNumPropRender : (id : NumericPropertyId) ->
+                   (preload : PreloadResults) ->
+                   Checked NumPropRenderDescription
+getNumPropRender id preload
+  = let error = "couldn't find numeric property render description with id " ++ id
+        in maybeToEither error $ lookup id $ numPropRender preload
 
 wallCreationToDescPair : PreloadResults -> WallCreation -> Checked (WallCreation, WallDescription)
 wallCreationToDescPair preload wall_creation
@@ -156,11 +182,20 @@ preloadDict {r} refs = with ST do
   endCache {r=r} cache
   pure dict
 
+preloadNumProp : GameIO m => ST m (Checked NumPropRenderDescriptionDict) []
+preloadNumProp = lift
+               $ checkedJSONLoad {r=NumPropRenderDescriptionDict}
+               $ refToFilepath "main/numeric_properties.json"
+
 export
-preloadResults : GameIO m => (preload_info : Preload) -> ST m PreloadResults []
+preloadResults : GameIO m => (preload_info : Preload) -> ST m (Checked PreloadResults) []
 preloadResults preload_info = with ST do
   objects_dict <- preloadDict {r=ObjectDescription} (objects preload_info)
   walls_dict <- preloadDict {r=WallDescription} (walls preload_info)
   animations_dict <- preloadDict {r=AnimationDescription} (animations preload_info)
   maps_dict <- preloadDict {r=MapDescription} (maps preload_info)
-  pure $ MkPreloadResults objects_dict walls_dict animations_dict maps_dict
+  behaviors_dict <- preloadDict {r=BehaviorDescription} (behaviors preload_info)
+  Right numPropRender <- preloadNumProp
+        | Left e => pure (fail e)
+  pure $ Right $ MkPreloadResults
+    objects_dict walls_dict animations_dict maps_dict behaviors_dict numPropRender

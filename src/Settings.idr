@@ -1,6 +1,7 @@
 module Settings
 
 import Physics.Vector2D
+
 import GameIO
 import Exception
 import Descriptions.Color

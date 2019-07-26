@@ -11,30 +11,41 @@ modules = Data.AVL.DDict
         , Exception
         , JSONCache
         , Commands
+        , Objects
+        , Timeline
+        , Settings
+        , Main
         , Descriptions
         , Descriptions.Color
         , Descriptions.MapDescription
         , Descriptions.WallDescription
         , Descriptions.AnimationDescription
+        , Descriptions.NumericPropertyRender
         , Descriptions.ObjectDescription
         , Descriptions.ObjectDescription.BodyDescription
         , Descriptions.ObjectDescription.ControlDescription
         , Descriptions.ObjectDescription.RenderDescription
-        , Settings
-        , Main
+        , Descriptions.ObjectDescription.RulesDescription
+        , Descriptions.ObjectDescription.RulesDescription.BehaviorDescription
         , Dynamics
-        , Dynamics.Control
+        , Dynamics.DynamicsControl
         , Dynamics.PDynamics
+        , Dynamics.DynamicsEvent
         , Server
         , Server.PServer
         , Server.Rules
+        , Server.Rules.Behavior
+        , Server.Rules.PRules
+        , Server.Rules.NumericProperties
         , Client
         , Client.PClient
         , Client.SDL
         , Client.Input
+        , Client.ClientCommands
         , Client.Rendering
         , Client.Rendering.Camera
         , Client.Rendering.PRendering
+        , Client.Rendering.Info
 
 main = Main
 
