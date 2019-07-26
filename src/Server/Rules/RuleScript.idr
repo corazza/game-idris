@@ -234,7 +234,16 @@ chaseScript id = with RuleScript do
         else startMovementScript id Right
 
 export
+garbageScript : (id : ObjectId) -> UnitRuleScript
+garbageScript id = with RuleScript do
+  Just controller <- GetController id | pure ()
+  case halted controller of
+    False => pure ()
+    True => Output $ Death id
+
+export
 mainScript : (time : Int) -> (id : ObjectId) -> UnitRuleScript
 mainScript time id = with AIScript do
   timeScript time id
   chaseScript id
+  garbageScript id

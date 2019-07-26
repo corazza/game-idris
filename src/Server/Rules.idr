@@ -107,15 +107,6 @@ GameIO m => Rules m where
   runCommands rules [] = pure ()
   runCommands rules (cmd::xs) = runCommand rules cmd >>= const (runCommands rules xs)
 
-  -- dataUpdates rules [] = pure ()
-  -- dataUpdates rules (cmd::xs) = dataUpdate rules cmd >>= const (dataUpdates rules xs)
-
-  -- commands rules xs = with ST do
-  --   runCommands rules xs
-  --   dataUpdates rules xs
-
-  -- HERE not getting scripts output, call in server
-
   runScript rules (Output rules_output)
     = updatePRules rules $ output rules_output
   runScript rules (Transition id state scripts) = with ST do

@@ -80,6 +80,12 @@ direction : BehaviorController -> Maybe BehaviorDirection
 direction = direction . behavior_data
 
 export
+halted : BehaviorController -> Bool
+halted controller = case end (description controller) of
+  Nothing => False
+  Just end_state => state controller == end_state
+
+export
 transition : (time : Int) ->
              (state : BehaviorState) ->
              BehaviorController -> BehaviorController
