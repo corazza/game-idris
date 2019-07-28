@@ -5,7 +5,7 @@
     "character": {
       "name": "Tristram",
       "object": "main/objects/character.json",
-      "position": [0, -6],
+      "position": [0, -3],
       "map": "main/maps/castle.json"
     }
   }

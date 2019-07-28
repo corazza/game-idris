@@ -17,9 +17,10 @@ record MapData where
   mapName : String
   dimensions : Vector2D -- dimensions of current map
   background : Background
+  spawn : Vector2D
 
 mapDescriptionToMapData : MapDescription -> MapData
-mapDescriptionToMapData desc = MkMapData (name desc) (dimensions desc) (background desc)
+mapDescriptionToMapData desc = MkMapData (name desc) (dimensions desc) (background desc) (spawn desc)
 
 -- these are intended to be sent over the network, dynamics commands are always local
 -- which means that a separate client dynamics system will need an additional
@@ -30,6 +31,7 @@ data ServerCommand
   | Destroy ObjectId
   | Control Command
   | UpdateNumericProperty ObjectId NumericPropertyId Double
+  | Relog ObjectId ContentReference
 
 export
 Show ServerCommand where

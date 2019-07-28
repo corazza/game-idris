@@ -5,7 +5,8 @@
     "main/objects/wooden_crate.json",
     "main/objects/mage-1.json",
     "main/objects/mage-2.json",
-    "main/objects/mage-3.json"
+    "main/objects/mage-3.json",
+    "main/objects/yellow_marker.json"
   ],
 
   "walls": [
@@ -26,12 +27,14 @@
   ],
 
   "maps": [
-    "main/maps/castle.json"
+    "main/maps/castle.json",
+    "main/maps/encampment.json"
   ],
 
   "behaviors": [
     "main/behaviors/hold-chase.json",
     "main/behaviors/roam-chase.json",
-    "main/behaviors/projectile.json"
+    "main/behaviors/projectile.json",
+    "main/behaviors/door.json"
   ]
 }

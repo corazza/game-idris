@@ -37,7 +37,8 @@ AnimationParametersDict = Dict String AnimationParameters
 public export
 data RenderMethod = Invisible
                        | Tiled ContentReference Vector2D (Nat, Nat)
-                       | Colored Color
+                       | ColoredCircle Color Double
+                       | ColoredRect Color Vector2D
                        | Single ContentReference Vector2D
                        | Animated AnimationParametersDict
 %name RenderMethod render_description
@@ -50,7 +51,8 @@ Show RenderMethod where
     ++ " (tileDims: " ++ show tileDims
     ++ ", repeated: " ++ show repeat
     ++  ")"
-  show (Colored color) = "colored with " ++ show color
+  show (ColoredCircle color radius) = "colored with " ++ show color
+  show (ColoredRect color dims) = "colored with " ++ show color
   show (Single ref dims) = "single with " ++ ref ++ ", dims: " ++ show dims
   show (Animated x) = "animated ( " ++ show x ++ " )"
 
@@ -74,7 +76,13 @@ ObjectCaster RenderMethod where
     type <- getString "type" dict
     case type of
       "invisible" => pure Invisible
-      "color" => getColor "color" dict >>= pure . Colored
+      "color" => with Checked do
+        color <- getColor "color" dict
+        case (hasKey "dimensions" dict, hasKey "radius" dict) of
+          (True, True) => fail "dimensions and radius can't both be present for render method color"
+          (True, False) => getVector "dimensions" dict >>= pure . ColoredRect color
+          (False, True) => getDouble "radius" dict >>= pure . ColoredCircle color
+          (False, False) => fail "either dimensions or radius must be present for render method color"
       "single" => with Checked do
         image <- getString "image" dict
         dimensions <- getVector "dimensions" dict
@@ -106,12 +114,14 @@ record RenderDescription where
   constructor MkRenderDescription
   method : RenderMethod
   info : Maybe InfoRenderParameters
+  layer : Maybe Nat
 
 export
 Show RenderDescription where
   show rd
     =  "{ method: " ++ show (method rd)
     ++ ", info: " ++ show (info rd)
+    ++ ", layer: " ++ show (layer rd)
     ++ " }"
 
 export
@@ -119,4 +129,5 @@ ObjectCaster RenderDescription where
   objectCast dict = with Checked do
     method <- the (Checked RenderMethod) $ getCastable "method" dict
     info <- the (Checked (Maybe InfoRenderParameters)) $ getCastableMaybe "info" dict
-    pure $ MkRenderDescription method info
+    let layer = eitherToMaybe $ getInt "layer" dict
+    pure $ MkRenderDescription method info (map cast layer)

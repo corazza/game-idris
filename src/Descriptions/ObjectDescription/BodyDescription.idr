@@ -22,6 +22,9 @@ record FixtureParameters where
   density : Maybe Double
   friction : Maybe Double
   restitution : Maybe Double
+  groupIndex : Maybe Int
+  categoryBits : Maybe Int
+  maskBits : Maybe Int
 
 export
 Show FixtureParameters where
@@ -31,6 +34,7 @@ Show FixtureParameters where
     ++ ", density: " ++ show (density fp)
     ++ ", friction: " ++ show (friction fp)
     ++ ", restitution: " ++ show (restitution fp)
+    ++ ", group index: " ++ show (groupIndex fp)
     ++ " }"
 
 export -- TODO rewrite with getMaybe or smth so it validates
@@ -40,13 +44,18 @@ getFixtureParameters dict
         angle = eitherToMaybe $ getDouble "angle" dict
         density = eitherToMaybe $ getDouble "density" dict
         friction = eitherToMaybe $ getDouble "friction" dict
-        restitution = eitherToMaybe $ getDouble "restitution" dict in
-          pure $ MkFixtureParameters offset angle density friction restitution
+        restitution = eitherToMaybe $ getDouble "restitution" dict
+        groupIndex = eitherToMaybe $ getInt "groupIndex" dict
+        categoryBits = eitherToMaybe $ getInt "categoryBits" dict
+        maskBits = eitherToMaybe $ getInt "maskBits" dict in
+          pure $ MkFixtureParameters
+            offset angle density friction restitution groupIndex categoryBits maskBits
 
 export
 fixtureFromParametersShape : FixtureParameters -> Shape -> FixtureDefinition
-fixtureFromParametersShape (MkFixtureParameters offset angle density friction restitution) shape
-  = MkFixtureDefinition shape offset angle density friction restitution
+fixtureFromParametersShape fp shape
+  = MkFixtureDefinition shape (offset fp) (angle fp) (density fp) (friction fp)
+          (restitution fp) (groupIndex fp) (categoryBits fp) (maskBits fp)
 
 export
 ObjectCaster FixtureDefinition where
@@ -105,6 +114,9 @@ record BodyDescription where
   bullet : Maybe Bool
   fixtures : List FixtureDefinition
   effects : List PhysicsEffect
+  groupIndex : Maybe Int
+  categoryBits : Maybe Int
+  maskBits : Maybe Int
 
 export
 Show BodyDescription where
@@ -114,6 +126,9 @@ Show BodyDescription where
     ++ ", bullet: " ++ show (bullet bd)
     ++ ", fixtures: " ++ show (fixtures bd)
     ++ ", effects: " ++ show (effects bd)
+    ++ ", group index: " ++ show (groupIndex bd)
+    ++ ", category bits: " ++ show (categoryBits bd)
+    ++ ", mask bits: " ++ show (maskBits bd)
     ++ " }"
 
 export
@@ -125,4 +140,8 @@ ObjectCaster BodyDescription where
     let bullet = eitherToMaybe $ getBool "bullet" dict
     fixtures <- getFixtures dict
     effects <- getPhysicsEffects dict
-    pure $ MkBodyDescription type fixedRotation bullet fixtures effects
+    let groupIndex = eitherToMaybe $ getInt "groupIndex" dict
+    let categoryBits = eitherToMaybe $ getInt "categoryBits" dict
+    let maskBits = eitherToMaybe $ getInt "maskBits" dict
+    pure $ MkBodyDescription
+      type fixedRotation bullet fixtures effects groupIndex categoryBits maskBits

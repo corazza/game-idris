@@ -1,0 +1,14 @@
+{
+  "states": ["single"],
+  "start": "single",
+
+  "single": {
+    "onInteract": {
+      "interact_string": "to",
+      "transition": {
+        "state": "single",
+        "action": "door"
+      }
+    }
+  }
+}

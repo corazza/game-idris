@@ -89,7 +89,7 @@ interface Server (m : Type -> Type) where
   addRules : (server : Var) ->
              (id : ObjectId) ->
              (desc : ObjectDescription) ->
-             (creator : Maybe ObjectId) ->
+             (creation : Creation) ->
              ST m () [server ::: SServer]
   private
   removeRules : (server : Var) ->
@@ -177,7 +177,8 @@ export
     case getObjectDescription ref preload of
       Left e => pure $ loginFail ref e
       Right character_object => with ST do
-        id <- createObject server (forCharacter character) character_object
+        spawn <- queryPServer server (spawn . mapData)
+        id <- createObject server (forCharacter spawn character) character_object
         updatePServer server $ addLoggedIn id character
         pure $ loginSuccess id
 
@@ -190,20 +191,24 @@ export
   processClientCommands server = with ST do
     clientCommands <- queryPServer server clientCommands
     updatePServer server flushInput
-    updatePServer server $ addDynamicsCommands $ map fromCommand clientCommands
+    updatePServer server $ addDynamicsCommands $ catMaybes $ map fromCommand clientCommands
     [pserver, rules] <- split server
     runCommands rules clientCommands
     combine server [pserver, rules]
 
   processRulesCommand server command = with ST do
     updatePServer server $ addServerCommand $ Control command
-    updatePServer server $ addDynamicsCommand $ fromCommand command
+    case fromCommand command of
+      Nothing => pure ()
+      Just dyncom => updatePServer server $ addDynamicsCommand $ dyncom
 
   processRulesOutput server (Create creation) = do create server creation; pure ()
   processRulesOutput server (RuleCommand command) = processRulesCommand server command
   processRulesOutput server (Death id) = destroy server id
   processRulesOutput server (NumericPropertyCurrent object_id prop_id current)
     = updatePServer server $ addServerCommand $ UpdateNumericProperty object_id prop_id current
+  processRulesOutput server (ExitTo object_id ref)
+    = lift $ log $ object_id ++ " exiting to " ++ ref
 
   processRulesOutputs server [] = pure ()
   processRulesOutputs server (rule_output::xs)
@@ -235,12 +240,13 @@ export
     updatePServer server scounter
     pure $ "server_autoid_" ++ show id_num
 
-  addRules server id object_description creator = case rules object_description of
-    Nothing => pure ()
-    Just rules_description => with ST do
-      [pserver, rules] <- split server
-      addObject rules id rules_description creator
-      combine server [pserver, rules]
+  addRules server id object_description creation
+    = case rulesDescFromCreation (rules object_description) creation of
+        Nothing => pure ()
+        Just rules_description => with ST do
+          [pserver, rules] <- split server
+          addObject rules id rules_description (creator creation)
+          combine server [pserver, rules]
 
   removeRules server id = with ST do
     [pserver, rules] <- split server
@@ -260,7 +266,7 @@ export
     id <- newId server
     updatePServer server $ addDynamicsCommand $ createObjectCommand creation object_description id
     updatePServer server $ addServerCommand $ Create id (ref creation)
-    addRules server id object_description (creator creation)
+    addRules server id object_description creation
     pure id
 
   createObjects server [] = pure ()

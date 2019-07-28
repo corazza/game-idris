@@ -93,7 +93,7 @@ GameIO m => Rules m where
           from = thrower_position + (2 `scale` direction)
           impulse' = impulse `scale` direction
           angle' = angle direction - pi/2.0
-          creation = MkCreation ref from (Just impulse') (Just id) (Just angle')
+          creation = MkCreation ref from (Just impulse') (Just id) (Just angle') Nothing
           in updatePRules rules $ output (Create creation)
 
   runCommand rules (Stop (Attack at) id) = with ST do

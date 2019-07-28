@@ -3,6 +3,7 @@ module Server.Rules.RulesOutput
 import Descriptions.MapDescription
 import Commands
 import Objects
+import GameIO
 
 public export
 data RulesOutput
@@ -10,6 +11,7 @@ data RulesOutput
   | RuleCommand Command
   | Death ObjectId
   | NumericPropertyCurrent ObjectId NumericPropertyId Double
+  | ExitTo ObjectId ContentReference
 
 export
 Show RulesOutput where

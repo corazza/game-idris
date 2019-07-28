@@ -65,6 +65,11 @@ getDoubleParameterOrDefault default (Just name) controller
          Just x => x
 
 export
+getStringParameter : (name : String) -> BehaviorController -> Maybe String
+getStringParameter name controller
+  = lookup name $ stringParameters $ behavior_params controller
+
+export
 fromDescriptorParameters : BehaviorDescription ->
                            BehaviorParameters ->
                            BehaviorController
@@ -107,6 +112,10 @@ timeHandler = join . map onTime . currentHandlers
 export
 hitHandler : BehaviorController -> Maybe Transition
 hitHandler = join . map onHit . currentHandlers
+
+export
+interactHandler : BehaviorController -> Maybe (String, Transition)
+interactHandler = join . map onInteract . currentHandlers
 
 export
 lastHit : BehaviorController -> Maybe ObjectId

@@ -40,12 +40,12 @@ prenderingInitial background camera preload
 export
 addToLayer : (id : ObjectId) ->
              (desc : RenderDescription) ->
-             (layer : Nat) ->
              PRendering -> PRendering
-addToLayer id desc layer prendering = case hasKey layer (layers prendering) of
-  False => let layerDict = the (Objects RenderDescription) $ insert id desc empty
-               in record { layers $= insert layer layerDict } prendering
-  True => record { layers $= update layer (insert id desc) } prendering
+addToLayer id desc prendering = let layer = fromMaybe 0 (layer desc) in
+  case hasKey layer (layers prendering) of
+    False => let layerDict = the (Objects RenderDescription) $ insert id desc empty
+                 in record { layers $= insert layer layerDict } prendering
+    True => record { layers $= update layer (insert id desc) } prendering
 
 export
 removeFromLayer : (id : ObjectId) -> (layer : Nat) -> PRendering -> PRendering

@@ -25,38 +25,35 @@ data DynamicsCommand
            (Maybe Vector2D) -- impulse
   | Destroy ObjectId
   | UpdateControl ObjectId (ControlState -> ControlState)
+  | QueryFor ObjectId Double
 
 export
-fromCommand : Command -> DynamicsCommand
-fromCommand command = UpdateControl (getId command) (fromCommand' command) where
-  fromCommand' : Command -> ControlState -> ControlState
-  fromCommand' (Start (Movement direction) id) = startMoveAction direction
-  fromCommand' (Stop (Movement direction) id) = stopMoveAction direction
-  fromCommand' (Start Walk id) = startWalking
-  fromCommand' (Stop Walk id) = stopWalking
-  fromCommand' (Start (Attack x) id) = startAttacking
-  fromCommand' (Stop (Attack x) id) = stopAttacking
+fromCommand : Command -> Maybe DynamicsCommand
+fromCommand (Start (Movement direction) id)
+  = Just $ UpdateControl id (startMoveAction direction)
+fromCommand (Stop (Movement direction) id)
+  = Just $ UpdateControl id (stopMoveAction direction)
+fromCommand (Start (Attack x) id) = Just $ UpdateControl id startAttacking
+fromCommand (Stop (Attack x) id) = Just $ UpdateControl id stopAttacking
+fromCommand (Start Walk id) = Just $ UpdateControl id startWalking
+fromCommand (Stop Walk id) = Just $ UpdateControl id stopWalking
+fromCommand (Start (Interact x) id) = Nothing
+fromCommand (Stop (Interact x) id) = Just $ QueryFor id x
 
 export
 filterControl : ObjectId -> List DynamicsCommand -> List DynamicsCommand
 filterControl id = filter notSame where
   notSame : DynamicsCommand -> Bool
   notSame (UpdateControl id' f) = id /= id'
+  notSame (QueryFor id' _) = id /= id'
   notSame _ = True
 
 export
 Show DynamicsCommand where
   show (Create id bodyDef fixtures control effects impulse) = "create " ++ id
-    -- =    "create ( "
-    -- ++   "id = " ++ id
-    -- ++ ", bodyDef = " ++ "can't show" -- show bodyDef
-    -- ++ ", fixtures = " ++ show fixtures
-    -- ++ ", control = " ++ show control
-    -- ++ ", effects = " ++ show effects
-    -- ++ ", impulse = " ++ show impulse
-    -- ++ " )"
   show (Destroy id) = "destroy " ++ id
   show (UpdateControl id f) = "update control of " ++ id
+  show (QueryFor id x) = "query for " ++ id ++ ", " ++ show x
 
 export
 createWallCommand : WallCreation -> ObjectDescription -> DynamicsCommand
@@ -68,12 +65,28 @@ createWallCommand wall_creation object_description
         id = id wall_creation
         in Create id bodyDef fixtures Nothing effects Nothing
 
+applyCatMaskIndex' : BodyDescription -> FixtureDefinition -> FixtureDefinition
+applyCatMaskIndex' body_desc fixture_def = record {
+    categoryBits = fixturePrecedence (categoryBits body_desc) (categoryBits fixture_def),
+    maskBits = fixturePrecedence (maskBits body_desc) (maskBits fixture_def),
+    groupIndex = fixturePrecedence (groupIndex body_desc) (groupIndex fixture_def)
+  } fixture_def where
+      fixturePrecedence : Maybe Int -> Maybe Int -> Maybe Int
+      fixturePrecedence a b = case (a, b) of
+        (Just a, Just b) => Just b
+        (Just a, Nothing) => Just a
+        (Nothing, Just b) => Just b
+        (Nothing, Nothing) => Nothing
+
+applyCatMaskIndex : BodyDescription -> List FixtureDefinition -> List FixtureDefinition
+applyCatMaskIndex desc = map $ applyCatMaskIndex' desc
+
 export
 createObjectCommand : Creation -> ObjectDescription -> ObjectId -> DynamicsCommand
 createObjectCommand creation object_description id
   = let body_description = body object_description
         bodyDef = creationBodyDescriptionToDefinition creation body_description
-        fixtures = fixtures body_description
+        fixtures = applyCatMaskIndex body_description (fixtures body_description)
         effects = effects body_description
         control = map parametersFromDescription $ control object_description
         impulse  = impulse creation
@@ -139,16 +152,17 @@ onGround : BodyData -> Bool
 onGround bodyData = size (touching bodyData) > 0
 
 export
-movementImpulse : BodyData -> Vector2D
+movementImpulse : BodyData -> Maybe Vector2D
 movementImpulse bodyData = case controls bodyData of
-  Nothing => nullVector
+  Nothing => Nothing
   Just object_control@(MkObjectControl controlState controlParameters) =>
     let (x, y) = velocity bodyData
         x' = speed object_control * moveSign controlState
         y' = if jumping controlState && canJump controlState && onGround bodyData
                   then jump controlParameters else 0
         x_correction = if abs (x' - x) < 0.01 then 0 else x' - x
-        in (mass bodyData) `scale` (x_correction, y')
+        impulse = (mass bodyData) `scale` (x_correction, y')
+        in if impulse == nullVector then Nothing else Just impulse
 
 public export
 record PDynamics where
@@ -218,6 +232,10 @@ pdynamicsUpdateControl : (id : ObjectId) -> (f : ControlState -> ControlState) -
 pdynamicsUpdateControl id f = pdynamicsUpdateObject id (updateControlInBody f)
 
 export
+getBodyData : (id : ObjectId) -> PDynamics -> Maybe BodyData
+getBodyData id = lookup id . objects
+
+export
 getBody : (id : ObjectId) -> PDynamics -> Maybe Body
 getBody id = map BodyData.body . lookup id . objects
 
@@ -241,5 +259,16 @@ collisionConvert ids one two cstr = case (lookup (id one) ids, lookup (id two) i
 
 export
 box2DEventToDynamicsEvent : PDynamics -> Box2D.Event -> Maybe DynamicsEvent
-box2DEventToDynamicsEvent dynamics (CollisionStart one two) = collisionConvert (ids dynamics) one two CollisionStart
-box2DEventToDynamicsEvent dynamics (CollisionStop one two) = collisionConvert (ids dynamics) one two CollisionStop
+box2DEventToDynamicsEvent dynamics (CollisionStart one two)
+  = collisionConvert (ids dynamics) one two CollisionStart
+box2DEventToDynamicsEvent dynamics (CollisionStop one two)
+  = collisionConvert (ids dynamics) one two CollisionStop
+box2DEventToDynamicsEvent dynamics (QueryResult query_id body_id body)
+  = case (lookup query_id (ids dynamics), lookup body_id (ids dynamics)) of
+      (Just initiator, Just target) => pure $ Interact initiator target
+      (Nothing, Just target) => pure $ QueryResult query_id target
+      _ => Nothing
+  -- = lookup body_id (ids dynamics) >>= pure . QueryResult query_id
+  -- = case lookup body_id (ids dynamics) of
+  --     Nothing => Nothing
+  --     Just object_id => Just $ QueryResult query_id object_id

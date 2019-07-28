@@ -60,6 +60,11 @@ interface Dynamics (m : Type -> Type) where
   applyEffects : (dynamics : Var) -> (ObjectId, BodyData) -> List PhysicsEffect -> ST m () [dynamics ::: SDynamics]
   private
   applyEffectss : (dynamics : Var) -> List (ObjectId, BodyData) -> ST m () [dynamics ::: SDynamics]
+  private
+  query : (dynamics : Var) ->
+          (object_id : ObjectId) ->
+          (aabb : AABB) ->
+          ST m () [dynamics ::: SDynamics]
 
   private
   handleEvent : (dynamics : Var) -> (event : DynamicsEvent) -> ST m () [dynamics ::: SDynamics]
@@ -104,8 +109,14 @@ Dynamics IO where
       lift $ destroy !(getWorld dynamics) body
 
   applyImpulse dynamics id impulse = with ST do
-    Just body <- queryPDynamics dynamics $ getBody id
+    Just body <- queryPDynamics dynamics $ getBody id | pure ()
     lift $ applyImpulse body impulse
+
+  query dynamics object_id aabb = with ST do
+    Just box2d_id <- queryPDynamics dynamics $ (map box2d_id . getBodyData object_id)
+            | pure ()
+    world <- queryPDynamics dynamics PDynamics.world
+    lift $ queryAABB world (MkAABBQuery box2d_id aabb)
 
   updateControl dynamics id f = update dynamics $ pdynamicsUpdateControl id f
 
@@ -116,6 +127,10 @@ Dynamics IO where
       Just x => applyImpulse dynamics id x
   runCommand dynamics (Destroy id) = removeBody dynamics id
   runCommand dynamics (UpdateControl id f) = updateControl dynamics id f
+  runCommand dynamics (QueryFor object_id span) = with ST do
+    Just (x, y) <- queryPDynamics dynamics $ (map position . getBodyData object_id)
+          | pure ()
+    query dynamics object_id (MkAABB (x-span, y-span) (x+span, y+span))
 
   runCommands dynamics [] = pure ()
   runCommands dynamics (cmd::xs) = runCommand dynamics cmd >>= const (runCommands dynamics xs)
@@ -149,8 +164,12 @@ Dynamics IO where
   updatesFromBody dynamics (x::xs) = updateFromBody dynamics x >>= const (updatesFromBody dynamics xs)
 
   applyControl dynamics (id, bodyData) = with ST do
-    lift $ applyImpulse (body bodyData) (movementImpulse bodyData)
-    updateControl dynamics id resetControlState
+    case movementImpulse bodyData of
+      Nothing => pure ()
+      Just impulse => with ST do
+        let body = body bodyData
+        lift $ applyImpulse body impulse
+        updateControl dynamics id resetControlState
 
   applyControls dynamics [] = pure ()
   applyControls dynamics (x::xs) = applyControl dynamics x >>= const (applyControls dynamics xs)
@@ -176,6 +195,7 @@ Dynamics IO where
 
   handleEvent dynamics (CollisionStart one two) = update dynamics $ touched (id one) (id two)
   handleEvent dynamics (CollisionStop one two) = update dynamics $ untouched (id one) (id two)
+  handleEvent dynamics _ = pure ()
 
   handleEvents dynamics [] = pure ()
   handleEvents dynamics (x::xs) = handleEvent dynamics x >>= const (handleEvents dynamics xs)

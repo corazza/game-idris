@@ -15,6 +15,7 @@ data BehaviorAction
   | Attack
   | BeginChase | EndChase
   | BeginWalk | EndWalk
+  | Door
 
 export
 Show BehaviorAction where
@@ -28,6 +29,7 @@ Show BehaviorAction where
   show EndChase = "end chase"
   show BeginWalk = "begin wald"
   show EndWalk = "end walk"
+  show Door = "door"
 
 export
 Cast String (Checked BehaviorAction) where
@@ -41,6 +43,7 @@ Cast String (Checked BehaviorAction) where
   cast "end chase" = pure EndChase
   cast "begin walk" = pure BeginWalk
   cast "end walk" = pure EndWalk
+  cast "door" = pure Door
   cast _ = fail "wrong behavior action"
 
 public export
@@ -74,6 +77,10 @@ record Handlers where
   onCollision : Maybe Transition
   onTime : Maybe (Double, Maybe String, Transition) -- wait time
   onHit : Maybe Transition
+  onInteract : Maybe (String, Transition)
+
+getTransition : JSONDict -> Checked Transition
+getTransition dict = the (Checked Transition) $ getCastable "transition" dict
 
 getHandler : (name : String) -> (dict : JSONDict) -> Checked (Maybe Transition)
 getHandler name dict = case lookup name dict of
@@ -85,7 +92,7 @@ getHandler name dict = case lookup name dict of
       Right transition => pure $ Just transition
   _ => fail $ name ++ " must be JObject"
 
-getTime : Dict String JSON -> Checked (Maybe (Double, Maybe String, Transition))
+getTime : JSONDict -> Checked (Maybe (Double, Maybe String, Transition))
 getTime dict = case lookup "onTime" dict of
   Nothing => pure Nothing
   Just (JObject xs) => let dict' = fromList xs in
@@ -98,6 +105,15 @@ getTime dict = case lookup "onTime" dict of
           let time_parameter = eitherToMaybe $ getString "time_parameter" dict'
           pure $ Just (time, time_parameter, transition)
   _ => fail "onTime must be JObject"
+
+getInteract : JSONDict -> Checked (Maybe (String, Transition))
+getInteract dict = case lookup "onInteract" dict of
+  Nothing => pure Nothing
+  Just (JObject xs) => let dict' = fromList xs in with Checked do
+    transition <- getTransition dict'
+    interact_string <- getString "interact_string" dict'
+    pure $ Just (interact_string, transition)
+  _ => fail "onInteract must be JOBject"
 
 public export
 record BehaviorDescription where
@@ -112,7 +128,8 @@ getHandlers dict = with Checked do
   onTime <- getTime dict
   onCollision <- getHandler "onCollision" dict
   onHit <- getHandler "onHit" dict
-  pure $ MkHandlers onCollision onTime onHit
+  onInteract <- getInteract dict
+  pure $ MkHandlers onCollision onTime onHit onInteract
 
 getStateHandlers : (name : String) -> JSONDict -> Checked Handlers
 getStateHandlers name dict = case lookup name dict of

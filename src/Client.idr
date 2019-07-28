@@ -67,6 +67,8 @@ interface Client (m : Type -> Type) where
 
   private
   addObject : (client : Var) -> (id : ObjectId) -> (ref : ContentReference) -> ST m () [client ::: SClient]
+  private
+  removeObject : (client : Var) -> (id : ObjectId) -> ST m () [client ::: SClient]
 
   private
   loadWalls : (client : Var) ->
@@ -131,16 +133,18 @@ export
     = runClientCommand client cmd >>= const (runClientCommands client xs)
 
   runServerCommand client (Create id ref) = addObject client id ref
-  runServerCommand client (Destroy id) = with ST do
-    [pclient, rendering, sdl] <- split client
-    removeObject rendering id
-    combine client [pclient, rendering, sdl]
+  runServerCommand client (Destroy id) = removeObject client id
   runServerCommand client (Control cmd)
     = case getId cmd == !(queryPClient client characterId) of
         False => runCommand client cmd
         True => pure ()
   runServerCommand client (UpdateNumericProperty object_id prop_id current)
     = updatePRendering client $ prenderingUpdateNumericProperty object_id prop_id current
+  runServerCommand client (Relog character_id ref) = with ST do
+    characterId <- queryPClient client characterId
+    case character_id == characterId of
+      False => removeObject client character_id
+      True =>
 
   runServerCommands client [] = pure ()
   runServerCommands client (cmd::xs)
@@ -167,15 +171,20 @@ export
       Left e => lift $ log $ "couldn't get object description, error:\n " ++ e
       Right object_description => with ST do
         [pclient, rendering, sdl] <- split client
-        addObject rendering id object_description 1
+        addObject rendering id object_description
         combine client [pclient, rendering, sdl]
+
+  removeObject client id = with ST do
+    [pclient, rendering, sdl] <- split client
+    removeObject rendering id
+    combine client [pclient, rendering, sdl]
 
   loadWalls client map_description
     = queryPClient client preload >>= pure . flip getWallsAsObjects map_description
 
   addWall client wall_creation object_description = with ST do
     [pclient, rendering, sdl] <- split client
-    addObject rendering (id wall_creation) object_description 0
+    addObject rendering (id wall_creation) object_description
     combine client [pclient, rendering, sdl]
 
   addWalls client [] = pure ()

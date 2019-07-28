@@ -9,6 +9,11 @@ import Descriptions.Color
 import Exception
 import GameIO
 
+export
+Show SDLRect where
+  show (MkSDLRect x y z w)
+    = "(" ++ show x ++ ", " ++ show y ++ ", " ++ show z ++ ", " ++ show w ++ ")"
+
 TextureCache : Type
 TextureCache = Dict String Texture
 

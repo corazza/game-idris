@@ -45,6 +45,7 @@ record BehaviorParameters where
   intParameters : Dict String Int
   doubleParameters : Dict String Double
   stringlistParameters : Dict String (List String)
+  stringParameters : Dict String String
 %name BehaviorParameters behavior_params
 
 export
@@ -54,6 +55,7 @@ Show BehaviorParameters where
     ++ ", intParameters: " ++ show (intParameters bp)
     ++ ", doubleParameters: " ++ show (doubleParameters bp)
     ++ ", stringlistParameters: " ++ show (stringlistParameters bp)
+    ++ ", stringParameters: " ++ show (stringParameters bp)
     ++ " }"
 
 allToInt : (String, JSON) -> Checked (String, Int)
@@ -63,6 +65,10 @@ allToInt (name, _) = fail $ name ++ " not a number"
 allToDouble : (String, JSON) -> Checked (String, Double)
 allToDouble (name, JNumber x) = pure (name, x)
 allToDouble (name, _) = fail $ name ++ " not a number"
+
+allToString : (String, JSON) -> Checked (String, String)
+allToString (name, JString x) = pure (name, x)
+allToString (name, _) = fail $ name ++ " not a string"
 
 allToStringlist : (String, JSON) -> Checked (String, List String)
 allToStringlist (name, JArray xs)
@@ -78,13 +84,16 @@ getParameterType name f dict = case lookup name dict of
   Just (JObject xs) => catResults (map f xs) >>= pure . fromList
   _ => fail $ name ++ " must be JObject"
 
+export
 ObjectCaster BehaviorParameters where
   objectCast dict = with Checked do
     ref <- getString "ref" dict
     intParameters <- getParameterType "int_parameters" allToInt dict
     doubleParameters <- getParameterType "double_parameters" allToDouble dict
     stringlistParameters <- getParameterType "stringlist_parameters" allToStringlist dict
-    pure $ MkBehaviorParameters ref intParameters doubleParameters stringlistParameters
+    stringParameters <- getParameterType "string_parameters" allToString dict
+    pure $ MkBehaviorParameters
+      ref intParameters doubleParameters stringlistParameters stringParameters
 
 public export
 record RulesDescription where

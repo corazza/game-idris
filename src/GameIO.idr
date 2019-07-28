@@ -29,14 +29,14 @@ interface (Monad m, ConsoleIO m) => GameIO (m : Type -> Type) where
          (velocityIterations : Int) ->
          (positionIterations : Int) ->
          m ()
-  applyImpulse : Body -> Vector2D -> m ()
+  -- applyImpulse : Body -> Vector2D -> m ()
   applyForce : Body -> Vector2D -> Vector2D -> m ()
   getMass : Body -> m Double
   getPosition : Body -> m Vector2D
   getWorldCenter : Body -> m Vector2D
   getAngle : Body -> m Double
   getVelocity : Body -> m Vector2D
-  pollEvent : Box2D.World -> m (Maybe Box2D.Event)
+  -- pollEvent : Box2D.World -> m (Maybe Box2D.Event)
   pollEvents : Box2D.World -> m (List Box2D.Event)
 
 public export
@@ -64,14 +64,14 @@ GameIO IO where
   createFixture' = Box2D.createFixture'
   destroy = Box2D.destroy
   step = Box2D.step
-  applyImpulse = Box2D.applyImpulse
+  -- applyImpulse = Box2D.applyImpulse
   applyForce = Box2D.applyForce
   getMass = Box2D.getMass
   getPosition = Box2D.getPosition
   getWorldCenter = Box2D.getWorldCenter
   getAngle = Box2D.getAngle
   getVelocity = Box2D.getVelocity
-  pollEvent = Box2D.pollEvent
+  -- pollEvent = Box2D.pollEvent
   pollEvents = Box2D.pollEvents
 
 
@@ -113,7 +113,7 @@ getCastableOrDefault x name dict = let castable = eitherToMaybe (getCastable nam
 
 total
 keyError : (type : String) -> (key : String) -> String
-keyError type key = type ++ "\"" ++ key ++ "\"" ++ "inexistent"
+keyError type key = type ++ " \"" ++ key ++ "\" inexistent"
 
 export total
 getVector : (name : String) -> (dict : JSONDict) -> Checked Vector2D

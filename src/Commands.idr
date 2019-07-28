@@ -18,12 +18,14 @@ public export
 data Action = Movement Direction
             | Attack Vector2D -- x, y of screen
             | Walk
+            | Interact Double
 
 export
 Show Action where
   show (Movement x) = "move " ++ show x
   show (Attack x) = "attack " ++ show x
   show Walk = "walk"
+  show (Interact x) = "interact " ++ show x
 
 public export
 data Command = Start Action ObjectId

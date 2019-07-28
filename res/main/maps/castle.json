@@ -1,6 +1,7 @@
 {
   "name": "Castle",
   "dimensions": [200, 100],
+  "spawn": [0, -6],
 
   "background": {
     "image": "main/images/backgrounds/castle.jpg",
@@ -23,6 +24,17 @@
   ],
 
   "creations": [
+    {
+      "ref": "main/objects/yellow_marker.json",
+      "position": [0, -6],
+      "behavior": {
+        "ref": "main/behaviors/door.json",
+        "string_parameters": {
+          "to": "main/maps/encampment.json"
+        }
+      }
+    },
+
     {
       "ref": "main/objects/wooden_crate.json",
       "position": [-4, 10]

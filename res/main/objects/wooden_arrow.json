@@ -1,6 +1,5 @@
 {
   "name": "Wooden arrow",
-  "tags": ["projectile"],
 
   "body": {
     "type": "dynamic",

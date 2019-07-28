@@ -10,6 +10,7 @@ import Descriptions.ObjectDescription.RulesDescription
 import Descriptions.ObjectDescription.RulesDescription.BehaviorDescription
 import Dynamics.DynamicsEvent
 import Commands
+import GameIO
 import Objects
 
 public export
@@ -169,6 +170,7 @@ runCollisionAction collision_data BeginChase
 runCollisionAction collision_data EndChase = endChaseScript (self_id collision_data)
 runCollisionAction collision_data BeginWalk = beginWalkScript (self_id collision_data)
 runCollisionAction collision_data EndWalk = endWalkScript (self_id collision_data)
+runCollisionAction collision_data Door = pure ()
 
 runTimeAction : ObjectId -> BehaviorAction -> UnitRuleScript
 runTimeAction id MoveLeft = startMovementScript id Left
@@ -181,28 +183,59 @@ runTimeAction id BeginChase = pure ()
 runTimeAction id EndChase = endChaseScript id
 runTimeAction id BeginWalk = beginWalkScript id
 runTimeAction id EndWalk = endWalkScript id
+runTimeAction id Door = pure ()
 
-collisionScript : CollisionData -> BehaviorController -> UnitRuleScript
-collisionScript collision_data controller
-  = case collisionHandler controller of
+collisionScript : CollisionData -> ObjectId -> UnitRuleScript
+collisionScript collision_data id = with RuleScript do
+  Just controller <- GetController id | pure ()
+  case collisionHandler controller of
       Nothing => pure ()
       Just (MkTransition state actions) =>
         let id = self_id collision_data
             actions = map (runCollisionAction collision_data) actions
             in Transition id state actions
 
-collisionScript' : CollisionData -> ObjectId -> UnitRuleScript
-collisionScript' collision_data id = with RuleScript do
-  Just controller <- GetController id | pure ()
-  collisionScript collision_data controller
+-- TODO chaining (moves are universal, so they go first)
+runInteractAction : (interact_string : String) ->
+                    (initiator : ObjectId) ->
+                    (target : ObjectId) ->
+                    BehaviorAction ->
+                    UnitRuleScript
+runInteractAction interact_string initiator target MoveLeft = startMovementScript target Left
+runInteractAction interact_string initiator target MoveRight = startMovementScript target Right
+runInteractAction interact_string initiator target Stop = stopMovementScript target
+runInteractAction interact_string initiator target ChangeDirection = changeDirectionScript target
+runInteractAction interact_string initiator target ProjectileDamage = pure ()
+runInteractAction interact_string initiator target Attack = pure ()
+runInteractAction interact_string initiator target BeginChase = pure ()
+runInteractAction interact_string initiator target EndChase = endChaseScript target
+runInteractAction interact_string initiator target BeginWalk = beginWalkScript target
+runInteractAction interact_string initiator target EndWalk = endWalkScript target
+runInteractAction interact_string initiator target Door
+  = Output $ ExitTo initiator interact_string
+
+interactScript : (initiator : ObjectId) -> (target : ObjectId) -> UnitRuleScript
+interactScript initiator target = with RuleScript do
+  Just target_controller <- GetController target | pure ()
+  case interactHandler target_controller of
+    Nothing => pure ()
+    Just (interact_string, MkTransition state actions) => with RuleScript do
+      case getStringParameter interact_string target_controller of
+        Nothing => pure ()
+        Just x => let actions = map (runInteractAction x initiator target) actions
+                      in Transition target state actions
 
 export
 dynamicsEventScript : (event : DynamicsEvent) -> UnitRuleScript
 dynamicsEventScript (CollisionStart one two) = with RuleScript do
   let cdata = buildCollisionData one two
-  collisionScript' (cdata First) (id one)
-  collisionScript' (cdata Second) (id two)
+  collisionScript (cdata First) (id one)
+  collisionScript (cdata Second) (id two)
 dynamicsEventScript (CollisionStop x y) = pure ()
+dynamicsEventScript (QueryResult query_id object_id)
+  = Log $ "query with id " ++ show query_id ++ " positive for " ++ object_id
+dynamicsEventScript (Interact initiator target)
+  = interactScript initiator target
 
 export
 timeScript : (time : Int) -> (id : ObjectId) -> UnitRuleScript

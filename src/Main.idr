@@ -60,11 +60,12 @@ loop state = with ST do
   [dynamics, server, client, lastms, carry] <- split state
   let passed = beforems - !(read lastms)
   bodyData <- queryPDynamics dynamics objects
+
   Right commands <- iterate client bodyData
         | Left () => combine state [dynamics, server, client, lastms, carry]
 
   receiveClientCommands server commands
-  runCommands dynamics $ map fromCommand commands
+  runCommands dynamics $ catMaybes $ map fromCommand commands
 
   characterId <- queryPClient client characterId
   let time = passed + !(read carry)

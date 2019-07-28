@@ -42,6 +42,7 @@ processKey (KeyAny x)
          'a' => Just $ Right $ Movement Left
          's' => Just $ Right $ Movement Down
          'd' => Just $ Right $ Movement Right
+         'e' => Just $ Right $ Interact 2
          _ => Nothing
 
 startStopOrClient : (cstr : Action -> Command) -> Key -> Maybe (Either ClientCommand Command)

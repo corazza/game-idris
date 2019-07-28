@@ -14,6 +14,22 @@ import Exception
 import Timeline
 import Objects
 
+-- public export
+-- data CreationData
+--   = Door ContentReference
+--
+-- Show CreationData where
+--   show (Door x) = "door " ++ x
+--
+-- ObjectCaster CreationData where
+--   objectCast dict = with Checked do
+--     type <- getString "type" dict
+--     case type of
+--       "door" => with Checked do
+--         door <- getString "door" dict
+--         pure $ Door door
+--       _ => fail "data type must be of \"door\""
+
 public export -- loaded by server, received by client
 record Creation where
   constructor MkCreation
@@ -22,28 +38,46 @@ record Creation where
   impulse : Maybe Vector2D
   creator : Maybe ObjectId
   angle : Maybe Double
+  behavior : Maybe BehaviorParameters
 %name Creation creation
 
 export
 Show Creation where
   show creation = ref creation ++ " at " ++ show (position creation)
 
+getCreationAngle : JSONDict -> Checked (Maybe Double)
+getCreationAngle dict = case hasKey "angle" dict of
+  False => pure Nothing
+  True => getDouble "angle" dict >>= pure . Just
+
 ObjectCaster Creation where
   objectCast dict = with Checked do
     ref <- getString "ref" dict
     position <- getVector "position" dict
-    case hasKey "angle" dict of
-      False => pure $ MkCreation ref position Nothing Nothing Nothing
-      True => getDouble "angle" dict >>= pure . MkCreation ref position Nothing Nothing . Just
+    angle <- getCreationAngle dict
+    -- creationData <- the (Checked (Maybe CreationData)) $ getCastableMaybe "data" dict
+    behavior <- the (Checked (Maybe BehaviorParameters)) $ getCastableMaybe "behavior" dict
+    pure $ MkCreation ref position Nothing Nothing angle behavior
 
 export
 creationBodyDescriptionToDefinition : Creation -> BodyDescription -> BodyDefinition
 creationBodyDescriptionToDefinition creation desc = MkBodyDefinition
   (type desc) (position creation) (angle creation) (fixedRotation desc) (bullet desc)
 
+fromBehavior : BehaviorParameters -> RulesDescription
+fromBehavior bp = MkRulesDescription Nothing Nothing Nothing (Just bp)
+
 export
-forCharacter : Character -> Creation
-forCharacter character = MkCreation (ref character) (position character) Nothing Nothing Nothing
+rulesDescFromCreation : Maybe RulesDescription -> Creation -> Maybe RulesDescription
+rulesDescFromCreation Nothing creation = map fromBehavior (behavior creation)
+rulesDescFromCreation (Just desc) creation = case behavior creation of
+  Nothing => Just desc
+  Just bp => Just (record { behavior = Just bp } desc)
+
+export
+forCharacter : Vector2D -> Character -> Creation
+forCharacter position character
+  = MkCreation (ref character) position Nothing Nothing Nothing Nothing
 
 public export
 data WallData = Repeat (Nat, Nat)
@@ -67,7 +101,7 @@ wallDescToObjectDesc : WallDescription -> WallData -> Checked ObjectDescription
 wallDescToObjectDesc wall_desc wall_data = (with Checked do
   bodyDesc <- getBodyDesc
   method <- getRenderMethod
-  let renderDesc = MkRenderDescription method Nothing
+  let renderDesc = MkRenderDescription method Nothing Nothing
   pure $ MkObjectDescription (name wall_desc) bodyDesc renderDesc Nothing Nothing) where
     getShape : Checked Shape
     getShape = case wall_data of
@@ -85,7 +119,8 @@ wallDescToObjectDesc wall_desc wall_data = (with Checked do
     getBodyDesc : Checked BodyDescription
     getBodyDesc = with Checked do
       fixture <- getFixture
-      pure $ MkBodyDescription Static (Just True) (Just False) [fixture] empty
+      pure $ MkBodyDescription
+        Static (Just True) (Just False) [fixture] empty Nothing Nothing Nothing
 
     getRenderMethod : Checked RenderMethod
     getRenderMethod = case render wall_desc of
@@ -93,7 +128,7 @@ wallDescToObjectDesc wall_desc wall_data = (with Checked do
       TiledWall ref tileDims => case wall_data of
         Repeat nxny => pure $ Tiled ref tileDims nxny
         Dimensions x => fail "TiledWall can't have dimensions parameter"
-      ColoredWall color => pure $ Colored color
+      ColoredWall color => fail "colored walls not implemented"
 
 public export -- loaded both by server and client
 record WallCreation where
@@ -150,15 +185,17 @@ record MapDescription where
   constructor MkMapDescription
   name : String
   dimensions : Vector2D
+  spawn : Vector2D
   background : Background
   walls : List WallCreation
   creations : List Creation
 
 export
 Show MapDescription where
-  show (MkMapDescription name dimensions background walls creations)
+  show (MkMapDescription name dimensions spawn background walls creations)
     =  "{ name: " ++ name
     ++ ", dimensions: " ++ show dimensions
+    ++ ", spawn: " ++ show spawn
     ++ ", background: " ++ show background
     ++ ", walls: " ++ show walls
     ++ ", creations: " ++ show creations
@@ -169,9 +206,10 @@ ObjectCaster MapDescription where
   objectCast dict = with Checked do
     name <- getString "name" dict
     dimensions <- getVector "dimensions" dict
+    spawn <- getVector "spawn" dict
     background <- the (Checked Background) $ getCastable "background" dict
     wallsJSON <- getArray "walls" dict
     creationsJSON <- getArray "creations" dict
     walls <- catResults $ the (List (Checked WallCreation)) $ map cast wallsJSON
     creations <- catResults $ the (List (Checked Creation)) $ map cast creationsJSON
-    pure $ MkMapDescription name dimensions background walls creations
+    pure $ MkMapDescription name dimensions spawn background walls creations

@@ -6,6 +6,7 @@
     "type": "dynamic",
     "fixedRotation": true,
     "bullet": true,
+    "groupIndex": -1,
     "fixture": {
       "shape": {
         "type": "box",
@@ -59,6 +60,8 @@
 
     "info": {
       "yd": 1
-    }
+    },
+
+    "layer": 1
   }
 }

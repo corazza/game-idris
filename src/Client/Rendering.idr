@@ -48,7 +48,6 @@ interface SDL m => Rendering (m : Type -> Type) where
   addObject : (rendering : Var) ->
               (id : ObjectId) ->
               (desc : ObjectDescription) ->
-              (layer : Nat) ->
               ST m () [rendering ::: SRendering]
 
   removeObject : (rendering : Var) -> (id : ObjectId) -> ST m () [rendering ::: SRendering]
@@ -82,8 +81,8 @@ export
 
   getCamera rendering = queryPRendering rendering camera
 
-  addObject rendering id desc layer = with ST do
-    update rendering $ addToLayer id (render desc) layer
+  addObject rendering id desc = with ST do
+    update rendering $ addToLayer id (render desc)
     initAnimation rendering id $ method $ render desc
     case rules desc of
       Nothing => pure ()
@@ -115,6 +114,7 @@ export
   runCommand rendering (Stop (Movement Down) id) = pure ()
   runCommand rendering (Stop (Attack x) id) = pure ()
   runCommand rendering (Stop Walk id) = pure ()
+  runCommand rendering _ = pure ()
 
   updateBodyData rendering bodyData =
     update rendering $ (updateFollow . setBodyData bodyData)
@@ -248,10 +248,13 @@ renderObject rendering sdl camera id body_data (Tiled ref tileDims@(w, h) howMan
         topleft = position body_data - (cast nx * w, - cast ny * h)
         initial = positionToScreen camera topleft
         in tile sdl camera ref initial tileDimsFull (nx, ny)
-renderObject rendering sdl camera id body_data (Colored color) = pure () -- TODO color needs dim parameter
+renderObject rendering sdl camera id body_data (ColoredRect color dims)
+  = let rect = getRect camera (position body_data) dims
+        in filledRect sdl rect color
+renderObject rendering sdl camera id body_data (ColoredCircle color radius) = pure ()
 renderObject rendering sdl camera id body_data (Single ref dims)
-  = let rect = getRect camera (position body_data) dims in
-      drawWholeCenter sdl ref rect (getDegAngle body_data) (getFlip' body_data)
+  = let rect = getRect camera (position body_data) dims
+        in drawWholeCenter sdl ref rect (getDegAngle body_data) (getFlip' body_data)
 renderObject rendering sdl camera id body_data (Animated state_dict) = with ST do
   preload <- queryPRendering rendering preload
   let animationState = animationState body_data

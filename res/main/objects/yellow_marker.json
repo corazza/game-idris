@@ -1,0 +1,23 @@
+{
+  "name": "Door",
+
+  "body": {
+    "type": "static",
+    "bullet": false,
+    "maskBits": 0,
+    "fixtures": [
+      {
+        "shape": {
+          "type": "circle",
+          "radius": 0.2
+        }
+      }
+    ]
+  },
+
+  "render": {
+    "method": {
+      "type": "invisible"
+    }
+  }
+}
