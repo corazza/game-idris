@@ -45,7 +45,8 @@ interface Server (m : Type -> Type) where
             (bodyData : Objects BodyData) ->
             ST m (List DynamicsCommand) [server ::: SServer]
 
-  getServerCommands : (server : Var) -> ST m (List ServerCommand) [server ::: SServer]
+  getInSessionCommands : (server : Var) -> ST m (List InSession) [server ::: SServer]
+  getSessionCommands : (server : Var) -> ST m (List SessionCommand) [server ::: SServer]
   -- TODO temporary, should be included in startServer, which should return
   -- Checked (Var, List DynamicsCommand)
   getDynamicsCommands : (server : Var) -> ST m (List DynamicsCommand) [server ::: SServer]
@@ -161,9 +162,14 @@ export
     processDynamicsEvents rules dynamicsEvents
     combine server [pserver, rules]
 
-  getServerCommands server = with ST do
+  getInSessionCommands server = with ST do
     clientOutput <- queryPServer server serverCommands
-    updatePServer server flushServerCommands
+    updatePServer server flushInSessionCommands
+    pure clientOutput
+
+  getSessionCommands server = with ST do
+    clientOutput <- queryPServer server sessionCommands
+    updatePServer server flushSessionCommands
     pure clientOutput
 
   getDynamicsCommands server = with ST do
@@ -197,7 +203,7 @@ export
     combine server [pserver, rules]
 
   processRulesCommand server command = with ST do
-    updatePServer server $ addServerCommand $ Control command
+    updatePServer server $ addInSessionCommand $ Control command
     case fromCommand command of
       Nothing => pure ()
       Just dyncom => updatePServer server $ addDynamicsCommand $ dyncom
@@ -206,9 +212,9 @@ export
   processRulesOutput server (RuleCommand command) = processRulesCommand server command
   processRulesOutput server (Death id) = destroy server id
   processRulesOutput server (NumericPropertyCurrent object_id prop_id current)
-    = updatePServer server $ addServerCommand $ UpdateNumericProperty object_id prop_id current
+    = updatePServer server $ addInSessionCommand $ UpdateNumericProperty object_id prop_id current
   processRulesOutput server (ExitTo object_id ref)
-    = lift $ log $ object_id ++ " exiting to " ++ ref
+    = updatePServer server $ addSessionCommand $ Relog object_id ref
 
   processRulesOutputs server [] = pure ()
   processRulesOutputs server (rule_output::xs)
@@ -265,7 +271,7 @@ export
   createObject server creation object_description = with ST do
     id <- newId server
     updatePServer server $ addDynamicsCommand $ createObjectCommand creation object_description id
-    updatePServer server $ addServerCommand $ Create id (ref creation)
+    updatePServer server $ addInSessionCommand $ Create id (ref creation)
     addRules server id object_description creation
     pure id
 
@@ -285,7 +291,7 @@ export
 
   destroy server id = with ST do
     updatePServer server $ addDynamicsCommand $ PDynamics.Destroy id
-    updatePServer server $ addServerCommand $ PServer.Destroy id
+    updatePServer server $ addInSessionCommand $ PServer.Destroy id
     removeRules server id
 
   destroyMany server [] = pure ()

@@ -61,10 +61,19 @@ interface SDL m => Rendering (m : Type -> Type) where
   zoom : (rendering : Var) -> (x : Int) -> ST m () [rendering ::: SRendering]
 
   private
+  loadWalls : (rendering : Var) ->
+              MapDescription ->
+              ST m (Checked (List (WallCreation, ObjectDescription))) [rendering ::: SRendering]
+  private
+  addWalls : (rendering : Var) -> List (WallCreation, ObjectDescription) -> ST m () [rendering ::: SRendering]
+  loadMap : (rendering : Var) -> MapDescription -> ST m () [rendering ::: SRendering]
+
+  private
   initAnimation : (rendering : Var) ->
                   (id : ObjectId) ->
                   (desc : RenderMethod) ->
                   ST m () [rendering ::: SRendering]
+
 
 export
 (GameIO m, SDL m) => Rendering m where
@@ -96,6 +105,18 @@ export
     update rendering $ removeFromLayers id
     update rendering $ removeAnimationState id
 
+  loadWalls rendering map_description
+    = queryPRendering rendering preload >>= pure . flip getWallsAsObjects map_description
+
+  addWalls rendering [] = pure ()
+  addWalls rendering ((creation, desc)::xs)
+    = addObject rendering (id creation) desc >>= const (addWalls rendering xs)
+
+  loadMap rendering map_description = with ST do
+    Right walls <- loadWalls rendering map_description | Left e => with ST do
+      lift $ log $ "client couldn't get walls, error:"
+      lift $ log e
+    addWalls rendering walls
 
   runCommand rendering (Start (Movement Left) id) = ticks >>=
     update rendering . setAnimationState id . MkAnimationState

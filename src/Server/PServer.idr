@@ -25,19 +25,28 @@ mapDescriptionToMapData desc = MkMapData (name desc) (dimensions desc) (backgrou
 -- these are intended to be sent over the network, dynamics commands are always local
 -- which means that a separate client dynamics system will need an additional
 -- BodyData parameter in Create
+
 public export
-data ServerCommand
+data InSession
   = Create ObjectId ContentReference -- client gets other parameters from dynamics
   | Destroy ObjectId
   | Control Command
   | UpdateNumericProperty ObjectId NumericPropertyId Double
-  | Relog ObjectId ContentReference
 
 export
-Show ServerCommand where
+Show InSession where
   show (Create id ref) = "create " ++ id ++ " " ++ ref
+  show (Destroy id) = "destroy " ++ id
   show (Control cmd) = "control " ++ show cmd
   show (UpdateNumericProperty object_id prop_id current) = "info update"
+
+public export
+data SessionCommand
+  = Relog ObjectId ContentReference
+
+export
+Show SessionCommand where
+  show (Relog x y) = "relog " ++ x ++ " to " ++ y
 
 public export
 LoginResponse : Type
@@ -66,7 +75,8 @@ record PServer where
   loggedIn : Objects Character
   bodyData : Objects BodyData
   dynamicsCommands : List DynamicsCommand -- output
-  serverCommands : List ServerCommand -- output
+  serverCommands : List InSession -- output
+  sessionCommands : List SessionCommand -- output
   clientCommands : List Command -- input
 
 export
@@ -76,7 +86,7 @@ scounter = record { idCounter $= S }
 export
 fromMapPreload : MapDescription -> PreloadResults -> PServer
 fromMapPreload desc preload
-  = MkPServer 0 preload (mapDescriptionToMapData desc) empty empty empty empty empty
+  = MkPServer 0 preload (mapDescriptionToMapData desc) empty empty empty empty empty empty
 
 export
 addLoggedIn : ObjectId -> Character -> PServer -> PServer
@@ -91,8 +101,12 @@ addDynamicsCommands : List DynamicsCommand -> PServer -> PServer
 addDynamicsCommands cmds = record { dynamicsCommands $= \xs => xs ++ cmds }
 
 export
-addServerCommand : ServerCommand -> PServer -> PServer
-addServerCommand cmd = record { serverCommands $= append cmd }
+addInSessionCommand : InSession -> PServer -> PServer
+addInSessionCommand cmd = record { serverCommands $= append cmd }
+
+export
+addSessionCommand : SessionCommand -> PServer -> PServer
+addSessionCommand cmd = record { sessionCommands $= append cmd }
 
 export
 addClientCommand : Command -> PServer -> PServer
@@ -103,8 +117,12 @@ flushDynamicsCommands : PServer -> PServer
 flushDynamicsCommands = record { dynamicsCommands = empty }
 
 export
-flushServerCommands : PServer -> PServer
-flushServerCommands = record { serverCommands = empty }
+flushInSessionCommands : PServer -> PServer
+flushInSessionCommands = record { serverCommands = empty }
+
+export
+flushSessionCommands : PServer -> PServer
+flushSessionCommands = record { sessionCommands = empty }
 
 export
 flushClientCommands : PServer -> PServer
@@ -112,7 +130,7 @@ flushClientCommands = record { clientCommands = empty }
 
 export
 flushOutput : PServer -> PServer
-flushOutput = flushDynamicsCommands . flushServerCommands
+flushOutput = flushDynamicsCommands . flushInSessionCommands . flushSessionCommands
 
 export
 flushInput : PServer -> PServer

@@ -22,24 +22,73 @@ import Client.Rendering
 import Client.SDL
 import Client.PClient
 
-GameState : (GameIO m, Dynamics m, Client m, Server m) => Type
-GameState {m} = Composite [SDynamics {m},
+GameState : (GameIO m, Dynamics m, Client m, Server m) => ClientState -> Type
+GameState Disconnected {m} = Composite [SDynamics {m},
+                                        SServer {m},
+                                        SClient Disconnected {m}]
+GameState Connected {m} = Composite [SDynamics {m},
                            SServer {m},
-                           SClient {m},
+                           SClient Connected {m},
                            State Int, -- lastms
                            State Int] -- carry
+
+connect : (GameIO m, Dynamics m, Client m, Server m) =>
+          (map_ref : ContentReference)
+
+
+game : (GameIO m, Dynamics m, Client m, Server m) =>
+       (preload : PreloadResults) ->
+       (settings : GameSettings) ->
+       (character : Character) ->
+       ST m () []
+game preload settings character = with ST do
+  client <- startClient (client settings) character_id preload
+  dynamics <- startDynamics (dynamics settings)
+  let map_ref = map character
+  Right server <- startServer (server settings) map_ref preload
+        | Left e => with ST do
+            lift $ log $ "couldn't start server, error: "
+            lift $ log e
+            endDynamics dynamics
+  initialCommands <- getDynamicsCommands server
+  runCommands dynamics initialCommands
+  Right character_id <- login server character
+        | Left e => with ST do
+            lift $ log $ "couldn't log in, error:\n" ++ e
+            endServer server
+            endDynamics dynamics
+  dynamicsCommands <- getDynamicsCommands server
+  runCommands dynamics dynamicsCommands
+  initialCommands <- getInSessionCommands server
+  Right () <- connect client map_ref | Left e => with ST do
+      lift $ log $ "couldn't start client, error:\n" ++ e
+      endServer server
+      endDynamics dynamics
+      endClient client
+  runServerCommands client initialCommands
+  lastms <- new !ticks
+  carry <- new 0
+  state <- new ()
+  combine state [dynamics, server, client, lastms, carry]
+  loop state
+  [dynamics, server, client, lastms, carry] <- split state
+  delete state; delete carry; delete lastms
+  disconnect client
+  endClient client
+  endServer server
+  endDynamics dynamics
 
 iterateCarry : GameIO m => Dynamics m => Server m =>
                (dynamics : Var) ->
                (server : Var) ->
                (time : Int) ->
                (characterId : ObjectId) ->
-               ST m (Int, List ServerCommand) [dynamics ::: SDynamics {m}, server ::: SServer {m}]
+               ST m (Int, List InSession) [dynamics ::: SDynamics {m}, server ::: SServer {m}]
 iterateCarry dynamics server time characterId = with ST do
   dt <- queryPDynamics dynamics timeStep
   case time > dt of
     False => with ST do
-      serverCommands <- getServerCommands server
+      serverCommands <- getInSessionCommands server
       pure (time, serverCommands)
     True => with ST do
       dynamicsEvents <- iterate dynamics
@@ -49,12 +98,19 @@ iterateCarry dynamics server time characterId = with ST do
       if time `div` dt < 8
         then iterateCarry dynamics server (time - dt) characterId
         else with ST do
-          serverCommands <- getServerCommands server
+          serverCommands <- getInSessionCommands server
           pure (0, serverCommands)
+
+runSessionCommands : (GameIO m, Dynamics m, Client m, Server m) =>
+                     (state : Var) ->
+                     (sessionCommands : List SessionCommand) ->
+                     ST m Bool [state ::: GameState Connected {m} :->
+                            \res => if res then GameState Connected {m}
+                                           else GameState Disconnected {m}]
 
 loop : (GameIO m, Dynamics m, Client m, Server m) =>
        (state : Var) ->
-       ST m () [state ::: GameState {m}]
+       ST m () [state ::: GameState Connected {m}]
 loop state = with ST do
   beforems <- ticks
   [dynamics, server, client, lastms, carry] <- split state
@@ -72,52 +128,20 @@ loop state = with ST do
   (newCarry, serverCommands) <- iterateCarry dynamics server time characterId
 
   runServerCommands client serverCommands
+  sessionCommands <- getSessionCommands server
 
   write carry newCarry
   write lastms beforems
 
   combine state [dynamics, server, client, lastms, carry]
-  loop state
 
+  logout <- runSessionCommands state sessionCommands
 
-game : (GameIO m, Dynamics m, Client m, Server m) =>
-       (preload : PreloadResults) ->
-       (settings : GameSettings) ->
-       (character : Character) ->
-       ST m () []
-game preload settings character = with ST do
-  dynamics <- startDynamics (dynamics settings)
-  let map_ref = map character
-  Right server <- startServer (server settings) map_ref preload
-        | Left e => with ST do
-            lift $ log $ "couldn't start server, error: "
-            lift $ log e
-            endDynamics dynamics
-  initialCommands <- getDynamicsCommands server
-  runCommands dynamics initialCommands
-  Right character_id <- login server character
-        | Left e => with ST do
-            lift $ log $ "couldn't log in, error:\n" ++ e
-            endServer server
-            endDynamics dynamics
-  dynamicsCommands <- getDynamicsCommands server
-  serverCommands <- getServerCommands server
-  runCommands dynamics dynamicsCommands
-  Right client <- startClient (client settings) map_ref preload character_id serverCommands
-        | Left e => with ST do
-            lift $ log $ "couldn't start client, error:\n" ++ e
-            endServer server
-            endDynamics dynamics
-  lastms <- new !ticks
-  carry <- new 0
-  state <- new ()
-  combine state [dynamics, server, client, lastms, carry]
-  loop state
-  [dynamics, server, client, lastms, carry] <- split state
-  delete state; delete carry; delete lastms
-  endClient client
-  endServer server
-  endDynamics dynamics
+  case logout of
+       False => ?sdfgsdfs_1
+       True => ?sdfgsdfs_2
+
+  -- loop state
 
 start : (GameIO m, Dynamics m, Client m, Server m) => ST m () []
 start = with ST do
