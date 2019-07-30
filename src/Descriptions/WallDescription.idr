@@ -9,8 +9,8 @@ import Exception
 
 public export
 data WallRenderMethod = InvisibleWall
-                           | TiledWall ContentReference Vector2D -- tiledims
-                           | ColoredWall Color
+                      | TiledWall ContentReference Vector2D -- tiledims
+                      | ColoredWall Color
 %name WallRenderMethod wall_render_description
 
 export
@@ -21,12 +21,13 @@ Show WallRenderMethod where
 
 ObjectCaster WallRenderMethod where
   objectCast dict = with Checked do
-    type <- getString "type" dict
+    type <- GameIO.getString "type" dict
     case type of
+      -- val => ?sdfllsd
       "invisible" => pure InvisibleWall
       "color" => getColor "color" dict >>= pure . ColoredWall
-      "tile" => with ST do
-        image <- getString "image" dict
+      "tile" => with Checked do
+        image <- GameIO.getString "image" dict
         tileDims <- getVector "tileDims" dict
         pure $ TiledWall image tileDims
       _ => fail "wall render description type must be of \"invisible\"|\"tile\"|\"color\""

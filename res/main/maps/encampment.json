@@ -19,6 +19,17 @@
 
   "creations": [
     {
+      "ref": "main/objects/yellow_marker.json",
+      "position": [0, -3],
+      "behavior": {
+        "ref": "main/behaviors/door.json",
+        "string_parameters": {
+          "to": "main/maps/castle.json"
+        }
+      }
+    },
+
+    {
       "ref": "main/objects/wooden_crate.json",
       "position": [-4, 0]
     },
@@ -30,5 +41,7 @@
       "ref": "main/objects/wooden_crate.json",
       "position": [-4.1, 4]
     }
-  ]
+  ],
+
+  "joints": []
 }

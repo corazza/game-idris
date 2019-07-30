@@ -1,0 +1,24 @@
+{
+  "name": "Metal ledge",
+
+  "body": {
+    "type": "dynamic",
+    "fixture": {
+      "shape": {
+        "type": "box",
+        "dimensions": [4, 0.3]
+      },
+      "density": 12,
+      "friction": 0.1,
+      "restitution": 0.1
+    }
+  },
+
+  "render": {
+    "method": {
+      "type": "single",
+      "image": "main/images/metal_ledge.png",
+      "dimensions": [4, 0.3]
+    }
+  }
+}

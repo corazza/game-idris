@@ -19,3 +19,17 @@ getColor name dict = with Checked do
     maybeToEither ("color \"" ++ name ++ "\" inexistent") (lookup name dict)
                   | fail "color format fail (must be [r, g, b])"
   pure $ MkColor (cast r) (cast g) (cast b) (cast a)
+
+export
+addColor : (object : Var) ->
+           (key : String) ->
+           (value : Color) ->
+           ST Identity () [object ::: SKind JSONOBject {m=Identity}]
+addColor object key (MkColor r g b a) = with ST do
+  colorArray <- makeArray
+  appendDouble colorArray $ cast r
+  appendDouble colorArray $ cast g
+  appendDouble colorArray $ cast b
+  appendDouble colorArray $ cast a
+  colorArray' <- getArray colorArray
+  addArray object key colorArray'

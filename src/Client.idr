@@ -22,6 +22,7 @@ import Settings
 import Exception
 import Objects
 import Commands
+import Timeline
 
 public export
 data ClientState = Disconnected | Connected
@@ -31,13 +32,14 @@ interface Client (m : Type -> Type) where
   SClient : ClientState -> Type
 
   startClient : (settings : ClientSettings) ->
-                (characterId : ObjectId) ->
                 (preload : PreloadResults) ->
+                (character : Character) ->
                 ST m Var [add (SClient Disconnected)]
   endClient : (client : Var) -> ST m () [remove client (SClient Disconnected)]
 
   connect : (client : Var) ->
             (map : ContentReference) ->
+            (characterId : ObjectId) ->
             ST m (Checked ()) [client ::: SClient Disconnected :->
                                 \res => if isRight res
                                             then (SClient Connected)
@@ -47,6 +49,8 @@ interface Client (m : Type -> Type) where
                ST m () [client ::: SClient Connected :-> SClient Disconnected]
 
   queryPClient : (client : Var) -> (q : PClient -> a) -> ST m a [client ::: SClient s]
+  updatePClient : (client : Var) -> (f : PClient -> PClient) -> ST m () [client ::: SClient s]
+  querySessionData : (client : Var) -> (q : SessionData -> a) -> ST m a [client ::: SClient Connected]
 
   -- processes server commands and strips own controls NETWORKING
   runServerCommand : (client : Var) ->
@@ -60,6 +64,8 @@ interface Client (m : Type -> Type) where
   iterate : (client : Var) ->
             (bodyData : Objects BodyData) ->
             ST m (Either () (List Command)) [client ::: SClient Connected]
+
+  getSettings : (client : Var) -> ST m ClientSettings [client ::: SClient Connected]
 
   private
   updatePRendering : (client : Var) ->
@@ -90,6 +96,9 @@ interface Client (m : Type -> Type) where
                  (id : ObjectId) ->
                  ST m () [client ::: SClient Connected]
 
+  private
+  refreshSettings : (client : Var) -> ST m () [client ::: SClient Connected]
+
 export
 (GameIO m, Rendering m, SDL m) => Client m where
   SClient Disconnected = Composite [State PClient, SSDL {m}]
@@ -98,8 +107,8 @@ export
                                  SRendering {m},
                                  SSDL {m}]
 
-  startClient settings characterId preload = with ST do
-    pclient <- new $ MkPClient preload characterId settings
+  startClient settings preload character = with ST do
+    pclient <- new $ MkPClient preload settings character
     sdl <- startSDL (resolutionX settings) (resolutionY settings)
     client <- new ()
     combine client [pclient, sdl]
@@ -123,19 +132,35 @@ export
       combine client [pclient, session_data, rendering, sdl]
       pure $ q pclient'
 
-  connect client map_ref = with ST do
+  updatePClient client f {s} = case s of
+    Disconnected => with ST do
+      [pclient, sdl] <- split client
+      update pclient f
+      combine client [pclient, sdl]
+    Connected => with ST do
+      [pclient, session_data, rendering, sdl] <- split client
+      update pclient f
+      combine client [pclient, session_data, rendering, sdl]
+
+  querySessionData client q = with ST do
+      [pclient, session_data, rendering, sdl] <- split client
+      session_data' <- read session_data
+      combine client [pclient, session_data, rendering, sdl]
+      pure $ q session_data'
+
+  connect client map_ref characterId = with ST do
     preload <- queryPClient client preload {s=Disconnected}
     case getMapDescription map_ref preload of
       Left e => pure $ fail $ "client couldn't get map description, error:\n" ++ e
       Right map_description => with ST do
         settings <- queryPClient client settings {s=Disconnected}
-        characterId <- queryPClient client characterId {s=Disconnected}
+        -- characterId <- queryPClient client characterId {s=Disconnected}
         rendering <- startRendering
           (renderingSettings settings) (background map_description) preload
         loadMap rendering map_description
         follow rendering characterId
         [pclient, sdl] <- split client
-        session_data <- new emptySessionData
+        session_data <- new $ MkSessionData characterId
         combine client [pclient, session_data, rendering, sdl]
         pure $ Right ()
 
@@ -180,7 +205,7 @@ export
   runServerCommand client (Create id ref) = addObject client id ref
   runServerCommand client (Destroy id) = removeObject client id
   runServerCommand client (Control cmd)
-    = case getId cmd == !(queryPClient client characterId {s=Connected}) of
+    = case getId cmd == !(querySessionData client characterId) of
         False => runCommand client cmd
         True => pure ()
   runServerCommand client (UpdateNumericProperty object_id prop_id current)
@@ -197,7 +222,7 @@ export
     sdl_events <- poll
     camera <- getCamera rendering
     combine client [pclient, session_data, rendering, sdl]
-    characterId <- queryPClient client characterId {s=Connected}
+    characterId <- querySessionData client characterId
     case processEvents characterId camera sdl_events of
       Left _ => pure $ Left ()
       Right (clientCommands, commands) => with ST do
@@ -209,3 +234,13 @@ export
     [pclient, session_data, rendering, sdl] <- split client
     Rendering.updatePRendering rendering f
     combine client [pclient, session_data, rendering, sdl]
+
+  refreshSettings client = with ST do
+    [pclient, session_data, rendering, sdl] <- split client
+    renderingSettings <- Rendering.getSettings rendering
+    combine client [pclient, session_data, rendering, sdl]
+    updatePClient client {s=Connected} $ updateSettings $ setRenderingSettings renderingSettings
+
+  getSettings client = with ST do
+    refreshSettings client
+    queryPClient client settings {s=Connected}

@@ -18,6 +18,7 @@ import JSONCache
 import Exception
 import Descriptions.MapDescription
 import Descriptions.ObjectDescription
+import Descriptions.JointDescription
 import Descriptions.ObjectDescription.RulesDescription
 import Settings
 import Exception
@@ -102,6 +103,12 @@ interface Server (m : Type -> Type) where
   createObject : (server : Var) -> Creation -> ObjectDescription -> ST m ObjectId [server ::: SServer]
   private
   createObjects : (server : Var) -> List (Creation, ObjectDescription) -> ST m () [server ::: SServer]
+  private
+  createJoint : (server : Var) -> JointDescription -> ST m () [server ::: SServer]
+  private
+  createJoints : (server : Var) -> List JointDescription -> ST m () [server ::: SServer]
+  private
+  decideId : (server : Var) -> Creation -> ST m ObjectId [server ::: SServer]
   private
   loadMap : (server : Var) -> MapDescription -> ST m () [server ::: SServer]
 
@@ -215,6 +222,7 @@ export
     = updatePServer server $ addInSessionCommand $ UpdateNumericProperty object_id prop_id current
   processRulesOutput server (ExitTo object_id ref)
     = updatePServer server $ addSessionCommand $ Relog object_id ref
+     -- TODO update logged in
 
   processRulesOutputs server [] = pure ()
   processRulesOutputs server (rule_output::xs)
@@ -268,8 +276,16 @@ export
       Right object_description =>
         createObject server creation object_description >>= pure . Right
 
+  decideId server creation = case Creation.id creation of
+    Nothing => newId server
+    Just id' => with ST do
+      bodyData <- queryPServer server bodyData
+      case hasKey id' bodyData of
+        False => pure id'
+        True => newId server
+
   createObject server creation object_description = with ST do
-    id <- newId server
+    id <- decideId server creation
     updatePServer server $ addDynamicsCommand $ createObjectCommand creation object_description id
     updatePServer server $ addInSessionCommand $ Create id (ref creation)
     addRules server id object_description creation
@@ -278,6 +294,13 @@ export
   createObjects server [] = pure ()
   createObjects server ((creation, desc)::xs) = createObject server creation desc >>=
     const (createObjects server xs)
+
+  createJoint server desc
+    = updatePServer server $ addDynamicsCommand $ CreateJoint !(newId server) desc
+
+  createJoints server [] = pure ()
+  createJoints server (desc::xs)
+    = createJoint server desc >>= const (createJoints server xs)
 
   loadMap server map_description = with ST do
     Right walls <- loadWalls server map_description | Left e => with ST do
@@ -288,6 +311,7 @@ export
       lift $ log e
     addWalls server walls
     createObjects server objects
+    createJoints server (joints map_description)
 
   destroy server id = with ST do
     updatePServer server $ addDynamicsCommand $ PDynamics.Destroy id

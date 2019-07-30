@@ -52,9 +52,9 @@
     },
 
     "behavior": {
-      "ref": "main/behaviors/hold-chase.json",
+      "ref": "main/behaviors/roam-chase.json",
       "double_parameters": {
-        "chase_duration": 1
+        "chase_duration": 3
       }
     }
   },

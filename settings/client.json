@@ -1,16 +1,23 @@
 {
-  "rendering": {
-    "camera": {
-      "resolution": [1580, 900],
-      "yd": 3.5,
-      "zoom": 55
-    },
-
-    "info": {
-      "fullHealthWidth": 50,
-      "fullHealthHeight": 5,
-      "healthYD": 35,
-      "healthColor": [10, 223, 76, 100]
-    }
-  }
+     "rendering": {
+          "camera": {
+               "resolution": [
+                    1580,
+                    900
+               ],
+               "yd": 3.5,
+               "zoom": 44.51559409490888
+          },
+          "info": {
+               "fullHealthHeight": 5,
+               "fullHealthWidth": 50,
+               "healthColor": [
+                    10,
+                    223,
+                    76,
+                    100
+               ],
+               "healthYD": 35
+          }
+     }
 }

@@ -14,12 +14,6 @@
       "ref": "main/walls/invisible_wall.json",
       "position": [0, -9.5],
       "dimensions": [30, 1]
-    },
-    {
-      "id": "map_castle_marble_wall",
-      "ref": "main/walls/marble_ground.json",
-      "position": [1.5, -2],
-      "repeat": [10, 1]
     }
   ],
 
@@ -37,12 +31,29 @@
 
     {
       "ref": "main/objects/wooden_crate.json",
-      "position": [-4, 10]
+      "position": [-6.2, -6.1]
     },
     {
       "ref": "main/objects/wooden_crate.json",
-      "position": [2, -6]
+      "position": [-5.1, -6.1]
     },
+    {
+      "ref": "main/objects/wooden_crate.json",
+      "position": [-5.1, -5.1]
+    },
+    {
+      "ref": "main/objects/wooden_crate.json",
+      "position": [-4, -4]
+    },
+    {
+      "ref": "main/objects/wooden_crate.json",
+      "position": [-4, -5.1]
+    },
+    {
+      "ref": "main/objects/wooden_crate.json",
+      "position": [-4, -6.1]
+    },
+
 
     {
       "ref": "main/objects/mage-1.json",
@@ -50,11 +61,39 @@
     },
     {
       "ref": "main/objects/mage-2.json",
-      "position": [5, 0.5]
+      "position": [1, 0.5],
+      "behavior": {
+        "ref": "main/behaviors/hold-chase.json",
+        "double_parameters": {
+          "chase_duration": 4
+        }
+      }
     },
     {
       "ref": "main/objects/mage-3.json",
       "position": [10, -9]
+    },
+
+    {
+      "ref": "main/objects/metal_ledge.json",
+      "position": [1, -5],
+      "id": "map_castle_metal_ledge_1"
+    },
+
+    {
+      "ref": "main/objects/static_joint.json",
+      "position": [1, -5],
+      "id": "map_castle_static_joint_1"
+    }
+  ],
+
+  "joints": [
+    {
+      "type": "revolute",
+      "bodyA": "map_castle_metal_ledge_1",
+      "localAnchorA": [0, 0],
+      "bodyB": "map_castle_static_joint_1",
+      "localAnchorB": [0, 0]
     }
   ]
 }

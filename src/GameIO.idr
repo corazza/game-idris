@@ -8,6 +8,7 @@ import Physics.Vector2D
 import Physics.Box2D
 import Physics.Box2D.Definitions
 
+import public Serializer
 import Exception
 
 public export
@@ -15,6 +16,7 @@ interface (Monad m, ConsoleIO m) => GameIO (m : Type -> Type) where
   ticks : STrans m Int xs (const xs)
   loadJSON : (filepath : String) -> m (Maybe JSON)
   checkedJSONLoad : (Cast JSON (Checked r), GameIO m) => (filepath : String) -> m (Checked r)
+  write : (what : String) -> (filepath : String) -> m ()
 
   log : String -> m ()
 
@@ -51,9 +53,13 @@ GameIO IO where
       putStrLn ("failed to parse: " ++ filepath ++ " (GameIO.loadJSON)")
     pure parsed
 
-  checkedJSONLoad filepath = with m do
+  checkedJSONLoad filepath = do
     Just a <- loadJSON filepath | pure (fail $ "couldn't load " ++ filepath)
     pure $ cast a
+
+  write what filepath = do
+    writeFile filepath what
+    pure ()
 
   log = putStrLn
 
@@ -79,11 +85,6 @@ public export
 ContentReference : Type
 ContentReference = String
 %name ContentReference ref
-
-public export
-JSONDict : Type
-JSONDict = Dict String JSON
-%name JSONDict dict
 
 public export
 interface ObjectCaster a where
@@ -168,6 +169,12 @@ getBoolOrDefault default key dict = case lookup key dict of
   Nothing => pure default
   Just (JBoolean x) => pure x
   _ => fail $ "not a boolean (" ++ key ++ ")"
+
+export
+getBoolMaybe : String -> JSONDict -> Checked (Maybe Bool)
+getBoolMaybe key dict = case hasKey key dict of
+  False => pure Nothing
+  True => getBool key dict >>= pure . Just
 
 export
 getString : String -> JSONDict -> Checked String

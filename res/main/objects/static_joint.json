@@ -1,0 +1,13 @@
+{
+  "name": "Static joint",
+
+  "body": {
+    "type": "static",
+    "fixture": {
+      "shape": {
+        "type": "circle",
+        "radius": 0.1
+      }
+    }
+  }
+}

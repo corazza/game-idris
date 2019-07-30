@@ -16,6 +16,10 @@ record Character where
 %name Character character
 
 export
+setMap : ContentReference -> Character -> Character
+setMap map' = record { map = map' }
+
+export
 Show Character where
   show (MkCharacter name object position map)
     = "{ name: " ++ name ++ ", object: " ++ object ++ ", position: " ++ show position

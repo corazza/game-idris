@@ -12,6 +12,7 @@ import GameIO
 import Objects
 import Descriptions
 import JSONCache
+import Settings
 import Descriptions
 import Descriptions.MapDescription
 import Descriptions.ObjectDescription.RulesDescription
@@ -31,11 +32,22 @@ record PRendering where
   bodyData : Objects BodyData
   preload : PreloadResults
   info : Objects ObjectInfo
+  settings : RenderingSettings
 
 export
-prenderingInitial : Background -> Camera -> PreloadResults -> PRendering
-prenderingInitial background camera preload
-  = MkPRendering background empty empty camera Nothing empty preload empty
+refreshSettings : PRendering -> PRendering
+refreshSettings prendering
+  = let newCameraSettings = toSettings $ camera prendering
+        in record { settings $= setCameraSettings newCameraSettings } prendering
+
+export
+prenderingInitial : RenderingSettings ->
+                    Background ->
+                    PreloadResults ->
+                    PRendering
+prenderingInitial settings background preload
+  = let camera = fromSettings $ cameraSettings settings
+        in MkPRendering background empty empty camera Nothing empty preload empty settings
 
 export
 addToLayer : (id : ObjectId) ->

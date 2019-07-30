@@ -4,19 +4,20 @@ import JSONCache
 import Descriptions.MapDescription
 import Objects
 import Settings
+import Timeline
 
 public export
 record PClient where
   constructor MkPClient
   preload : PreloadResults
-  characterId : ObjectId
   settings : ClientSettings
+  character : Character
 
 public export
 record SessionData where
   constructor MkSessionData
-  dummy : Int
+  characterId : ObjectId
 
 export
-emptySessionData : SessionData
-emptySessionData = MkSessionData 0
+updateSettings : (f : ClientSettings -> ClientSettings) -> PClient -> PClient
+updateSettings f = record { settings $= f }

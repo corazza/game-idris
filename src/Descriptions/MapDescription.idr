@@ -8,6 +8,7 @@ import Descriptions.ObjectDescription.RenderDescription
 import Descriptions.ObjectDescription.ControlDescription
 import Descriptions.ObjectDescription.RulesDescription
 import Descriptions.WallDescription
+import Descriptions.JointDescription
 import Descriptions.Color
 import GameIO
 import Exception
@@ -39,6 +40,7 @@ record Creation where
   creator : Maybe ObjectId
   angle : Maybe Double
   behavior : Maybe BehaviorParameters
+  id : Maybe ObjectId
 %name Creation creation
 
 export
@@ -57,7 +59,8 @@ ObjectCaster Creation where
     angle <- getCreationAngle dict
     -- creationData <- the (Checked (Maybe CreationData)) $ getCastableMaybe "data" dict
     behavior <- the (Checked (Maybe BehaviorParameters)) $ getCastableMaybe "behavior" dict
-    pure $ MkCreation ref position Nothing Nothing angle behavior
+    id <- getStringMaybe "id" dict
+    pure $ MkCreation ref position Nothing Nothing angle behavior id
 
 export
 creationBodyDescriptionToDefinition : Creation -> BodyDescription -> BodyDefinition
@@ -77,7 +80,7 @@ rulesDescFromCreation (Just desc) creation = case behavior creation of
 export
 forCharacter : Vector2D -> Character -> Creation
 forCharacter position character
-  = MkCreation (ref character) position Nothing Nothing Nothing Nothing
+  = MkCreation (ref character) position Nothing Nothing Nothing Nothing Nothing
 
 public export
 data WallData = Repeat (Nat, Nat)
@@ -101,7 +104,7 @@ wallDescToObjectDesc : WallDescription -> WallData -> Checked ObjectDescription
 wallDescToObjectDesc wall_desc wall_data = (with Checked do
   bodyDesc <- getBodyDesc
   method <- getRenderMethod
-  let renderDesc = MkRenderDescription method Nothing Nothing
+  let renderDesc = Just $ MkRenderDescription method Nothing Nothing
   pure $ MkObjectDescription (name wall_desc) bodyDesc renderDesc Nothing Nothing) where
     getShape : Checked Shape
     getShape = case wall_data of
@@ -189,10 +192,11 @@ record MapDescription where
   background : Background
   walls : List WallCreation
   creations : List Creation
+  joints : List JointDescription
 
 export
 Show MapDescription where
-  show (MkMapDescription name dimensions spawn background walls creations)
+  show (MkMapDescription name dimensions spawn background walls creations joints)
     =  "{ name: " ++ name
     ++ ", dimensions: " ++ show dimensions
     ++ ", spawn: " ++ show spawn
@@ -210,6 +214,8 @@ ObjectCaster MapDescription where
     background <- the (Checked Background) $ getCastable "background" dict
     wallsJSON <- getArray "walls" dict
     creationsJSON <- getArray "creations" dict
+    jointsJSON <- getArray "joints" dict -- TODO maybe
     walls <- catResults $ the (List (Checked WallCreation)) $ map cast wallsJSON
     creations <- catResults $ the (List (Checked Creation)) $ map cast creationsJSON
-    pure $ MkMapDescription name dimensions spawn background walls creations
+    joints <- catResults $ the (List (Checked JointDescription)) $ map cast jointsJSON
+    pure $ MkMapDescription name dimensions spawn background walls creations joints

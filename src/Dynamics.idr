@@ -12,7 +12,7 @@ import GameIO
 import Objects
 import Exception
 import Settings
--- import Descriptions
+import Descriptions.JointDescription
 import Descriptions.ObjectDescription.BodyDescription
 
 public export
@@ -31,6 +31,11 @@ interface Dynamics (m : Type -> Type) where
             (control : Maybe ControlParameters) ->
             (effects : List PhysicsEffect) ->
             ST m () [dynamics ::: SDynamics]
+
+  addJoint : (dynamics : Var) ->
+             (id : ObjectId) ->
+             (desc : JointDescription) ->
+             ST m () [dynamics ::: SDynamics]
 
   removeBody : (dynamics : Var) -> (id : ObjectId) -> ST m () [dynamics ::: SDynamics]
 
@@ -108,6 +113,12 @@ Dynamics IO where
       update dynamics $ pdynamicsRemoveObject id
       lift $ destroy !(getWorld dynamics) body
 
+  addJoint dynamics id desc = with ST do
+    Just def <- queryPDynamics dynamics $ jointDescToDef desc | pure ()
+    world <- queryPDynamics dynamics PDynamics.world
+    lift $ createRevoluteJoint world def
+    pure ()
+
   applyImpulse dynamics id impulse = with ST do
     Just body <- queryPDynamics dynamics $ getBody id | pure ()
     lift $ applyImpulse body impulse
@@ -125,6 +136,7 @@ Dynamics IO where
     case impulse of
       Nothing => pure ()
       Just x => applyImpulse dynamics id x
+  runCommand dynamics (CreateJoint id desc) = addJoint dynamics id desc
   runCommand dynamics (Destroy id) = removeBody dynamics id
   runCommand dynamics (UpdateControl id f) = updateControl dynamics id f
   runCommand dynamics (QueryFor object_id span) = with ST do

@@ -30,17 +30,9 @@ fromSettings settings = let position = nullVector
                             yd = yd settings
                             in MkCamera position zoom rotation resolution yd
 
--- export
--- defaultCamera : Camera
--- defaultCamera = MkCamera
---   (0, 0) (zoom defaultDisplaySettings) 0 (resolution defaultDisplaySettings)
---   (cameraYD defaultDisplaySettings)
-
--- export
--- fromSettings : DisplaySettings -> Camera
--- fromSettings settings = record { resolution = resolution settings,
---                                  yd = cameraYD settings,
---                                  zoom = zoom settings } defaultCamera
+export
+toSettings : Camera -> CameraSettings
+toSettings camera = MkCameraSettings (resolution camera) (yd camera) (zoom camera)
 
 export
 resolution' : Camera -> (Double, Double)

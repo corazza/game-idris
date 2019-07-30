@@ -11,6 +11,7 @@ import Objects
 import Commands
 import Descriptions.MapDescription
 import Descriptions.ObjectDescription
+import Descriptions.JointDescription
 import Descriptions.ObjectDescription.BodyDescription
 
 -- indirect way of calling methods because I don't know how to pass the dynamics
@@ -23,6 +24,7 @@ data DynamicsCommand
            (Maybe ControlParameters)
            (List PhysicsEffect)
            (Maybe Vector2D) -- impulse
+  | CreateJoint ObjectId JointDescription
   | Destroy ObjectId
   | UpdateControl ObjectId (ControlState -> ControlState)
   | QueryFor ObjectId Double
@@ -54,6 +56,7 @@ Show DynamicsCommand where
   show (Destroy id) = "destroy " ++ id
   show (UpdateControl id f) = "update control of " ++ id
   show (QueryFor id x) = "query for " ++ id ++ ", " ++ show x
+  show (CreateJoint id desc) = "create joint " ++ id
 
 export
 createWallCommand : WallCreation -> ObjectDescription -> DynamicsCommand
@@ -169,6 +172,7 @@ record PDynamics where
   constructor MkPDynamics
   world : Box2D.World
   objects : Objects BodyData
+  -- joints : Objects Joint
   ids : Ids Int
   timeStep : Int
 %name PDynamics dynamics
@@ -268,7 +272,11 @@ box2DEventToDynamicsEvent dynamics (QueryResult query_id body_id body)
       (Just initiator, Just target) => pure $ Interact initiator target
       (Nothing, Just target) => pure $ QueryResult query_id target
       _ => Nothing
-  -- = lookup body_id (ids dynamics) >>= pure . QueryResult query_id
-  -- = case lookup body_id (ids dynamics) of
-  --     Nothing => Nothing
-  --     Just object_id => Just $ QueryResult query_id object_id
+
+export
+jointDescToDef : JointDescription -> PDynamics -> Maybe RevoluteJointDefinition
+jointDescToDef desc pdynamics
+  = case (getBody (bodyA desc) pdynamics, getBody (bodyB desc) pdynamics) of
+      (Just a, Just b) => pure $ MkRevoluteJointDefinition
+        a (localAnchorA desc) b (localAnchorB desc) (collideConnected desc)
+      _ => Nothing

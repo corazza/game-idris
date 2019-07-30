@@ -60,6 +60,8 @@ interface SDL m => Rendering (m : Type -> Type) where
 
   zoom : (rendering : Var) -> (x : Int) -> ST m () [rendering ::: SRendering]
 
+  getSettings : (rendering : Var) -> ST m RenderingSettings [rendering ::: SRendering]
+
   private
   loadWalls : (rendering : Var) ->
               MapDescription ->
@@ -80,8 +82,7 @@ export
   SRendering = State PRendering
 
   startRendering settings background preload
-    = let camera = fromSettings $ cameraSettings settings
-          in new $ prenderingInitial background camera preload
+    = new $ prenderingInitial settings background preload
 
   endRendering rendering = delete rendering
 
@@ -90,12 +91,14 @@ export
 
   getCamera rendering = queryPRendering rendering camera
 
-  addObject rendering id desc = with ST do
-    update rendering $ addToLayer id (render desc)
-    initAnimation rendering id $ method $ render desc
-    case rules desc of
-      Nothing => pure ()
-      Just rules_desc => update rendering $ addInfo id rules_desc
+  addObject rendering id desc = case render desc of
+    Nothing => pure ()
+    Just render_desc => with ST do
+      update rendering $ addToLayer id render_desc
+      initAnimation rendering id $ method $ render_desc
+      case rules desc of
+        Nothing => pure ()
+        Just rules_desc => update rendering $ addInfo id rules_desc
 
   initAnimation rendering id (Animated stateDict)
     = ticks >>= update rendering . addInitialAnimationState id
@@ -144,6 +147,10 @@ export
 
   zoom rendering x = let factor = if x > 0 then 1.05 else 0.95 in
     update rendering $ updateCamera $ zoomFactor $ factor -- * abs (cast x)
+
+  getSettings rendering = with ST do
+    update rendering refreshSettings
+    queryPRendering rendering settings
 
 missingStateError : (state : String) -> (for : ObjectId) -> String
 missingStateError state for

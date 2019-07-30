@@ -22,61 +22,145 @@ import Client.Rendering
 import Client.SDL
 import Client.PClient
 
+record PGame where
+  constructor MkPGame
+  settings : GameSettings
+  preload : PreloadResults
+  timeline : Timeline
+  character : Character
+
+updateSettings : (f : GameSettings -> GameSettings) -> PGame -> PGame
+updateSettings f = record { settings $= f }
+
+updateCharacter : (f : Character -> Character) -> PGame -> PGame
+updateCharacter f = record { character $= f }
+
+record GameSessionData where
+  constructor MkGameSessionData
+  lastms : Int
+  carry : Int
+
+fromTicks : Int -> GameSessionData
+fromTicks ticks = MkGameSessionData ticks 0
+
 GameState : (GameIO m, Dynamics m, Client m, Server m) => ClientState -> Type
-GameState Disconnected {m} = Composite [SDynamics {m},
-                                        SServer {m},
-                                        SClient Disconnected {m}]
-GameState Connected {m} = Composite [SDynamics {m},
-                           SServer {m},
-                           SClient Connected {m},
-                           State Int, -- lastms
-                           State Int] -- carry
+GameState Disconnected {m} = Composite [State PGame, SClient Disconnected {m}]
+GameState Connected {m} = Composite
+ [ State PGame,
+   SClient Connected {m},
+   SDynamics {m},
+   SServer {m},
+   State GameSessionData]
 
-connect : (GameIO m, Dynamics m, Client m, Server m) =>
-          (map_ref : ContentReference)
+queryPGame : (GameIO m, Dynamics m, Client m, Server m) =>
+             (state : Var) ->
+             (q : PGame -> a) ->
+             ST m a [state ::: GameState s {m}]
+queryPGame state q {s} = case s of
+  Disconnected => with ST do
+    [pgame, client] <- split state
+    pgame' <- read pgame
+    combine state [pgame, client]
+    pure $ q pgame'
+  Connected => with ST do
+    [pgame, client, dynamics, server, game_session_data] <- split state
+    pgame' <- read pgame
+    combine state [pgame, client, dynamics, server, game_session_data]
+    pure $ q pgame'
 
+updatePGame : (GameIO m, Dynamics m, Client m, Server m) =>
+              (state : Var) ->
+              (f : PGame -> PGame) ->
+              ST m () [state ::: GameState s {m}]
+updatePGame state f {s} = case s of
+  Disconnected => with ST do
+    [pgame, client] <- split state
+    update pgame f
+    combine state [pgame, client]
+  Connected => with ST do
+    [pgame, client, dynamics, server, game_session_data] <- split state
+    update pgame f
+    combine state [pgame, client, dynamics, server, game_session_data]
 
-game : (GameIO m, Dynamics m, Client m, Server m) =>
-       (preload : PreloadResults) ->
-       (settings : GameSettings) ->
-       (character : Character) ->
-       ST m () []
-game preload settings character = with ST do
-  client <- startClient (client settings) character_id preload
+queryGameSessionData : (GameIO m, Dynamics m, Client m, Server m) =>
+                       (state : Var) ->
+                       (q : GameSessionData -> a) ->
+                       ST m a [state ::: GameState Connected {m}]
+queryGameSessionData state q = with ST do
+  [pgame, client, dynamics, server, game_session_data] <- split state
+  game_session_data' <- read game_session_data
+  combine state [pgame, client, dynamics, server, game_session_data]
+  pure $ q game_session_data'
+
+updateGameSessionData : (GameIO m, Dynamics m, Client m, Server m) =>
+                       (state : Var) ->
+                       (f : GameSessionData -> GameSessionData) ->
+                       ST m () [state ::: GameState Connected {m}]
+updateGameSessionData state f = with ST do
+  [pgame, client, dynamics, server, game_session_data] <- split state
+  update game_session_data f
+  combine state [pgame, client, dynamics, server, game_session_data]
+
+startSession : (GameIO m, Dynamics m, Client m, Server m) =>
+               (state : Var) ->
+               (map_ref : ContentReference) ->
+               ST m (Checked ()) [state ::: GameState Disconnected {m} :->
+                                    \res => if isRight res
+                                              then GameState Connected {m}
+                                              else GameState Disconnected {m}]
+startSession state map_ref = with ST do
+  [pgame, client] <- split state
+  pgame' <- read pgame
+  let settings = settings pgame'
+  let character = character pgame'
+  let preload = PGame.preload pgame'
   dynamics <- startDynamics (dynamics settings)
-  let map_ref = map character
-  Right server <- startServer (server settings) map_ref preload
-        | Left e => with ST do
-            lift $ log $ "couldn't start server, error: "
-            lift $ log e
+  Right server <- startServer (server settings) map_ref preload | Left e => with ST do
             endDynamics dynamics
+            combine state [pgame, client]
+            pure $ fail $ "couldn't start server, error: " ++ e
   initialCommands <- getDynamicsCommands server
   runCommands dynamics initialCommands
-  Right character_id <- login server character
-        | Left e => with ST do
-            lift $ log $ "couldn't log in, error:\n" ++ e
+  Right character_id <- login server character | Left e => with ST do
             endServer server
             endDynamics dynamics
+            combine state [pgame, client]
+            pure $ fail $ "couldn't log in, error:\n" ++ e
   dynamicsCommands <- getDynamicsCommands server
   runCommands dynamics dynamicsCommands
   initialCommands <- getInSessionCommands server
-  Right () <- connect client map_ref | Left e => with ST do
-      lift $ log $ "couldn't start client, error:\n" ++ e
+  Right () <- Client.connect client map_ref character_id | Left e => with ST do
       endServer server
       endDynamics dynamics
-      endClient client
+      combine state [pgame, client]
+      pure $ fail $ "couldn't connect client, error:\n" ++ e
   runServerCommands client initialCommands
-  lastms <- new !ticks
-  carry <- new 0
-  state <- new ()
-  combine state [dynamics, server, client, lastms, carry]
-  loop state
-  [dynamics, server, client, lastms, carry] <- split state
-  delete state; delete carry; delete lastms
+  game_session_data <- new $ fromTicks !ticks
+  combine state [pgame, client, dynamics, server, game_session_data]
+  pure $ Right ()
+
+save : (GameIO m, Dynamics m, Client m, Server m) =>
+       (state : Var) ->
+       ST m () [state ::: GameState Connected {m}]
+save state = with ST do
+  [pgame, client, dynamics, server, game_session_data] <- split state
+  clientSettings <- getSettings client
+  combine state [pgame, client, dynamics, server, game_session_data]
+  updatePGame state {s=Connected} $ updateSettings $ setClientSettings clientSettings
+  newSettings <- queryPGame state settings {s=Connected}
+  lift $ saveSettings newSettings
+
+endSession : (GameIO m, Dynamics m, Client m, Server m) =>
+             (state : Var) ->
+             ST m () [state ::: GameState Connected {m} :-> GameState Disconnected {m}]
+endSession state = with ST do
+  save state
+  [pgame, client, dynamics, server, game_session_data] <- split state
+  delete game_session_data
   disconnect client
-  endClient client
   endServer server
   endDynamics dynamics
+  combine state [pgame, client]
 
 iterateCarry : GameIO m => Dynamics m => Server m =>
                (dynamics : Var) ->
@@ -101,47 +185,76 @@ iterateCarry dynamics server time characterId = with ST do
           serverCommands <- getInSessionCommands server
           pure (0, serverCommands)
 
+runSessionCommand : (GameIO m, Dynamics m, Client m, Server m) =>
+                    (state : Var) ->
+                    (sessionCommand : SessionCommand) ->
+                    ST m (Either ContentReference ()) [state ::: GameState Connected {m}]
+runSessionCommand state (Relog id to) = with ST do
+  [pgame, client, dynamics, server, game_session_data] <- split state
+  character_id <- querySessionData client characterId
+  combine state [pgame, client, dynamics, server, game_session_data]
+  case id == character_id of
+    True => pure $ Left to
+    False => pure $ Right ()
+
 runSessionCommands : (GameIO m, Dynamics m, Client m, Server m) =>
                      (state : Var) ->
                      (sessionCommands : List SessionCommand) ->
-                     ST m Bool [state ::: GameState Connected {m} :->
-                            \res => if res then GameState Connected {m}
-                                           else GameState Disconnected {m}]
+                     ST m (Either ContentReference ()) [state ::: GameState Connected {m}]
+runSessionCommands state [] = pure $ Right ()
+runSessionCommands state (cmd::xs) = case !(runSessionCommand state cmd) of
+  Left to => pure $ Left to
+  Right () => runSessionCommands state xs
+
+data LoopResult = Exit | Relog ContentReference
 
 loop : (GameIO m, Dynamics m, Client m, Server m) =>
        (state : Var) ->
-       ST m () [state ::: GameState Connected {m}]
+       ST m LoopResult [state ::: GameState Connected {m}]
 loop state = with ST do
   beforems <- ticks
-  [dynamics, server, client, lastms, carry] <- split state
-  let passed = beforems - !(read lastms)
+  [pgame, client, dynamics, server, game_session_data] <- split state
+  game_session_data' <- read game_session_data
+  let passed = beforems - (lastms game_session_data')
   bodyData <- queryPDynamics dynamics objects
 
-  Right commands <- iterate client bodyData
-        | Left () => combine state [dynamics, server, client, lastms, carry]
+  Right commands <- iterate client bodyData | Left () => with ST do
+      combine state [pgame, client, dynamics, server, game_session_data]
+      pure Exit
 
   receiveClientCommands server commands
   runCommands dynamics $ catMaybes $ map fromCommand commands
 
-  characterId <- queryPClient client characterId
-  let time = passed + !(read carry)
+  characterId <- querySessionData client characterId
+  let time = passed + (carry game_session_data')
   (newCarry, serverCommands) <- iterateCarry dynamics server time characterId
 
   runServerCommands client serverCommands
   sessionCommands <- getSessionCommands server
 
-  write carry newCarry
-  write lastms beforems
+  write game_session_data $ MkGameSessionData beforems newCarry
 
-  combine state [dynamics, server, client, lastms, carry]
+  combine state [pgame, client, dynamics, server, game_session_data]
 
   logout <- runSessionCommands state sessionCommands
 
   case logout of
-       False => ?sdfgsdfs_1
-       True => ?sdfgsdfs_2
+       Left to => pure $ Relog to
+       Right () => loop state
 
-  -- loop state
+game : (GameIO m, Dynamics m, Client m, Server m) =>
+       (state : Var) ->
+       ST m () [state ::: GameState Disconnected {m}]
+game state = with ST do
+  map_ref <- queryPGame state {s=Disconnected} $ (map . character)
+  Right () <- startSession state map_ref | Left e => with ST do
+    lift $ log $ "couldn't start session, error:\n" ++ e
+  case !(loop state) of
+    Exit => endSession state
+    Relog to => with ST do
+      endSession state
+      updatePGame state {s=Disconnected} $ updateCharacter $ setMap to
+      game state
 
 start : (GameIO m, Dynamics m, Client m, Server m) => ST m () []
 start = with ST do
@@ -167,7 +280,15 @@ start = with ST do
             | Left e => with ST do
                   lift $ log "couldn't load preload, error:"
                   lift $ log e
-      game preload settings character
+      pgame <- new $ MkPGame settings preload timeline character
+      client <- startClient (client settings) preload character
+      state <- new ()
+      combine state [pgame, client]
+      game state
+      [pgame, client] <- split state
+      endClient client
+      delete pgame
+      delete state
 
 main : IO ()
 main = with IO do

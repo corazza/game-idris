@@ -12,7 +12,7 @@ record ObjectDescription where
   constructor MkObjectDescription
   name : String
   body : BodyDescription
-  render : RenderDescription
+  render : Maybe RenderDescription
   control : Maybe ControlDescription
   rules : Maybe RulesDescription
   -- rules : Maybe RulesDescription
@@ -33,7 +33,7 @@ ObjectCaster ObjectDescription where
   objectCast dict = with Checked do
     name <- getString "name" dict
     body <- the (Checked BodyDescription) $ getCastable "body" dict
-    render <- the (Checked RenderDescription) $ getCastable "render" dict
+    render <- the (Checked (Maybe RenderDescription)) $ getCastableMaybe "render" dict
     control <- the (Checked (Maybe ControlDescription)) $ getCastableMaybe "control" dict
     rules <- the (Checked (Maybe RulesDescription)) $ getCastableMaybe "rules" dict
     pure $ MkObjectDescription name body render control rules

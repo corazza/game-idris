@@ -73,6 +73,6 @@ ObjectCaster ControlDescription where
         let takesAI = MkControlDescription speed jump
         case hasKey "ai_parameters" dict of
           False => pure $ takesAI $ Just (ai_ref, Nothing)
-          True => with ST do
+          True => with Checked do
             ai_parameters <- the (Checked AIParameters) $ getCastable "ai_parameters" dict
             pure $ takesAI $ Just (ai_ref, Just ai_parameters)

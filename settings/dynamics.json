@@ -1,4 +1,7 @@
 {
-  "gravity": [0, -9.81],
-  "timeStep": 15
+     "gravity": [
+          0,
+          -9.81
+     ],
+     "timeStep": 15
 }
