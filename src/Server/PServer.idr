@@ -48,6 +48,11 @@ export
 Show SessionCommand where
   show (Relog x y) = "relog " ++ x ++ " to " ++ y
 
+-- things which would otherwise be on the server, so currently main receives them
+public export
+data GameCommand
+  = UpdateCharacter CharacterId (Character -> Character)
+
 public export
 LoginResponse : Type
 LoginResponse = Checked ObjectId
@@ -59,12 +64,6 @@ loginFail name error = fail $ "couldn't login " ++ name ++ ", error: " ++ error
 export -- TODO URGENT unify with Server.createObject
 loginSuccess : (id : ObjectId) -> LoginResponse
 loginSuccess id = pure id
-  -- = pure (id, dynamicsCommands, serverCommands) where
-  --     dynamicsCommands : List DynamicsCommand
-  --     dynamicsCommands = [createObjectCommand (forCharacter character) character_object id]
-  --
-  --     serverCommands : List ServerCommand
-  --     serverCommands = [Create id (ref character)]
 
 public export
 record PServer where
@@ -72,11 +71,12 @@ record PServer where
   idCounter : Nat
   preload : PreloadResults
   mapData : MapData
-  loggedIn : Objects Character
+  loggedIn : Dict CharacterId ObjectId
   bodyData : Objects BodyData
   dynamicsCommands : List DynamicsCommand -- output
   serverCommands : List InSession -- output
   sessionCommands : List SessionCommand -- output
+  gameCommands : List GameCommand
   clientCommands : List Command -- input
 
 export
@@ -85,12 +85,12 @@ scounter = record { idCounter $= S }
 
 export
 fromMapPreload : MapDescription -> PreloadResults -> PServer
-fromMapPreload desc preload
-  = MkPServer 0 preload (mapDescriptionToMapData desc) empty empty empty empty empty empty
+fromMapPreload desc preload = MkPServer
+  0 preload (mapDescriptionToMapData desc) empty empty empty empty empty empty empty
 
 export
-addLoggedIn : ObjectId -> Character -> PServer -> PServer
-addLoggedIn id character = record { loggedIn $= addObject id character }
+addLoggedIn : CharacterId -> ObjectId -> PServer -> PServer
+addLoggedIn character id = record { loggedIn $= insert character id }
 
 export
 addDynamicsCommand : DynamicsCommand -> PServer -> PServer
@@ -109,6 +109,10 @@ addSessionCommand : SessionCommand -> PServer -> PServer
 addSessionCommand cmd = record { sessionCommands $= append cmd }
 
 export
+addGameCommand : GameCommand -> PServer -> PServer
+addGameCommand cmd = record { gameCommands $= append cmd }
+
+export
 addClientCommand : Command -> PServer -> PServer
 addClientCommand cmd = record { clientCommands $= append cmd }
 
@@ -123,6 +127,10 @@ flushInSessionCommands = record { serverCommands = empty }
 export
 flushSessionCommands : PServer -> PServer
 flushSessionCommands = record { sessionCommands = empty }
+
+export
+flushGameCommands : PServer -> PServer
+flushGameCommands = record { gameCommands = empty }
 
 export
 flushClientCommands : PServer -> PServer

@@ -1,13 +1,12 @@
 {
   "name": "Mage",
-  "health": 150,
-  "tags": [],
 
   "body": {
     "type": "dynamic",
     "fixedRotation": true,
     "bullet": true,
     "groupIndex": -1,
+    "categoryBits": ["animate"],
     "fixtures": [
       {
         "shape": {

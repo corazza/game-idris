@@ -15,7 +15,6 @@ record ObjectDescription where
   render : Maybe RenderDescription
   control : Maybe ControlDescription
   rules : Maybe RulesDescription
-  -- rules : Maybe RulesDescription
 %name ObjectDescription object_description
 
 export

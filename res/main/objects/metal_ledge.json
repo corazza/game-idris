@@ -3,6 +3,7 @@
 
   "body": {
     "type": "dynamic",
+    "categoryBits": ["wall"],
     "fixture": {
       "shape": {
         "type": "box",

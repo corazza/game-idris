@@ -3,6 +3,7 @@
 
   "body": {
     "type": "static",
+    "maskBits": [],
     "fixture": {
       "shape": {
         "type": "circle",

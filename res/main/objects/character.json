@@ -7,6 +7,7 @@
     "fixedRotation": true,
     "bullet": true,
     "groupIndex": -1,
+    "categoryBits": ["animate"],
     "fixture": {
       "shape": {
         "type": "box",

@@ -22,18 +22,35 @@ import Client.Rendering
 import Client.SDL
 import Client.PClient
 
+-- HERE the server handles a map, and characters on that map
+-- rules has a store of characters, functions like Equip modify them
+-- Rules.updateCharacter: updates rules version, outputs a RulesOutput.UpdateCharacter
+-- this is converted by the server into a SessionCommand
+
 record PGame where
   constructor MkPGame
   settings : GameSettings
   preload : PreloadResults
   timeline : Timeline
+  characterId : CharacterId
   character : Character
 
 updateSettings : (f : GameSettings -> GameSettings) -> PGame -> PGame
 updateSettings f = record { settings $= f }
 
-updateCharacter : (f : Character -> Character) -> PGame -> PGame
-updateCharacter f = record { character $= f }
+updateTimeline : (f : Timeline -> Timeline) -> PGame -> PGame
+updateTimeline f = record { timeline $= f }
+
+pgameUpdateCharacter : (character_id : CharacterId) ->
+                       (f : Character -> Character) ->
+                       PGame -> PGame
+pgameUpdateCharacter character_id f pgame
+  = let timelineUpdate = updateTimeline $ updateCharacter character_id f
+        in case character_id == characterId pgame of
+                True => ( (record {character $= f}) . timelineUpdate) pgame
+                False => timelineUpdate pgame
+  -- = ( record { character $= f }
+  -- .  (updateTimeline $ updateCharacter (characterId pgame) f) ) pgame
 
 record GameSessionData where
   constructor MkGameSessionData
@@ -50,7 +67,7 @@ GameState Connected {m} = Composite
    SClient Connected {m},
    SDynamics {m},
    SServer {m},
-   State GameSessionData]
+   State GameSessionData ]
 
 queryPGame : (GameIO m, Dynamics m, Client m, Server m) =>
              (state : Var) ->
@@ -112,8 +129,9 @@ startSession state map_ref = with ST do
   [pgame, client] <- split state
   pgame' <- read pgame
   let settings = settings pgame'
-  let character = character pgame'
   let preload = PGame.preload pgame'
+  let character = PGame.character pgame'
+  let character_id = characterId pgame'
   dynamics <- startDynamics (dynamics settings)
   Right server <- startServer (server settings) map_ref preload | Left e => with ST do
             endDynamics dynamics
@@ -121,7 +139,7 @@ startSession state map_ref = with ST do
             pure $ fail $ "couldn't start server, error: " ++ e
   initialCommands <- getDynamicsCommands server
   runCommands dynamics initialCommands
-  Right character_id <- login server character | Left e => with ST do
+  Right character_object_id <- login server character_id character | Left e => with ST do
             endServer server
             endDynamics dynamics
             combine state [pgame, client]
@@ -129,7 +147,7 @@ startSession state map_ref = with ST do
   dynamicsCommands <- getDynamicsCommands server
   runCommands dynamics dynamicsCommands
   initialCommands <- getInSessionCommands server
-  Right () <- Client.connect client map_ref character_id | Left e => with ST do
+  Right () <- Client.connect client map_ref character_object_id | Left e => with ST do
       endServer server
       endDynamics dynamics
       combine state [pgame, client]
@@ -149,6 +167,11 @@ save state = with ST do
   updatePGame state {s=Connected} $ updateSettings $ setClientSettings clientSettings
   newSettings <- queryPGame state settings {s=Connected}
   lift $ saveSettings newSettings
+  characterId' <- queryPGame state characterId {s=Connected}
+  character <- queryPGame state character {s=Connected}
+  updatePGame state {s=Connected} $ updateTimeline $ updateCharacter characterId' $ const character
+  timeline <- queryPGame state timeline {s=Connected}
+  lift $ saveTimeline "saves/one.json" timeline
 
 endSession : (GameIO m, Dynamics m, Client m, Server m) =>
              (state : Var) ->
@@ -191,9 +214,9 @@ runSessionCommand : (GameIO m, Dynamics m, Client m, Server m) =>
                     ST m (Either ContentReference ()) [state ::: GameState Connected {m}]
 runSessionCommand state (Relog id to) = with ST do
   [pgame, client, dynamics, server, game_session_data] <- split state
-  character_id <- querySessionData client characterId
+  character_object_id <- querySessionData client characterId
   combine state [pgame, client, dynamics, server, game_session_data]
-  case id == character_id of
+  case id == character_object_id of
     True => pure $ Left to
     False => pure $ Right ()
 
@@ -205,6 +228,21 @@ runSessionCommands state [] = pure $ Right ()
 runSessionCommands state (cmd::xs) = case !(runSessionCommand state cmd) of
   Left to => pure $ Left to
   Right () => runSessionCommands state xs
+
+runGameCommand : (GameIO m, Dynamics m, Client m, Server m) =>
+                 (state : Var) ->
+                 (gameCommand : GameCommand) ->
+                 ST m () [state ::: GameState Connected {m}]
+runGameCommand state (UpdateCharacter character_id f)
+  = updatePGame state {s=Connected} $ pgameUpdateCharacter character_id f
+
+runGameCommands : (GameIO m, Dynamics m, Client m, Server m) =>
+                  (state : Var) ->
+                  (gameCommands : List GameCommand) ->
+                  ST m () [state ::: GameState Connected {m}]
+runGameCommands state [] = pure ()
+runGameCommands state (cmd::xs)
+  = runGameCommand state cmd >>= const (runGameCommands state xs)
 
 data LoopResult = Exit | Relog ContentReference
 
@@ -230,11 +268,15 @@ loop state = with ST do
   (newCarry, serverCommands) <- iterateCarry dynamics server time characterId
 
   runServerCommands client serverCommands
-  sessionCommands <- getSessionCommands server
 
   write game_session_data $ MkGameSessionData beforems newCarry
 
+  sessionCommands <- getSessionCommands server
+  gameCommands <- getGameCommands server
+
   combine state [pgame, client, dynamics, server, game_session_data]
+
+  runGameCommands state gameCommands
 
   logout <- runSessionCommands state sessionCommands
 
@@ -247,13 +289,14 @@ game : (GameIO m, Dynamics m, Client m, Server m) =>
        ST m () [state ::: GameState Disconnected {m}]
 game state = with ST do
   map_ref <- queryPGame state {s=Disconnected} $ (map . character)
+  characterId <- queryPGame state {s=Disconnected} $ characterId
   Right () <- startSession state map_ref | Left e => with ST do
     lift $ log $ "couldn't start session, error:\n" ++ e
   case !(loop state) of
     Exit => endSession state
     Relog to => with ST do
+      updatePGame state {s=Connected} $ pgameUpdateCharacter characterId $ setMap to
       endSession state
-      updatePGame state {s=Disconnected} $ updateCharacter $ setMap to
       game state
 
 start : (GameIO m, Dynamics m, Client m, Server m) => ST m () []
@@ -265,12 +308,11 @@ start = with ST do
   Right client_settings <- lift $ loadClientSettings
       | Left e => lift (log e)
   let settings = MkGameSettings dynamics_settings server_settings client_settings
-  Right timeline <- lift $ loadTimeline "saves/default.json"
+  Right timeline <- lift $ loadTimeline "saves/one.json"
       | Left e => lift (log e)
   let characterId = character timeline
-  case lookup characterId (characters timeline) of
-    Nothing => with ST do
-      lift $ log $ "can't find character with id \"" ++ characterId ++ "\""
+  case getCharacter characterId timeline of
+    Nothing => lift $ log $ "couldn't get character with id " ++ characterId
     Just character => with ST do
       Right preload_info <- lift $ checkedJSONLoad {r=Preload} "res/main/preload.json"
             | Left e => with ST do
@@ -280,8 +322,8 @@ start = with ST do
             | Left e => with ST do
                   lift $ log "couldn't load preload, error:"
                   lift $ log e
-      pgame <- new $ MkPGame settings preload timeline character
-      client <- startClient (client settings) preload character
+      pgame <- new $ MkPGame settings preload timeline characterId character
+      client <- startClient (client settings) preload
       state <- new ()
       combine state [pgame, client]
       game state

@@ -31,8 +31,8 @@ ObjectCaster JointDescription where
     case type of
       "revolute" => with Checked do
         bodyA <- getString "bodyA" dict
-        localAnchorA <- getVector "localAnchorA" dict
         bodyB <- getString "bodyB" dict
+        localAnchorA <- getVector "localAnchorA" dict
         localAnchorB <- getVector "localAnchorB" dict
         collideConnected <- getBoolMaybe "collideConnected" dict
         pure $ MkJointDescription bodyA localAnchorA bodyB localAnchorB collideConnected

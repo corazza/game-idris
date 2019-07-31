@@ -1,0 +1,14 @@
+{
+  "name": "Bow",
+
+  "equip": {
+    "slot": "two hands",
+    "ability": {
+      "type": "throw",
+      "ref": "main/objects/wooden_arrow.json",
+      "impulse": 8
+    }
+  },
+
+  "drop": "main/objects/drop/demonic_bow.json"
+}

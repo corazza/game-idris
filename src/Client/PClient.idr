@@ -11,7 +11,6 @@ record PClient where
   constructor MkPClient
   preload : PreloadResults
   settings : ClientSettings
-  character : Character
 
 public export
 record SessionData where

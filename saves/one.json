@@ -1,0 +1,22 @@
+{
+     "character": "character",
+     "characters": {
+          "character": {
+               "items": {
+                    "equipment": {
+                         "hands": "main/items/demonic_bow.json"
+                    },
+                    "inventory": {
+                         "main/items/demonic_bow.json": 2
+                    }
+               },
+               "map": "main/maps/castle.json",
+               "name": "Tristram",
+               "object": "main/objects/character.json",
+               "position": [
+                    0,
+                    -3
+               ]
+          }
+     }
+}

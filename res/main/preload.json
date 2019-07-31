@@ -8,7 +8,8 @@
     "main/objects/mage-3.json",
     "main/objects/yellow_marker.json",
     "main/objects/metal_ledge.json",
-    "main/objects/static_joint.json"
+    "main/objects/static_joint.json",
+    "main/objects/drops/demonic_bow.json"
   ],
 
   "walls": [
@@ -37,6 +38,11 @@
     "main/behaviors/hold-chase.json",
     "main/behaviors/roam-chase.json",
     "main/behaviors/projectile.json",
-    "main/behaviors/door.json"
+    "main/behaviors/door.json",
+    "main/behaviors/loot.json"
+  ],
+
+  "items": [
+    "main/items/demonic_bow.json"
   ]
 }

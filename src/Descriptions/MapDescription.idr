@@ -3,6 +3,7 @@ module Descriptions.MapDescription
 import Physics.Box2D
 
 import Descriptions.ObjectDescription
+import Descriptions.AbilityDescription
 import Descriptions.ObjectDescription.BodyDescription
 import Descriptions.ObjectDescription.RenderDescription
 import Descriptions.ObjectDescription.ControlDescription
@@ -14,22 +15,6 @@ import GameIO
 import Exception
 import Timeline
 import Objects
-
--- public export
--- data CreationData
---   = Door ContentReference
---
--- Show CreationData where
---   show (Door x) = "door " ++ x
---
--- ObjectCaster CreationData where
---   objectCast dict = with Checked do
---     type <- getString "type" dict
---     case type of
---       "door" => with Checked do
---         door <- getString "door" dict
---         pure $ Door door
---       _ => fail "data type must be of \"door\""
 
 public export -- loaded by server, received by client
 record Creation where
@@ -57,7 +42,6 @@ ObjectCaster Creation where
     ref <- getString "ref" dict
     position <- getVector "position" dict
     angle <- getCreationAngle dict
-    -- creationData <- the (Checked (Maybe CreationData)) $ getCastableMaybe "data" dict
     behavior <- the (Checked (Maybe BehaviorParameters)) $ getCastableMaybe "behavior" dict
     id <- getStringMaybe "id" dict
     pure $ MkCreation ref position Nothing Nothing angle behavior id

@@ -3,6 +3,11 @@ module Objects
 import public Data.AVL.DDict
 
 public export
+CharacterId : Type
+CharacterId = String
+%name CharacterId charater_id
+
+public export
 NumericPropertyId : Type
 NumericPropertyId = String
 

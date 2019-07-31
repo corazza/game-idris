@@ -48,11 +48,19 @@ interface Server (m : Type -> Type) where
 
   getInSessionCommands : (server : Var) -> ST m (List InSession) [server ::: SServer]
   getSessionCommands : (server : Var) -> ST m (List SessionCommand) [server ::: SServer]
+  getGameCommands : (server : Var) -> ST m (List GameCommand) [server ::: SServer]
   -- TODO temporary, should be included in startServer, which should return
   -- Checked (Var, List DynamicsCommand)
   getDynamicsCommands : (server : Var) -> ST m (List DynamicsCommand) [server ::: SServer]
 
-  login : (server : Var) -> Character -> ST m LoginResponse [server ::: SServer]
+  login : (server : Var) -> CharacterId -> Character -> ST m LoginResponse [server ::: SServer]
+
+  private
+  rulesAddCharacter : (server : Var) ->
+                       (id : ObjectId) ->
+                       (character_id : CharacterId) ->
+                       (character : Character) ->
+                       ST m () [server ::: SServer]
 
   private
   updateBodyData : (server : Var) -> Objects BodyData -> ST m () [server ::: SServer]
@@ -179,21 +187,36 @@ export
     updatePServer server flushSessionCommands
     pure clientOutput
 
+  getGameCommands server = with ST do
+    gameCommands <- queryPServer server gameCommands
+    updatePServer server flushGameCommands
+    pure gameCommands
+
   getDynamicsCommands server = with ST do
     dynamicsOutput <- queryPServer server dynamicsCommands
     updatePServer server flushDynamicsCommands
     pure dynamicsOutput
 
-  login server character = with ST do
-    preload <- queryPServer server preload
-    let ref = ref character
-    case getObjectDescription ref preload of
-      Left e => pure $ loginFail ref e
-      Right character_object => with ST do
-        spawn <- queryPServer server (spawn . mapData)
-        id <- createObject server (forCharacter spawn character) character_object
-        updatePServer server $ addLoggedIn id character
-        pure $ loginSuccess id
+  rulesAddCharacter server id character_id character = with ST do
+    [pserver, rules] <- split server
+    addCharacter rules id character_id character
+    combine server [pserver, rules]
+
+  login server character_id character = with ST do
+    loggedIn <- queryPServer server loggedIn
+    case hasKey character_id loggedIn of
+      True => pure $ loginFail character_id "already logged in"
+      False => with ST do
+        preload <- queryPServer server preload
+        let ref = ref character
+        case getObjectDescription ref preload of
+          Left e => pure $ loginFail character_id e
+          Right character_object => with ST do
+            spawn <- queryPServer server (spawn . mapData)
+            id <- createObject server (forCharacter spawn character) character_object
+            updatePServer server $ addLoggedIn character_id id
+            rulesAddCharacter server id character_id character
+            pure $ loginSuccess id
 
   updateBodyData server bodyData = with ST do
     updatePServer server $ pserverSetBodyData bodyData
@@ -222,6 +245,8 @@ export
     = updatePServer server $ addInSessionCommand $ UpdateNumericProperty object_id prop_id current
   processRulesOutput server (ExitTo object_id ref)
     = updatePServer server $ addSessionCommand $ Relog object_id ref
+  processRulesOutput server (UpdateCharacter character_id f)
+    = updatePServer server $ addGameCommand $ UpdateCharacter character_id f
      -- TODO update logged in
 
   processRulesOutputs server [] = pure ()

@@ -12,6 +12,8 @@ import Server.Rules.Behavior
 import Dynamics.PDynamics
 import Dynamics.DynamicsEvent
 import Descriptions.MapDescription
+import Descriptions.ItemDescription
+import Descriptions.AbilityDescription
 import Descriptions.ObjectDescription.RulesDescription
 import Descriptions.ObjectDescription.RulesDescription.BehaviorDescription
 import Objects
@@ -19,6 +21,7 @@ import GameIO
 import Commands
 import JSONCache
 import Exception
+import Timeline
 
 public export
 interface Rules (m : Type -> Type) where
@@ -35,6 +38,17 @@ interface Rules (m : Type -> Type) where
               (desc : RulesDescription) ->
               (creator : Maybe ObjectId) ->
               ST m () [rules ::: SRules]
+
+  addCharacter : (rules : Var) ->
+                 (id : ObjectId) ->
+                 (character_id : CharacterId) ->
+                 (character : Character) ->
+                 ST m () [rules ::: SRules]
+
+  updateCharacter : (rules : Var) ->
+                    (id : ObjectId) ->
+                    (f : Character -> Character) ->
+                    ST m () [rules ::: SRules]
 
   removeObject : (rules : Var) ->
                  (id : ObjectId) ->
@@ -85,6 +99,14 @@ GameIO m => Rules m where
             let for_controller = Just (behavior_desc, behavior_params)
                 in updatePRules rules $ prulesAddObject id desc for_controller creator
 
+  addCharacter rules id character_id character =
+    updatePRules rules $ prulesAddCharacter id character_id character
+
+  updateCharacter rules id f = with ST do
+    Just (character_id, character) <- queryPRules rules $ prulesGetCharacter id
+    updatePRules rules $ prulesUpdateCharacter id f
+    updatePRules rules $ output (UpdateCharacter character_id f)
+
   removeObject rules id = updatePRules rules $ prulesRemoveObject id
 
   runAbility rules id at (Throw ref impulse) body
@@ -97,12 +119,7 @@ GameIO m => Rules m where
             ref from (Just impulse') (Just id) (Just angle') Nothing Nothing
           in updatePRules rules $ output (Create creation)
 
-  runCommand rules (Stop (Attack at) id) = with ST do
-    Just ability <- queryPRules rules $ getAttack id
-                 | Nothing => pure ()
-    Just body <- queryPRules rules $ getBody id
-              | Nothing => pure ()
-    runAbility rules id at ability body
+  runCommand rules (Stop (Attack at) id) = runScript rules $ attackScript id at
   runCommand rules _ = pure ()
 
   runCommands rules [] = pure ()
@@ -115,6 +132,15 @@ GameIO m => Rules m where
     runUnitScripts rules scripts
   runScript rules (UpdateData id f)
     = updatePRules rules $ prulesUpdateController id $ updateData f
+  runScript rules (GetItemDescription ref) = with ST do
+    preload' <- queryPRules rules preload
+    pure $ getItemDescription ref preload'
+  runScript rules (GetAttack id) =  queryPRules rules $ getAttack id
+  runScript rules (Ability id at desc) = with ST do
+    Just body <- queryPRules rules $ getBody id | pure ()
+    runAbility rules id at desc body
+  runScript rules (GetCharacter id) = queryPRules rules $ prulesGetCharacter' id
+  runScript rules (UpdateCharacter id f) = updateCharacter rules id f
   runScript rules (GetStartTime id) = queryPRules rules $ getStartTime id
   runScript rules (GetDirection id) = queryPRules rules $ getDirection id
   runScript rules (GetController id) = queryPRules rules $ getController id

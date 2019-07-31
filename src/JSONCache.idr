@@ -13,6 +13,7 @@ import Objects
 import Descriptions.ObjectDescription
 import Descriptions.ObjectDescription.RulesDescription.BehaviorDescription
 import Descriptions.MapDescription
+import Descriptions.ItemDescription
 import Descriptions.WallDescription
 import Descriptions.AnimationDescription
 import Descriptions.NumericPropertyRender
@@ -25,16 +26,18 @@ record Preload where
   animations : List ContentReference
   maps : List ContentReference
   behaviors : List ContentReference
+  items : List ContentReference
 %name Preload preload
 
 export
 Show Preload where
-  show (MkPreload objects walls animations maps behaviors)
+  show (MkPreload objects walls animations maps behaviors items)
     =  "{ objects: " ++ show objects
     ++ ", walls: " ++ show walls
     ++ ", animations: " ++ show animations
     ++ ", maps: " ++ show maps
     ++ ", behaviors: " ++ show behaviors
+    ++ ", items: " ++ show items
     ++ " }"
 
 export
@@ -45,7 +48,8 @@ ObjectCaster Preload where
     animations <- getStrings "animations" dict
     maps <- getStrings "maps" dict
     behaviors <- getStrings "behaviors" dict
-    pure $ MkPreload objects walls animations maps behaviors
+    items <- getStrings "items" dict
+    pure $ MkPreload objects walls animations maps behaviors items
 
 public export
 CacheType : Type -> Type
@@ -59,6 +63,7 @@ record PreloadResults where
   animations : CacheType AnimationDescription
   maps : CacheType MapDescription
   behaviors : CacheType BehaviorDescription
+  items : CacheType ItemDescription
   numPropRender : NumPropRenderDescriptionDict
 %name PreloadResults preload
 
@@ -82,6 +87,13 @@ getWallDescription : (ref : ContentReference) ->
                      Checked WallDescription
 getWallDescription ref
   = maybeToEither (lookupError "wall description" ref) . lookup ref . walls
+
+export
+getItemDescription : (ref : ContentReference) ->
+                     (preload : PreloadResults) ->
+                     Checked ItemDescription
+getItemDescription ref
+  = maybeToEither (lookupError "item description" ref) . lookup ref . items
 
 export
 getAnimationDescription : (ref : ContentReference) ->
@@ -195,7 +207,8 @@ preloadResults preload_info = with ST do
   animations_dict <- preloadDict {r=AnimationDescription} (animations preload_info)
   maps_dict <- preloadDict {r=MapDescription} (maps preload_info)
   behaviors_dict <- preloadDict {r=BehaviorDescription} (behaviors preload_info)
+  items_dict <- preloadDict {r=ItemDescription} (items preload_info)
   Right numPropRender <- preloadNumProp
         | Left e => pure (fail e)
   pure $ Right $ MkPreloadResults
-    objects_dict walls_dict animations_dict maps_dict behaviors_dict numPropRender
+    objects_dict walls_dict animations_dict maps_dict behaviors_dict items_dict numPropRender

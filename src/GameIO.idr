@@ -96,6 +96,12 @@ ObjectCaster a => Cast JSON (Checked a) where
   cast _ = fail "not a JSON object"
 
 export
+pick : (fieldName : String) -> (key : String) -> (from : Dict String a) -> Checked a
+pick fieldName key from = case lookup key from of
+  Nothing => fail $ fieldName ++ " must be of " ++ show (keys from)
+  Just x => pure x
+
+export
 getCastable : ObjectCaster a => (name : String) -> (dict : JSONDict) -> Checked a
 getCastable name dict = with Checked do
   aJSON <- maybeToEither ("JSON lookup fail for " ++ name) (lookup name dict)
@@ -198,7 +204,7 @@ export
 getStrings : String -> JSONDict -> Checked (List String)
 getStrings key dict = (case lookup key dict of
   Just (JArray xs) => getStrings' [] xs
-  Nothing => fail $ "not an array (" ++ key ++ ")") where
+  _ => fail $ "not an array (" ++ key ++ ")") where
       getStrings' : List String -> List JSON -> Checked (List String)
       getStrings' acc [] = pure acc
       getStrings' acc (JString x :: xs) = getStrings' (x :: acc) xs

@@ -4,7 +4,7 @@
   "body": {
     "type": "static",
     "bullet": false,
-    "maskBits": 0,
+    "maskBits": [],
     "fixtures": [
       {
         "shape": {

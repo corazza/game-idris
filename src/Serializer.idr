@@ -125,6 +125,14 @@ addVector object key (x, y) = with ST do
   vectorArray' <- getArray vectorArray
   addArray object key vectorArray'
 
+export
+addStringMaybe : (object : Var) ->
+                 (key : String) ->
+                 (value : Maybe String) ->
+                 ST Identity () [object ::: SKind JSONOBject {m=Identity}]
+addStringMaybe object key (Just s) = addString object key s
+addStringMaybe object key Nothing = pure ()
+
 public export
 interface Serialize a where
   toDict : a -> ST Identity JSONDict []
@@ -136,3 +144,9 @@ serialize = dictToJSON . (runIdentity . run) . toDict
 export
 pretty : Serialize a => a -> String
 pretty = format 5 . serialize
+
+export
+makeDict : Serialize a => Dict String a -> JSONDict
+makeDict = fromList . map serializeEntry . toList where
+  serializeEntry : (String, a) -> (String, JSON)
+  serializeEntry (key, value) = (key, serialize value)

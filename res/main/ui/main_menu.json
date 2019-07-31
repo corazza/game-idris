@@ -1,0 +1,25 @@
+{
+  "width": 200,
+  "height": 400,
+  "render": {
+    "type": "color",
+    "color": [191, 191, 191, 38]
+  },
+
+  "displayStyle": "center",
+  "layout": "vertical",
+  "children": [
+    {
+      "width": 200,
+      "height": 50,
+      "render": {
+        "type": "color",
+        "color": [207, 32, 32, 66]
+      },
+      "click": "main_menu_exit"
+    }
+  ],
+
+  "childrenWidth": 200,
+  "childrenHeight": 50
+}

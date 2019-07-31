@@ -8,6 +8,7 @@ sourcedir = src
 
 modules = Data.AVL.DDict
         , GameIO
+        , Serializer
         , Exception
         , JSONCache
         , Commands
@@ -22,11 +23,15 @@ modules = Data.AVL.DDict
         , Descriptions.AnimationDescription
         , Descriptions.NumericPropertyRender
         , Descriptions.ObjectDescription
+        , Descriptions.JointDescription
+        , Descriptions.AbilityDescription
+        , Descriptions.ItemDescription
         , Descriptions.ObjectDescription.BodyDescription
         , Descriptions.ObjectDescription.ControlDescription
         , Descriptions.ObjectDescription.RenderDescription
         , Descriptions.ObjectDescription.RulesDescription
         , Descriptions.ObjectDescription.RulesDescription.BehaviorDescription
+        , Descriptions.UIDescription
         , Dynamics
         , Dynamics.DynamicsControl
         , Dynamics.PDynamics
@@ -46,6 +51,8 @@ modules = Data.AVL.DDict
         , Client.Rendering.Camera
         , Client.Rendering.PRendering
         , Client.Rendering.Info
+        , Client.UI
+        , Client.UI.PUI
 
 main = Main
 

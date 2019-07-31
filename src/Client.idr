@@ -33,7 +33,6 @@ interface Client (m : Type -> Type) where
 
   startClient : (settings : ClientSettings) ->
                 (preload : PreloadResults) ->
-                (character : Character) ->
                 ST m Var [add (SClient Disconnected)]
   endClient : (client : Var) -> ST m () [remove client (SClient Disconnected)]
 
@@ -107,8 +106,8 @@ export
                                  SRendering {m},
                                  SSDL {m}]
 
-  startClient settings preload character = with ST do
-    pclient <- new $ MkPClient preload settings character
+  startClient settings preload = with ST do
+    pclient <- new $ MkPClient preload settings
     sdl <- startSDL (resolutionX settings) (resolutionY settings)
     client <- new ()
     combine client [pclient, sdl]

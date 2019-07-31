@@ -1,5 +1,6 @@
 module Descriptions.ObjectDescription.BodyDescription
 
+import Data.Bits
 import Physics.Box2D
 import Physics.Vector2D
 
@@ -37,6 +38,29 @@ Show FixtureParameters where
     ++ ", group index: " ++ show (groupIndex fp)
     ++ " }"
 
+entryToBits : (String, Int) -> (String, Bits 16)
+entryToBits (name, x) = (name, intToBits $ cast x)
+
+categoryNums : Dict String (Bits 16)
+categoryNums = fromList $ map entryToBits [
+  ("wall", 1),
+  ("inanimate", 2),
+  ("animate", 4),
+  ("projectile", 8),
+  ("drop", 16)
+]
+
+decideBits : List (Bits 16) -> Int
+decideBits = fromInteger . bitsToInt . foldr or (intToBits 0)
+
+getBits : (key : String) -> JSONDict -> Checked (Maybe Int)
+getBits key dict = case hasKey key dict of
+  False => pure Nothing
+  True => with Checked do
+    categories <- getStrings key dict
+    nums <- catResults $ map (flip (pick "bits") categoryNums) categories
+    pure $ Just $ decideBits nums
+
 export -- TODO rewrite with getMaybe or smth so it validates
 getFixtureParameters : JSONDict -> Checked FixtureParameters
 getFixtureParameters dict
@@ -46,8 +70,9 @@ getFixtureParameters dict
         friction = eitherToMaybe $ getDouble "friction" dict
         restitution = eitherToMaybe $ getDouble "restitution" dict
         groupIndex = eitherToMaybe $ getInt "groupIndex" dict
-        categoryBits = eitherToMaybe $ getInt "categoryBits" dict
-        maskBits = eitherToMaybe $ getInt "maskBits" dict in
+        in with Checked do
+          categoryBits <- getBits "categoryBits" dict
+          maskBits <- getBits "maskBits" dict
           pure $ MkFixtureParameters
             offset angle density friction restitution groupIndex categoryBits maskBits
 
@@ -141,7 +166,7 @@ ObjectCaster BodyDescription where
     fixtures <- getFixtures dict
     effects <- getPhysicsEffects dict
     let groupIndex = eitherToMaybe $ getInt "groupIndex" dict
-    let categoryBits = eitherToMaybe $ getInt "categoryBits" dict
-    let maskBits = eitherToMaybe $ getInt "maskBits" dict
+    categoryBits <- getBits "categoryBits" dict
+    maskBits <- getBits "maskBits" dict
     pure $ MkBodyDescription
       type fixedRotation bullet fixtures effects groupIndex categoryBits maskBits

@@ -15,7 +15,7 @@ data BehaviorAction
   | Attack
   | BeginChase | EndChase
   | BeginWalk | EndWalk
-  | Door
+  | Door | Loot
 
 export
 Show BehaviorAction where
@@ -30,21 +30,27 @@ Show BehaviorAction where
   show BeginWalk = "begin wald"
   show EndWalk = "end walk"
   show Door = "door"
+  show Loot = "loot"
+
+actionPicker : Dict String BehaviorAction
+actionPicker = fromList [
+  ("move left", MoveLeft),
+  ("move right", MoveRight),
+  ("stop", Stop),
+  ("change direction", ChangeDirection),
+  ("projectile damage", ProjectileDamage),
+  ("attack", Attack),
+  ("begin chase", BeginChase),
+  ("end chase", EndChase),
+  ("begin walk", BeginWalk),
+  ("end walk", EndWalk),
+  ("door", Door),
+  ("loot", Loot)
+]
 
 export
 Cast String (Checked BehaviorAction) where
-  cast "move left" = pure MoveLeft
-  cast "move right" = pure MoveRight
-  cast "stop" = pure Stop
-  cast "change direction" = pure ChangeDirection
-  cast "projectile damage" = pure ProjectileDamage
-  cast "attack" = pure Attack
-  cast "begin chase" = pure BeginChase
-  cast "end chase" = pure EndChase
-  cast "begin walk" = pure BeginWalk
-  cast "end walk" = pure EndWalk
-  cast "door" = pure Door
-  cast _ = fail "wrong behavior action"
+  cast actionString = pick "action" actionString actionPicker
 
 public export
 record Transition where

@@ -1,0 +1,17 @@
+{
+  "states": ["unlooted", "looted"],
+  "start": "unlooted",
+  "end": "looted",
+
+  "unlooted": {
+    "onInteract": {
+      "interact_string": "loot",
+      "transition": {
+        "state": "looted",
+        "action": "loot"
+      }
+    }
+  },
+
+  "looted": {}
+}

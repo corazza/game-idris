@@ -7,9 +7,11 @@ import Objects
 import GameIO
 import Commands
 import JSONCache
+import Descriptions.AbilityDescription
 import Descriptions.ObjectDescription.RulesDescription
 import Descriptions.ObjectDescription.RulesDescription.BehaviorDescription
 import Dynamics.PDynamics
+import Timeline
 
 public export
 record RulesData where
@@ -51,12 +53,13 @@ record PRules where
   constructor MkPRules
   preload : PreloadResults
   objects : Objects RulesData
+  characters : Objects (CharacterId, Character)
   bodyData : Objects BodyData
   rulesOutput : List RulesOutput
 
 export
 emptyPRules : PreloadResults -> PRules
-emptyPRules preload = MkPRules preload empty empty empty
+emptyPRules preload = MkPRules preload empty empty empty empty
 
 export
 prulesSetBodyData : Objects BodyData -> PRules -> PRules
@@ -73,6 +76,24 @@ prulesAddObject id rules_desc for_controller creator
         in record { objects $= addObject id object } where
           controller : Maybe BehaviorController
           controller = map (uncurry fromDescriptorParameters) for_controller
+
+export
+prulesAddCharacter : ObjectId -> CharacterId -> Character -> PRules -> PRules
+prulesAddCharacter id character_id character
+  = record { characters $= addObject id (character_id, character) }
+
+export
+prulesGetCharacter : ObjectId -> PRules -> Maybe (CharacterId, Character)
+prulesGetCharacter id = lookup id . characters
+
+export
+prulesGetCharacter' : ObjectId -> PRules -> Maybe Character
+prulesGetCharacter' id = map snd . lookup id . characters
+
+export
+prulesUpdateCharacter : ObjectId -> (f : Character -> Character) -> PRules -> PRules
+prulesUpdateCharacter id f
+  = record { characters $= updateObject id (\(character_id, character) => (character_id, f character)) }
 
 export
 prulesRemoveObject : ObjectId -> PRules -> PRules

@@ -84,6 +84,11 @@
       "ref": "main/objects/static_joint.json",
       "position": [1, -5],
       "id": "map_castle_static_joint_1"
+    },
+
+    {
+      "ref": "main/objects/drops/demonic_bow.json",
+      "position": [5, -5]
     }
   ],
 

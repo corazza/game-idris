@@ -7,17 +7,26 @@ import Server.Rules.RulesOutput
 import Server.Rules.RuleEvent
 import Server.Rules.NumericProperties
 import Descriptions.ObjectDescription.RulesDescription
+import Descriptions.ItemDescription
+import Descriptions.AbilityDescription
 import Descriptions.ObjectDescription.RulesDescription.BehaviorDescription
 import Dynamics.DynamicsEvent
 import Commands
 import GameIO
 import Objects
+import Exception
+import Timeline
 
 public export
 data RuleScript : Type -> Type where
   Output : RulesOutput -> RuleScript ()
   Transition : (id : ObjectId) -> BehaviorState -> List (RuleScript ()) -> RuleScript ()
   UpdateData : (id : ObjectId) -> (f : BehaviorData -> BehaviorData) -> RuleScript ()
+  GetItemDescription : (ref : ContentReference) -> RuleScript (Checked ItemDescription)
+  GetAttack : (id : ObjectId) -> RuleScript (Maybe AbilityDescription)
+  Ability : (id : ObjectId) -> (at : Vector2D) -> (desc : AbilityDescription) -> RuleScript ()
+  GetCharacter : (id : ObjectId) -> RuleScript (Maybe Character)
+  UpdateCharacter : (id : ObjectId) -> (f : Character -> Character) -> RuleScript ()
 
   GetStartTime : (id : ObjectId) -> RuleScript (Maybe Int) -- time since in this state
   GetDirection : (id : ObjectId) -> RuleScript (Maybe BehaviorDirection)
@@ -171,6 +180,7 @@ runCollisionAction collision_data EndChase = endChaseScript (self_id collision_d
 runCollisionAction collision_data BeginWalk = beginWalkScript (self_id collision_data)
 runCollisionAction collision_data EndWalk = endWalkScript (self_id collision_data)
 runCollisionAction collision_data Door = pure ()
+runCollisionAction collision_data Loot = pure ()
 
 runTimeAction : ObjectId -> BehaviorAction -> UnitRuleScript
 runTimeAction id MoveLeft = startMovementScript id Left
@@ -184,6 +194,7 @@ runTimeAction id EndChase = endChaseScript id
 runTimeAction id BeginWalk = beginWalkScript id
 runTimeAction id EndWalk = endWalkScript id
 runTimeAction id Door = pure ()
+runTimeAction id Loot = pure ()
 
 collisionScript : CollisionData -> ObjectId -> UnitRuleScript
 collisionScript collision_data id = with RuleScript do
@@ -194,6 +205,17 @@ collisionScript collision_data id = with RuleScript do
         let id = self_id collision_data
             actions = map (runCollisionAction collision_data) actions
             in Transition id state actions
+
+lootScript : (looter : ObjectId) ->
+             (drop : ObjectId) ->
+             (item : ContentReference) ->
+             UnitRuleScript
+lootScript looter drop item = with RuleScript do
+  Just character <- GetCharacter looter | pure ()
+  Just drop_controller <- GetController drop | pure ()
+  Right item_desc <- GetItemDescription item
+        | Left e => Log ("couldn't get item " ++ item ++ ", error: " ++ e)
+  UpdateCharacter looter $ loot item
 
 -- TODO chaining (moves are universal, so they go first)
 runInteractAction : (interact_string : String) ->
@@ -213,6 +235,7 @@ runInteractAction interact_string initiator target BeginWalk = beginWalkScript t
 runInteractAction interact_string initiator target EndWalk = endWalkScript target
 runInteractAction interact_string initiator target Door
   = Output $ ExitTo initiator interact_string
+runInteractAction interact_string initiator target Loot = lootScript initiator target interact_string
 
 interactScript : (initiator : ObjectId) -> (target : ObjectId) -> UnitRuleScript
 interactScript initiator target = with RuleScript do
@@ -280,3 +303,18 @@ mainScript time id = with AIScript do
   timeScript time id
   chaseScript id
   garbageScript id
+
+export
+attackScript : (id : ObjectId) -> (at : Vector2D) -> UnitRuleScript
+attackScript id at = case !(GetCharacter id) of
+  Just character => case attackItem character of
+    Nothing => pure ()
+    Just ref => with RuleScript do
+      Right attack_item <- GetItemDescription ref | Left e =>
+            Log ("couldn't get item description " ++ show (attackItem character) ++ " (attackScript)")
+      case equip attack_item of
+        Nothing => pure ()
+        Just (MkEquipDescription slot ability) => Ability id at ability
+  Nothing => with RuleScript do
+    Just attack <- GetAttack id | pure ()
+    Ability id at attack
