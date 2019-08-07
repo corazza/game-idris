@@ -16,6 +16,11 @@ StatId : Type
 StatId = String
 
 public export
+SurfaceId : Type
+SurfaceId = String
+%name SurfaceId surface_id
+
+public export
 ObjectId : Type
 ObjectId = String
 %name ObjectId id

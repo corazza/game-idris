@@ -1,13 +1,9 @@
-module Descriptions.UIDescription
+module Descriptions.SurfaceDescription
 
 import GameIO
 import Exception
 import Descriptions.Color
-
-public export
-SurfaceId : Type
-SurfaceId = String
-%name SurfaceId surface_id
+import Objects
 
 public export
 data SurfaceRenderMethod
@@ -31,12 +27,12 @@ record SurfaceRenderDescription where
 
 ObjectCaster SurfaceRenderDescription where
   objectCast dict = case hasKey "inactive" dict of
-    False => with Checked do
+    True => with Checked do
       inactive <- the (Checked SurfaceRenderMethod) $ getCastable "inactive" dict
       hover <- the (Checked (Maybe SurfaceRenderMethod)) $ getCastableMaybe "hover" dict
       clicked <- the (Checked (Maybe SurfaceRenderMethod)) $ getCastableMaybe "clicked" dict
       pure $ MkSurfaceRenderDescription inactive hover clicked
-    True => with Checked do
+    False => with Checked do
       inactive <- the (Checked SurfaceRenderMethod) $ objectCast dict
       pure $ MkSurfaceRenderDescription inactive Nothing Nothing
 
@@ -74,30 +70,51 @@ Cast String (Checked Layout) where
   cast x = pick "layout" x stringLayoutDict
 
 public export
-record SurfaceDescription where
-  constructor MkSurfaceDescription
-  width : Int
-  height : Int
+record SurfaceParameters where
+  constructor MkSurfaceParameters
+  dimensions : Maybe (Int, Int)
   render : SurfaceRenderDescription
   click : Maybe String
   displayStyle : DisplayStyle
   layout : Layout
+
+getDimensions : JSONDict -> Checked (Maybe (Int, Int))
+getDimensions dict = case hasKey "width" dict of
+  True => with Checked do
+    width <- getInt "width" dict
+    height <- getInt "height" dict
+    pure $ Just (width, height)
+  False => pure Nothing
+
+export
+ObjectCaster SurfaceParameters where
+  objectCast dict = with Checked do
+    dimensions <- getDimensions dict
+    render <- the (Checked SurfaceRenderDescription) $ getCastable "render" dict
+    click <- getStringMaybe "click" dict
+    displayStyle' <- getStringOrDefault "displayStyle" "center" dict
+    displayStyle <- cast displayStyle'
+    layout' <- getStringOrDefault "layout" "vertical" dict
+    layout <- cast layout'
+    pure $ MkSurfaceParameters dimensions render click displayStyle layout
+
+public export
+record SurfaceDescription where
+  constructor MkSurfaceDescription
+  id : Maybe SurfaceId
+  surfaceParameters : SurfaceParameters
   children : List SurfaceDescription
 
 mutual
   getChildren : JSONDict -> Checked (List SurfaceDescription)
-  getChildren dict = getArray "children" dict >>= catResults . map cast
+  getChildren dict = case hasKey "children" dict of
+    True => getArray "children" dict >>= catResults . map cast
+    False => pure []
 
   export
   ObjectCaster SurfaceDescription where
     objectCast dict = with Checked do
-      width <- getInt "width" dict
-      height <- getInt "height" dict
-      render <- the (Checked SurfaceRenderDescription) $ getCastable "render" dict
-      click <- getStringMaybe "click" dict
-      displayStyle' <- getString "displayStyle" dict
-      displayStyle <- cast displayStyle'
-      layout' <- getString "layout" dict
-      layout <- cast layout'
+      id <- getStringMaybe "id" dict
+      surfaceParameters <- the (Checked SurfaceParameters) $ objectCast dict
       children <- getChildren dict
-      pure $ MkSurfaceDescription width height render click displayStyle layout children
+      pure $ MkSurfaceDescription id surfaceParameters children

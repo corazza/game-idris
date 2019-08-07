@@ -6,5 +6,5 @@
     "type": "color",
     "color": [191, 191, 191, 38]
   },
-  "fill": "items"
+  "children": []
 }

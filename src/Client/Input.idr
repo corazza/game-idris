@@ -9,12 +9,12 @@ import Commands
 import Objects
 
 export
-processKey : Key -> Maybe (Either ClientCommand Action)
+processKey : Key -> Maybe (Either ClientAction Action)
 processKey KeyUpArrow = Just $ Right $ Movement Up
 processKey KeyDownArrow = Just $ Right $ Movement Down
 processKey KeyLeftArrow = Just $ Right $ Movement Left
 processKey KeyRightArrow = Just $ Right $ Movement Right
-processKey KeyEsc = Nothing
+processKey KeyEsc = Just $ Left $ MainMenu
 processKey KeySpace = Just $ Right $ Movement Up
 processKey KeyTab = Nothing
 processKey KeyF1 = Nothing
@@ -45,21 +45,24 @@ processKey (KeyAny x)
          'e' => Just $ Right $ Interact 2
          _ => Nothing
 
-startStopOrClient : (cstr : Action -> Command) -> Key -> Maybe (Either ClientCommand Command)
-startStopOrClient cstr x = case processKey x of -- TODO concise
+startStopOrClient : (cstr_left : ClientAction -> ClientCommand) ->
+                    (cstr_right : Action -> Command) ->
+                    (key : Key) ->
+                    Maybe (Either ClientCommand Command)
+startStopOrClient cstr_left cstr_right key = case processKey key of -- TODO concise
                                 Nothing => Nothing
-                                Just (Left clientCommand) => Just $ Left clientCommand
-                                Just (Right action) => Just $ Right $ cstr action
+                                Just (Left clientAction) => Just $ Left $ cstr_left clientAction
+                                Just (Right action) => Just $ Right $ cstr_right action
 
 processEvent : ObjectId -> Camera -> SDL2.Event -> Either () (Maybe (Either ClientCommand Command))
-processEvent id camera (KeyDown x) = Right $ startStopOrClient (flip Start id) x
-processEvent id camera (KeyUp x) = Right $ startStopOrClient (flip Stop id) x
+processEvent id camera (KeyDown x) = Right $ startStopOrClient Start (flip Start id) x
+processEvent id camera (KeyUp x) = Right $ startStopOrClient Stop (flip Stop id) x
 processEvent id camera (MouseMotion x y z w) = Right Nothing
 processEvent id camera (MouseButtonDown button x y)
   = Right $ Just $ Right $ Start (Attack $ screenToPosition camera (x, y)) id
 processEvent id camera (MouseButtonUp button x y)
   = Right $ Just $ Right $ Stop (Attack $ screenToPosition camera (x, y)) id
-processEvent id camera (Scroll x y) = Right $ Just $ Left $ Zoom y
+processEvent id camera (Scroll x y) = Right $ Just $ Left $ Stop $ Zoom y
 processEvent id camera (Resize x y) = Right Nothing
 processEvent id camera AppQuit = Left ()
 

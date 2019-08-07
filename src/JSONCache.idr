@@ -17,6 +17,7 @@ import Descriptions.ItemDescription
 import Descriptions.WallDescription
 import Descriptions.AnimationDescription
 import Descriptions.NumericPropertyRender
+import Descriptions.SurfaceDescription
 
 public export
 record Preload where
@@ -27,17 +28,19 @@ record Preload where
   maps : List ContentReference
   behaviors : List ContentReference
   items : List ContentReference
+  ui : List ContentReference
 %name Preload preload
 
 export
 Show Preload where
-  show (MkPreload objects walls animations maps behaviors items)
+  show (MkPreload objects walls animations maps behaviors items ui)
     =  "{ objects: " ++ show objects
     ++ ", walls: " ++ show walls
     ++ ", animations: " ++ show animations
     ++ ", maps: " ++ show maps
     ++ ", behaviors: " ++ show behaviors
     ++ ", items: " ++ show items
+    ++ ", ui: " ++ show ui
     ++ " }"
 
 export
@@ -49,7 +52,8 @@ ObjectCaster Preload where
     maps <- getStrings "maps" dict
     behaviors <- getStrings "behaviors" dict
     items <- getStrings "items" dict
-    pure $ MkPreload objects walls animations maps behaviors items
+    ui <- getStrings "ui" dict
+    pure $ MkPreload objects walls animations maps behaviors items ui
 
 public export
 CacheType : Type -> Type
@@ -64,12 +68,9 @@ record PreloadResults where
   maps : CacheType MapDescription
   behaviors : CacheType BehaviorDescription
   items : CacheType ItemDescription
+  ui : CacheType SurfaceDescription
   numPropRender : NumPropRenderDescriptionDict
 %name PreloadResults preload
-
--- export
--- emptyPreloadResults : PreloadResults
--- emptyPreloadResults = MkPreloadResults empty empty empty empty
 
 lookupError : (ref : ContentReference) -> (type : String) -> String
 lookupError type ref = "can't find " ++ type ++ " " ++ show ref
@@ -115,6 +116,13 @@ getBehaviorDescription : (ref : ContentReference) ->
                          Checked BehaviorDescription
 getBehaviorDescription ref
   = maybeToEither (lookupError "behavior description" ref) . lookup ref . behaviors
+
+export
+getSurfaceDescription : (ref : ContentReference) ->
+                   (preload : PreloadResults) ->
+                   Checked SurfaceDescription
+getSurfaceDescription ref
+  = maybeToEither (lookupError "ui description" ref) . lookup ref . ui
 
 export
 getNumPropRender : (id : NumericPropertyId) ->
@@ -208,7 +216,8 @@ preloadResults preload_info = with ST do
   maps_dict <- preloadDict {r=MapDescription} (maps preload_info)
   behaviors_dict <- preloadDict {r=BehaviorDescription} (behaviors preload_info)
   items_dict <- preloadDict {r=ItemDescription} (items preload_info)
+  ui_dict <- preloadDict {r=SurfaceDescription} (ui preload_info)
   Right numPropRender <- preloadNumProp
         | Left e => pure (fail e)
   pure $ Right $ MkPreloadResults
-    objects_dict walls_dict animations_dict maps_dict behaviors_dict items_dict numPropRender
+    objects_dict walls_dict animations_dict maps_dict behaviors_dict items_dict ui_dict numPropRender

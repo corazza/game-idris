@@ -348,9 +348,7 @@ render : (SDL m, Rendering m, GameIO m) =>
          (sdl : Var) ->
          ST m () [rendering ::: SRendering {m}, sdl ::: SSDL {m}]
 render rendering sdl = with ST do
-  clear sdl
   camera <- queryPRendering rendering camera
   background <- queryPRendering rendering background
   renderBackground sdl camera background
   renderLayers rendering sdl !(queryPRendering rendering layerList)
-  present sdl

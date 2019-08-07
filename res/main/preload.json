@@ -44,5 +44,9 @@
 
   "items": [
     "main/items/demonic_bow.json"
+  ],
+
+  "ui": [
+    "main/ui/main_menu.json"
   ]
 }

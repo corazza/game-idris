@@ -189,6 +189,12 @@ getString key dict = case lookup key dict of
   _ => fail $ "not a string (" ++ key ++ ")"
 
 export
+getStringOrDefault : String -> String -> JSONDict -> Checked String
+getStringOrDefault key default dict = case hasKey key dict of
+  True => getString key dict
+  False => pure default  
+
+export
 getStringMaybe : String -> JSONDict -> Checked (Maybe String)
 getStringMaybe key dict = case hasKey key dict of
   False => pure Nothing
