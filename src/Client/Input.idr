@@ -59,9 +59,9 @@ processEvent id camera (KeyDown x) = Right $ startStopOrClient Start (flip Start
 processEvent id camera (KeyUp x) = Right $ startStopOrClient Stop (flip Stop id) x
 processEvent id camera (MouseMotion x y z w) = Right Nothing
 processEvent id camera (MouseButtonDown button x y)
-  = Right $ Just $ Right $ Start (Attack $ screenToPosition camera (x, y)) id
+  = Right $ Just $ Left $ Mouse $ ButtonDown x y
 processEvent id camera (MouseButtonUp button x y)
-  = Right $ Just $ Right $ Stop (Attack $ screenToPosition camera (x, y)) id
+  = Right $ Just $ Left $ Mouse $ ButtonUp x y
 processEvent id camera (Scroll x y) = Right $ Just $ Left $ Stop $ Zoom y
 processEvent id camera (Resize x y) = Right Nothing
 processEvent id camera AppQuit = Left ()

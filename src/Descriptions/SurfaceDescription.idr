@@ -41,6 +41,7 @@ data DisplayStyle = Center
                   | Up | Down | Left | Right
                   | UpLeft | UpRight | DownLeft | DownRight
 
+
 stringDisplayStyleDict : Dict String DisplayStyle
 stringDisplayStyleDict = fromList [
   ("center", Center),
@@ -60,6 +61,11 @@ Cast String (Checked DisplayStyle) where
 public export
 data Layout = Vertical | Horizontal
 
+export
+Show Layout where
+  show Vertical = "vertical"
+  show Horizontal = "horizontal"
+
 stringLayoutDict : Dict String Layout
 stringLayoutDict = fromList [
   ("vertical", Vertical),
@@ -77,6 +83,16 @@ record SurfaceParameters where
   click : Maybe String
   displayStyle : DisplayStyle
   layout : Layout
+
+export
+Show SurfaceParameters where
+  show sp
+    =  "{ dimensions: " ++ show (dimensions sp)
+    -- ++ ", render: " ++ show (render sp)
+    ++ ", click: " ++ show (click sp)
+    -- ++ ", displayStyle: " ++ show (displayStyle sp)
+    ++ ", layout: " ++ show (layout sp)
+    ++ " }"
 
 getDimensions : JSONDict -> Checked (Maybe (Int, Int))
 getDimensions dict = case hasKey "width" dict of

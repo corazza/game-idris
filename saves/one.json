@@ -7,7 +7,7 @@
                          "hands": "main/items/demonic_bow.json"
                     },
                     "inventory": {
-                         "main/items/demonic_bow.json": 2
+                         "main/items/demonic_bow.json": 6
                     }
                },
                "map": "main/maps/castle.json",

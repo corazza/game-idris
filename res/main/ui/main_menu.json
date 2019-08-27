@@ -12,8 +12,8 @@
       "width": 200,
       "height": 50,
       "render": {
-        "type": "color",
-        "color": [207, 32, 32, 66]
+        "type": "image",
+        "image": "main/images/ui/main_menu/exit.png"
       },
       "click": "main_menu_exit"
     },

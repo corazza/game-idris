@@ -39,6 +39,7 @@ interface SDL (m : Type -> Type) where
 
   -- TODO the SDL lib should obviously accept Maybe SDLRect so these two methods
   -- could be unified
+  -- TODO FIX URGENT flipping logic should be handled here, not in game code!!!!
   drawWholeCenter : (draw : Var) ->
                     (ref : ContentReference) ->
                     (dst : SDLRect) ->

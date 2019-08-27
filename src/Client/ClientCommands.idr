@@ -9,11 +9,25 @@ Show ClientAction where
   show (Zoom x) = "zoom " ++ show x
 
 public export
+data MouseEvent
+  = ButtonUp Int Int
+  | ButtonDown Int Int 
+  | Move Int Int
+
+export
+Show MouseEvent where
+  show (ButtonUp x y) = "button up (" ++ show x ++ ", " ++ show y ++ ")"
+  show (ButtonDown x y) = "button down (" ++ show x ++ ", " ++ show y ++ ")"
+  show (Move x y) = "move (" ++ show x ++ ", " ++ show y ++ ")"
+
+public export
 data ClientCommand
   = Start ClientAction
   | Stop ClientAction
+  | Mouse MouseEvent
 
 export
 Show ClientCommand where
   show (Start action) = "start " ++ show action
   show (Stop action) = "stop " ++ show action
+  show (Mouse event) = show event

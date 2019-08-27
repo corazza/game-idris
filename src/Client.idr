@@ -80,11 +80,12 @@ interface Client (m : Type -> Type) where
   private
   runClientCommand : (client : Var) ->
                      (clientCommand : ClientCommand) ->
-                     ST m () [client ::: SClient Connected]
+                     ST m (Maybe Command) [client ::: SClient Connected]
   private
   runClientCommands : (client : Var) ->
                       (clientCommands : List ClientCommand) ->
-                      ST m () [client ::: SClient Connected]
+                      (acc : List Command) ->
+                      ST m (List Command) [client ::: SClient Connected]
 
   private
   addObject : (client : Var) ->
@@ -98,6 +99,17 @@ interface Client (m : Type -> Type) where
 
   private
   refreshSettings : (client : Var) -> ST m () [client ::: SClient Connected]
+
+  private
+  feedUI : (client : Var) ->
+           (clientCommands : List ClientCommand) ->
+           ST m (List ClientCommand) [client ::: SClient Connected]
+
+  private
+  characterAttack : (client : Var) ->
+                    (cstr : Action -> ObjectId -> Command) ->
+                    (x : Int) -> (y : Int) ->
+                    ST m (Maybe Command) [client ::: SClient Connected]
 
 export
 (GameIO m, Rendering m, SDL m) => Client m where
@@ -157,7 +169,6 @@ export
       Left e => pure $ fail $ "client couldn't get map description, error:\n" ++ e
       Right map_description => with ST do
         settings <- queryPClient client settings {s=Disconnected}
-        -- characterId <- queryPClient client characterId {s=Disconnected}
         rendering <- startRendering
           (renderingSettings settings) (background map_description) preload
         loadMap rendering map_description
@@ -196,19 +207,28 @@ export
   runCommands client (cmd::xs)
     = runCommand client cmd >>= const (runCommands client xs)
 
+  characterAttack client cstr x y = with ST do
+    [pclient, session_data, rendering, ui, sdl] <- split client
+    camera <- getCamera rendering
+    combine client [pclient, session_data, rendering, ui, sdl]
+    characterId <- querySessionData client characterId
+    pure $ Just $ cstr (Attack $ screenToPosition camera (x, y)) characterId
+
   runClientCommand client (Stop (Zoom x)) = with ST do
     [pclient, session_data, rendering, ui, sdl] <- split client
     zoom rendering x
     combine client [pclient, session_data, rendering, ui, sdl]
-  runClientCommand client (Stop MainMenu) = with ST do
-    [pclient, session_data, rendering, ui, sdl] <- split client
-    toggleRoot ui "main/ui/main_menu.json" 100 100
-    combine client [pclient, session_data, rendering, ui, sdl]
-  runClientCommand client _ = pure ()
+    pure Nothing
+  runClientCommand client (Mouse (ButtonDown x y)) = characterAttack client Start x y
+  runClientCommand client (Mouse (ButtonUp x y)) = characterAttack client Start x y
+  runClientCommand client _ = pure Nothing
 
-  runClientCommands client [] = pure ()
-  runClientCommands client (cmd::xs)
-    = runClientCommand client cmd >>= const (runClientCommands client xs)
+  runClientCommands client [] acc = pure acc
+  runClientCommands client (cmd::xs) acc = with ST do
+    result <- runClientCommand client cmd
+    case result of
+      Nothing => runClientCommands client xs acc
+      Just cmd => runClientCommands client xs (append cmd acc)
 
   runServerCommand client (Create id ref) = addObject client id ref
   runServerCommand client (Destroy id) = removeObject client id
@@ -237,9 +257,16 @@ export
     case processEvents characterId camera sdl_events of
       Left _ => pure $ Left ()
       Right (clientCommands, commands) => with ST do
-        runClientCommands client clientCommands
+        clientCommands' <- feedUI client clientCommands
+        runClientCommands client clientCommands' []
         runCommands client commands
         pure $ Right commands
+
+  feedUI client clientCommands = with ST do
+    [pclient, session_data, rendering, ui, sdl] <- split client
+    clientCommands' <- eatClientCommands ui clientCommands
+    combine client [pclient, session_data, rendering, ui, sdl]
+    pure clientCommands'
 
   updatePRendering client f = with ST do
     [pclient, session_data, rendering, ui, sdl] <- split client

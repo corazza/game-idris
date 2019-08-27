@@ -6,6 +6,7 @@
     "main/objects/mage-1.json",
     "main/objects/mage-2.json",
     "main/objects/mage-3.json",
+    "main/objects/cultist.json",
     "main/objects/yellow_marker.json",
     "main/objects/metal_ledge.json",
     "main/objects/static_joint.json",
@@ -26,7 +27,8 @@
     "main/animations/run-large.json",
     "main/animations/run-low.json",
     "main/animations/walk-large.json",
-    "main/animations/walk-low.json"
+    "main/animations/walk-low.json",
+    "main/animations/cultist-walk.json"
   ],
 
   "maps": [
