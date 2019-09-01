@@ -4,6 +4,7 @@ import GameIO
 import Descriptions.SurfaceDescription
 import JSONCache
 import Objects
+import Client.SDL
 
 public export
 data SurfaceState = Inactive | Hover | Clicked
@@ -14,14 +15,6 @@ Show SurfaceState where
   show Hover = "hover"
   show Clicked = "clicked"
 
--- record SurfaceParameters where
---   constructor MkSurfaceParameters
---   dimensions : Maybe (Int, Int)
---   render : SurfaceRenderDescription
---   click : Maybe String
---   displayStyle : DisplayStyle
---   layout : Layout
-
 public export
 record UISurface where
   constructor MkUISurface
@@ -29,15 +22,20 @@ record UISurface where
   surfaceParameters : SurfaceParameters
   state : SurfaceState
   children : List UISurface
+  rect : SDLRect -- calculated in refresh, used for clicks and rendering
 
 export
 Show UISurface where
-  show (MkUISurface id surfaceParameters state children)
+  show (MkUISurface id surfaceParameters state children rect)
     =  "{ id: " ++ show id
     ++ ", surfaceParameters: " ++ show surfaceParameters
     ++ ", state: " ++ show state
     ++ ", children: " ++ show children
+    ++ ", rect:" ++ show rect
     ++ " }"
+
+layout : UISurface -> Layout
+layout = layout . surfaceParameters
 
 export
 getDimensions : UISurface -> (Int, Int)
@@ -50,6 +48,9 @@ setDimensions dims = record {
 
 setChildren : List UISurface -> UISurface -> UISurface
 setChildren xs = record { children = xs }
+
+setRect : SDLRect -> UISurface -> UISurface
+setRect rect' = record { rect = rect' }
 
 public export
 data Root = MkRoot Int Int UISurface -- x, y
@@ -72,8 +73,16 @@ initialPUI : PreloadResults -> PUI
 initialPUI preload = MkPUI preload Z empty empty empty
 
 export
+flushClicks : PUI -> PUI
+flushClicks = record { clicks = empty }
+
+export
 nextId : PUI -> PUI
 nextId = record { idCounter $= S }
+
+export
+puiAddClick : (click : String) -> PUI -> PUI
+puiAddClick click = record { clicks $= append click }
 
 export
 puiAddRoot : (ref : ContentReference) ->
@@ -88,7 +97,6 @@ export
 puiRemoveRoot : (ref : ContentReference) -> PUI -> PUI
 puiRemoveRoot ref = record { shown $= delete ref, hidden $= delete ref }
 
-export
 dimensionsFromChildren : UISurface -> List (Int, Int) -> (Int, Int)
 dimensionsFromChildren surface xs
   = let widths = map fst xs
@@ -101,13 +109,11 @@ dimensionsFromChildren surface xs
                               y = fromMaybe 13 $ head' $ sort heights
                               in (x, y)
 
-export
 decideDimensions : UISurface -> List (Int, Int) -> (Int, Int)
 decideDimensions surface xs = case dimensions (surfaceParameters surface) of
   Nothing => dimensionsFromChildren surface xs
   Just x => x
 
-export
 refreshSurface : UISurface -> (UISurface, (Int, Int))
 refreshSurface surface
   = let refreshed_children = map refreshSurface (children surface)
@@ -118,10 +124,33 @@ refreshSurface surface
           = (setDimensions newDimensions . setChildren children_surfaces) surface
         in (refreshed_surface, newDimensions)
 
-export
+
+mutual
+  refreshRect : (Int, Int) -> UISurface -> UISurface
+  refreshRect xy@(x, y) surface
+    = let refreshed_children = refreshChildrenRect xy (layout surface) (children surface) []
+          (width, height) = getDimensions surface
+          rect = MkSDLRect x y width height
+          in (setRect rect . setChildren refreshed_children) surface
+
+  -- TODO foldr
+  refreshChildrenRect : (upperleft: (Int, Int)) ->
+                        Layout ->
+                        (children : List UISurface) ->
+                        (acc : List UISurface) ->
+                        List UISurface
+  refreshChildrenRect (x, y) layout [] acc = acc
+  refreshChildrenRect (x, y) layout (surface::xs) acc
+    = let refreshed = refreshRect (x, y) surface
+          (MkSDLRect x y width height) = rect refreshed
+          in case layout of
+            Vertical => refreshChildrenRect (x, y+height) layout xs (refreshed::acc)
+            Horizontal => refreshChildrenRect (x+width, y) layout xs (refreshed::acc)
+
 refresh : Root -> Root
 refresh (MkRoot x y surface) = let (refreshed_surface, _) = refreshSurface surface
-                                   in MkRoot x y refreshed_surface
+                                   with_rect = refreshRect (x, y) refreshed_surface
+                                   in MkRoot x y with_rect
 
 export
 puiRefreshRoot : (ref : ContentReference) -> PUI -> PUI
@@ -145,3 +174,26 @@ puiShowRoot ref pui = case lookup ref (hidden pui) of
     hidden $= delete ref,
     shown $= insert ref root
   } pui
+
+inRect : (xy : (Int, Int)) -> SDLRect -> Bool
+inRect (x, y) (MkSDLRect rx ry rw rh)
+  =  x >= rx
+  && x <= rx + rw
+  && y >= ry
+  && y <= ry + rh
+
+getClickFromSurface : (xy : (Int, Int)) ->
+                      UISurface ->
+                      Maybe String
+getClickFromSurface xy surface = case inRect xy (rect surface) of
+  False => Nothing
+  True => let children_results = map (getClickFromSurface xy) (children surface)
+              final_result = head' $ catMaybes children_results
+              in fromMaybe (click (surfaceParameters surface)) (map Just final_result)
+
+getClickFromRoot : (xy : (Int, Int)) -> Root -> Maybe String
+getClickFromRoot xy (MkRoot rx ry surface) = getClickFromSurface xy surface
+
+export
+getClick : (xy : (Int, Int)) -> List Root -> Maybe String
+getClick xy = head' . catMaybes . map (getClickFromRoot xy)

@@ -76,6 +76,7 @@ interface UI (m : Type -> Type) where
                       (event : MouseEvent) ->
                       ST m (Either () MouseEvent) [ui ::: SUI]
 
+  addClick : (ui : Var) -> (click : String) -> ST m () [ui ::: SUI]
   getClicks : (ui : Var) -> ST m (List String) [ui ::: SUI]
 
 export
@@ -103,7 +104,7 @@ export
   surfaceFromDesc ui desc = with ST do
     children <- surfacesFromDescs ui (children desc)
     id <- decideId ui desc
-    pure $ MkUISurface id (surfaceParameters desc) Inactive children
+    pure $ MkUISurface id (surfaceParameters desc) Inactive children (MkSDLRect 0 0 0 0)
 
   surfacesFromDescs ui [] = pure []
   surfacesFromDescs ui (desc::xs)
@@ -156,9 +157,23 @@ export
     Left () => eatClientCommands' ui xs acc
     Right r => eatClientCommands' ui xs (append r acc)
 
-  processMouseEvent ui (ButtonUp x y) = ?sdfkksdgfjgn_1
-  processMouseEvent ui (ButtonDown x y) = ?sdfkksdgfjgn_2
-  processMouseEvent ui (Move x y) = ?sdfkksdgfjgn_3
+  processMouseEvent ui event@(ButtonUp x y) = with ST do
+    shown' <- queryPUI ui shown
+    let roots = map snd $ toList shown'
+    case getClick (x, y) roots of
+      Nothing => pure $ Right event
+      Just click_string => with ST do
+        addClick ui click_string
+        pure $ Left () -- sdl event was consumed
+  processMouseEvent ui ev@(ButtonDown x y) = pure $ Right ev
+  processMouseEvent ui ev@(Move x y) = pure $ Right ev
+
+  addClick ui click = updatePUI ui $ puiAddClick click
+
+  getClicks ui = with ST do
+    clicks' <- queryPUI ui clicks
+    updatePUI ui flushClicks
+    pure clicks'
 
 executeMethod : (SDL m, UI m, GameIO m) =>
                 (ui : Var) ->
@@ -179,32 +194,25 @@ mutual
                   (ui : Var) ->
                   (sdl : Var) ->
                   (surface : UISurface) ->
-                  (xy : (Int, Int)) ->
-                  ST m (Int, Int) [ui ::: SUI {m}, sdl ::: SSDL {m}]
-  renderSurface ui sdl surface (x, y)
-    =  let (width, height) = getDimensions surface
-           rect = MkSDLRect x y width height
-           render_desc = render $ surfaceParameters surface
+                  ST m () [ui ::: SUI {m}, sdl ::: SSDL {m}]
+  renderSurface ui sdl surface
+    =  let render_desc = render $ surfaceParameters surface
            layout = layout $ surfaceParameters surface
            render_method = pickRenderMethod (state surface) render_desc
            in with ST do
-             executeMethod ui sdl rect render_method
-             renderSurfaces ui sdl (children surface) layout (x, y)
-             pure (width, height)
+             executeMethod ui sdl (rect surface) render_method
+             renderSurfaces ui sdl (children surface) layout
 
   renderSurfaces : (SDL m, UI m, GameIO m) =>
                    (ui : Var) ->
                    (sdl : Var) ->
                    (surfaces : List UISurface) ->
                    (layout : Layout) ->
-                   (xy : (Int, Int)) ->
                    ST m () [ui ::: SUI {m}, sdl ::: SSDL {m}]
-  renderSurfaces ui sdl [] layout (x, y) = pure ()
-  renderSurfaces ui sdl (surface::xs) layout (x, y) = with ST do
-    (width, height) <- renderSurface ui sdl surface (x, y)
-    case layout of
-      Vertical => renderSurfaces ui sdl xs layout (x, y+height)
-      Horizontal => renderSurfaces ui sdl xs layout (x+width, y)
+  renderSurfaces ui sdl [] layout = pure ()
+  renderSurfaces ui sdl (surface::xs) layout = with ST do
+    renderSurface ui sdl surface
+    renderSurfaces ui sdl xs layout
 
 renderRoot : (SDL m, UI m, GameIO m) =>
              (ui : Var) ->
@@ -212,7 +220,7 @@ renderRoot : (SDL m, UI m, GameIO m) =>
              (root : Root) ->
              ST m () [ui ::: SUI {m}, sdl ::: SSDL {m}]
 renderRoot ui sdl root@(MkRoot x y surface)
-  = renderSurface ui sdl surface (x, y) >>= const (pure ())
+  = renderSurface ui sdl surface >>= const (pure ())
 renderRoot ui sdl _ = pure ()
 
 renderRoots : (SDL m, UI m, GameIO m) =>

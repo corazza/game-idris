@@ -14,7 +14,7 @@ processKey KeyUpArrow = Just $ Right $ Movement Up
 processKey KeyDownArrow = Just $ Right $ Movement Down
 processKey KeyLeftArrow = Just $ Right $ Movement Left
 processKey KeyRightArrow = Just $ Right $ Movement Right
-processKey KeyEsc = Just $ Left $ MainMenu
+processKey KeyEsc = Just $ Left MainMenu
 processKey KeySpace = Just $ Right $ Movement Up
 processKey KeyTab = Nothing
 processKey KeyF1 = Nothing
@@ -43,6 +43,7 @@ processKey (KeyAny x)
          's' => Just $ Right $ Movement Down
          'd' => Just $ Right $ Movement Right
          'e' => Just $ Right $ Interact 2
+         'i' => Just $ Left Inventory
          _ => Nothing
 
 startStopOrClient : (cstr_left : ClientAction -> ClientCommand) ->

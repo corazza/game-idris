@@ -1,17 +1,18 @@
 module Client.ClientCommands
 
 public export
-data ClientAction = MainMenu | Zoom Int
+data ClientAction = MainMenu | Inventory | Zoom Int
 
 export
 Show ClientAction where
   show MainMenu = "main menu"
+  show Inventory = "inventory"
   show (Zoom x) = "zoom " ++ show x
 
 public export
 data MouseEvent
   = ButtonUp Int Int
-  | ButtonDown Int Int 
+  | ButtonDown Int Int
   | Move Int Int
 
 export

@@ -255,31 +255,21 @@ loop state = with ST do
   game_session_data' <- read game_session_data
   let passed = beforems - (lastms game_session_data')
   bodyData <- queryPDynamics dynamics objects
-
   Right commands <- iterate client bodyData | Left () => with ST do
       combine state [pgame, client, dynamics, server, game_session_data]
       pure Exit
-
   receiveClientCommands server commands
   runCommands dynamics $ catMaybes $ map fromCommand commands
-
   characterId <- querySessionData client characterId
   let time = passed + (carry game_session_data')
   (newCarry, serverCommands) <- iterateCarry dynamics server time characterId
-
   runServerCommands client serverCommands
-
   write game_session_data $ MkGameSessionData beforems newCarry
-
   sessionCommands <- getSessionCommands server
   gameCommands <- getGameCommands server
-
   combine state [pgame, client, dynamics, server, game_session_data]
-
   runGameCommands state gameCommands
-
   logout <- runSessionCommands state sessionCommands
-
   case logout of
        Left to => pure $ Relog to
        Right () => loop state

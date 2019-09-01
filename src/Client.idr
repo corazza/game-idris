@@ -106,6 +106,12 @@ interface Client (m : Type -> Type) where
            ST m (List ClientCommand) [client ::: SClient Connected]
 
   private
+  getClicks : (client : Var) -> ST m (List String) [client ::: SClient Connected]
+
+  private
+  processClicks : (client : Var) -> (clicks : List String) -> ST m () [client ::: SClient Connected]
+
+  private
   characterAttack : (client : Var) ->
                     (cstr : Action -> ObjectId -> Command) ->
                     (x : Int) -> (y : Int) ->
@@ -220,8 +226,8 @@ export
     combine client [pclient, session_data, rendering, ui, sdl]
     pure Nothing
   runClientCommand client (Mouse (ButtonDown x y)) = characterAttack client Start x y
-  runClientCommand client (Mouse (ButtonUp x y)) = characterAttack client Start x y
-  runClientCommand client _ = pure Nothing
+  runClientCommand client (Mouse (ButtonUp x y)) = characterAttack client Stop x y
+  runClientCommand client clientCommand = pure Nothing
 
   runClientCommands client [] acc = pure acc
   runClientCommands client (cmd::xs) acc = with ST do
@@ -258,15 +264,26 @@ export
       Left _ => pure $ Left ()
       Right (clientCommands, commands) => with ST do
         clientCommands' <- feedUI client clientCommands
-        runClientCommands client clientCommands' []
-        runCommands client commands
-        pure $ Right commands
+        fromClient <- runClientCommands client clientCommands' []
+        let newCommands = fromClient ++ commands
+        runCommands client newCommands
+        clicks <- getClicks client
+        processClicks client clicks
+        pure $ Right newCommands
 
   feedUI client clientCommands = with ST do
     [pclient, session_data, rendering, ui, sdl] <- split client
     clientCommands' <- eatClientCommands ui clientCommands
     combine client [pclient, session_data, rendering, ui, sdl]
     pure clientCommands'
+
+  getClicks client = with ST do
+    [pclient, session_data, rendering, ui, sdl] <- split client
+    clicks <- UI.getClicks ui
+    combine client [pclient, session_data, rendering, ui, sdl]
+    pure clicks
+
+  processClicks client clicks = pure ()
 
   updatePRendering client f = with ST do
     [pclient, session_data, rendering, ui, sdl] <- split client
