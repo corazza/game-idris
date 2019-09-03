@@ -53,6 +53,7 @@ modules = Data.AVL.DDict
         , Client.Rendering.Info
         , Client.UI
         , Client.UI.PUI
+        , Client.UI.Inventory
 
 main = Main
 

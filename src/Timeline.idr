@@ -5,6 +5,7 @@ import Physics.Box2D
 import GameIO
 import Objects
 import Exception
+import Descriptions.ItemDescription
 
 public export
 record Equipment where
@@ -12,6 +13,7 @@ record Equipment where
   head : Maybe ContentReference
   hands : Maybe ContentReference
   feet : Maybe ContentReference
+%name Equipment equipment
 
 ObjectCaster Equipment where
   objectCast dict = with Checked do
@@ -32,6 +34,21 @@ export
 noEquipment : Equipment
 noEquipment = MkEquipment Nothing Nothing Nothing
 
+addItemEquipment : ContentReference -> EquipSlot -> Equipment -> Equipment
+addItemEquipment ref Head = record { head = Just ref }
+addItemEquipment ref Hands = record { hands = Just ref }
+addItemEquipment ref Feet = record { feet = Just ref }
+
+getAtSlotEquipment : Equipment -> EquipSlot -> Maybe ContentReference
+getAtSlotEquipment equipment Head = head equipment
+getAtSlotEquipment equipment Hands = hands equipment
+getAtSlotEquipment equipment Feet = feet equipment
+
+resetSlotEquipment : EquipSlot -> Equipment -> Equipment
+resetSlotEquipment Head = record { head = Nothing }
+resetSlotEquipment Hands = record { hands = Nothing }
+resetSlotEquipment Feet = record { feet = Nothing }
+
 public export
 Inventory : Type
 Inventory = Dict ContentReference Nat
@@ -41,6 +58,12 @@ discardZ : Inventory -> Inventory
 discardZ = fromList . filter keepEntry . toList where
   keepEntry : (ContentReference, Nat) -> Bool
   keepEntry = (>Z) . snd
+
+removeFromInventory : ContentReference -> Inventory -> Inventory
+removeFromInventory ref = discardZ . fromList . map removeEntry . toList where
+  removeEntry : (ContentReference, Nat) -> (ContentReference, Nat)
+  removeEntry (ref', S k) = if ref' == ref then (ref', k) else (ref', S k)
+  removeEntry (ref', Z) = (ref', Z)
 
 export
 items : Inventory -> List (ContentReference, Nat)
@@ -86,8 +109,12 @@ Serialize Items where
     getDict itemsObject
 
 addToInventory : ContentReference -> Items -> Items
-addToInventory ref items@(MkItems equipment inventory)
+addToInventory ref (MkItems equipment inventory)
   = MkItems equipment (addItem ref inventory)
+
+addToEquipment : ContentReference -> EquipSlot -> Items -> Items
+addToEquipment ref slot (MkItems equipment inventory)
+  = MkItems (addItemEquipment ref slot equipment) inventory
 
 public export
 record Character where
@@ -135,8 +162,38 @@ setMap : ContentReference -> Character -> Character
 setMap map' = record { map = map' }
 
 export
+getAtSlot : EquipSlot -> Character -> Maybe ContentReference
+getAtSlot slot character = case items character of
+  (MkItems equipment inventory) => getAtSlotEquipment equipment slot
+
+export
+hasItem : ContentReference -> Character -> Bool
+hasItem ref character = case items character of
+  (MkItems equipment inventory) => case lookup ref inventory of
+    Just (S k) => True
+    _ => False
+
+export
+removeItem : ContentReference -> Character -> Character
+removeItem ref character = case items character of
+  (MkItems equipment inventory) =>
+    let newInventory = removeFromInventory ref inventory
+        in record { items = MkItems equipment newInventory } character
+
+export
+resetSlot : EquipSlot -> Character -> Character
+resetSlot slot character = case items character of
+  (MkItems equipment inventory) =>
+    let newEquipment = resetSlotEquipment slot equipment
+        in record { items = MkItems newEquipment inventory } character
+
+export
 loot : ContentReference -> Character -> Character
 loot ref = record { items $= addToInventory ref }
+
+export
+equip : ContentReference -> EquipSlot -> Character -> Character
+equip ref slot = record { items $= addToEquipment ref slot }
 
 public export
 record Timeline where
@@ -149,7 +206,6 @@ export
 Show Timeline where
   show (MkTimeline character characters)
     = "{ character: " ++ character ++ ", characters: " ++ show characters ++ " }"
-
 
 toCharacter : (String, JSON) -> Checked (String, Character)
 toCharacter (id, json) = case the (Checked Character) (cast json) of

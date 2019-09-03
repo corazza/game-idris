@@ -56,8 +56,21 @@ interface UI (m : Type -> Type) where
   toggleExistent : (ui : Var) -> (ref : ContentReference) -> ST m () [ui ::: SUI]
   hideRoot : (ui : Var) -> (ref : ContentReference) -> ST m () [ui ::: SUI]
   showRoot : (ui : Var) -> (ref : ContentReference) -> ST m () [ui ::: SUI]
-
   refreshRoot : (ui : Var) -> (ref : ContentReference) -> ST m () [ui ::: SUI]
+  updateRoot : (ui : Var) ->
+               (ref : ContentReference) ->
+               (f : Root -> Root) ->
+               ST m () [ui ::: SUI]
+  setRootSurface : (ui : Var) ->
+                   (ref : ContentReference) ->
+                   (surface_desc : SurfaceDescription) ->
+                   ST m () [ui ::: SUI]
+  setRootChildren : (ui : Var) ->
+                    (ref : ContentReference) ->
+                    (surface_descs : List SurfaceDescription) ->
+                    ST m () [ui ::: SUI]
+  logRoot : (ui : Var) -> (ref : ContentReference) -> ST m () [ui ::: SUI]
+
 
   processCommand : (ui : Var) ->
                    (command : ClientCommand) ->
@@ -76,8 +89,8 @@ interface UI (m : Type -> Type) where
                       (event : MouseEvent) ->
                       ST m (Either () MouseEvent) [ui ::: SUI]
 
-  addClick : (ui : Var) -> (click : String) -> ST m () [ui ::: SUI]
-  getClicks : (ui : Var) -> ST m (List String) [ui ::: SUI]
+  addClick : (ui : Var) -> (click : Click) -> ST m () [ui ::: SUI]
+  getClicks : (ui : Var) -> ST m (List Click) [ui ::: SUI]
 
 export
 (GameIO m, SDL m) => UI m where
@@ -144,9 +157,34 @@ export
   hideRoot ui ref = updatePUI ui $ puiHideRoot ref
   showRoot ui ref = updatePUI ui $ puiShowRoot ref
 
+  updateRoot ui ref f = with ST do
+    updatePUI ui $ puiUpdateRoot ref f
+    refreshRoot ui ref
+
+  setRootSurface ui ref surface_desc = with ST do
+    surface <- surfaceFromDesc ui surface_desc
+    updateRoot ui ref $ puiSetRootSurface surface
+    updateRoot ui ref $ surfaceToRoot resetDimensions
+
+  setRootChildren ui ref surface_descs = with ST do
+    surfaces <- surfacesFromDescs ui surface_descs
+    updateRoot ui ref $ surfaceToRoot $ setChildren surfaces
+    updateRoot ui ref $ surfaceToRoot resetDimensions
+
+  logRoot ui ref = with ST do
+    shown' <- queryPUI ui shown
+    hidden' <- queryPUI ui hidden
+    case (lookup ref shown', lookup ref hidden') of
+      (Just root, Nothing) => lift $ log $ show root
+      (Nothing, Just root) => lift $ log $ show root
+      _ => pure ()
+
   processCommand ui (Stop MainMenu) = with ST do
     toggleRoot ui "main/ui/main_menu.json" 100 100
     pure $ Left ()
+  processCommand ui command@(Stop Inventory) = with ST do
+    toggleRoot ui "main/ui/inventory.json" 500 200
+    pure $ Right command -- not eaten because the client has to feed further info
   processCommand ui (Mouse x) = pure $ map Mouse !(processMouseEvent ui x)
   processCommand ui command = pure $ Right command
 
@@ -183,6 +221,8 @@ executeMethod : (SDL m, UI m, GameIO m) =>
                 ST m () [ui ::: SUI {m}, sdl ::: SSDL {m}]
 executeMethod ui sdl rect (Image x) = drawWholeCenter sdl x rect 0.0 0
 executeMethod ui sdl rect (Colored color) = filledRect sdl rect color
+executeMethod ui sdl rect (Text string size color)
+  = drawText sdl string size color rect
 
 pickRenderMethod : SurfaceState -> SurfaceRenderDescription -> SurfaceRenderMethod
 pickRenderMethod Inactive desc = inactive desc

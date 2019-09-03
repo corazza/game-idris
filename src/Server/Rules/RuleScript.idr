@@ -26,6 +26,7 @@ data RuleScript : Type -> Type where
   GetAttack : (id : ObjectId) -> RuleScript (Maybe AbilityDescription)
   Ability : (id : ObjectId) -> (at : Vector2D) -> (desc : AbilityDescription) -> RuleScript ()
   GetCharacter : (id : ObjectId) -> RuleScript (Maybe Character)
+  QueryCharacter : (id : ObjectId) -> (q : Character -> a) -> RuleScript a
   UpdateCharacter : (id : ObjectId) -> (f : Character -> Character) -> RuleScript ()
 
   GetStartTime : (id : ObjectId) -> RuleScript (Maybe Int) -- time since in this state
@@ -207,15 +208,9 @@ collisionScript collision_data id = with RuleScript do
             in Transition id state actions
 
 lootScript : (looter : ObjectId) ->
-             (drop : ObjectId) ->
              (item : ContentReference) ->
              UnitRuleScript
-lootScript looter drop item = with RuleScript do
-  Just character <- GetCharacter looter | pure ()
-  Just drop_controller <- GetController drop | pure ()
-  Right item_desc <- GetItemDescription item
-        | Left e => Log ("couldn't get item " ++ item ++ ", error: " ++ e)
-  UpdateCharacter looter $ loot item
+lootScript looter item = UpdateCharacter looter $ loot item
 
 -- TODO chaining (moves are universal, so they go first)
 runInteractAction : (interact_string : String) ->
@@ -235,7 +230,7 @@ runInteractAction interact_string initiator target BeginWalk = beginWalkScript t
 runInteractAction interact_string initiator target EndWalk = endWalkScript target
 runInteractAction interact_string initiator target Door
   = Output $ ExitTo initiator interact_string
-runInteractAction interact_string initiator target Loot = lootScript initiator target interact_string
+runInteractAction interact_string initiator target Loot = lootScript initiator interact_string
 
 interactScript : (initiator : ObjectId) -> (target : ObjectId) -> UnitRuleScript
 interactScript initiator target = with RuleScript do
@@ -318,3 +313,26 @@ attackScript id at = case !(GetCharacter id) of
   Nothing => with RuleScript do
     Just attack <- GetAttack id | pure ()
     Ability id at attack
+
+clearSlot : (equipper : ObjectId) -> EquipSlot -> UnitRuleScript
+clearSlot equipper slot = with RuleScript do
+  Just item_ref <- QueryCharacter equipper (getAtSlot slot)
+  UpdateCharacter equipper $ resetSlot slot
+  lootScript equipper item_ref
+
+export
+equipScript : (equipper : ObjectId) ->
+              (item : ContentReference) ->
+              UnitRuleScript
+equipScript equipper item = case !(QueryCharacter equipper (hasItem item)) of
+  False => pure ()
+  True => with RuleScript do
+    Right item_desc <- GetItemDescription item
+          | Left e => Log ("couldn't get item " ++ item ++ ", error: " ++ e)
+    case equip item_desc of
+      Nothing => pure ()
+      Just equip_desc => with RuleScript do
+        let slot' = slot equip_desc
+        clearSlot equipper slot'
+        UpdateCharacter equipper $ equip item slot'
+        UpdateCharacter equipper $ removeItem item

@@ -22,11 +22,6 @@ import Client.Rendering
 import Client.SDL
 import Client.PClient
 
--- HERE the server handles a map, and characters on that map
--- rules has a store of characters, functions like Equip modify them
--- Rules.updateCharacter: updates rules version, outputs a RulesOutput.UpdateCharacter
--- this is converted by the server into a SessionCommand
-
 record PGame where
   constructor MkPGame
   settings : GameSettings
@@ -47,10 +42,8 @@ pgameUpdateCharacter : (character_id : CharacterId) ->
 pgameUpdateCharacter character_id f pgame
   = let timelineUpdate = updateTimeline $ updateCharacter character_id f
         in case character_id == characterId pgame of
-                True => ( (record {character $= f}) . timelineUpdate) pgame
+                True => ( (record {character $= f}) . timelineUpdate ) pgame
                 False => timelineUpdate pgame
-  -- = ( record { character $= f }
-  -- .  (updateTimeline $ updateCharacter (characterId pgame) f) ) pgame
 
 record GameSessionData where
   constructor MkGameSessionData
@@ -118,6 +111,35 @@ updateGameSessionData state f = with ST do
   update game_session_data f
   combine state [pgame, client, dynamics, server, game_session_data]
 
+updateClientSessionData : (GameIO m, Dynamics m, Client m, Server m) =>
+                          (state : Var) ->
+                          (f : SessionData -> SessionData) ->
+                          ST m () [state ::: GameState Connected {m}]
+updateClientSessionData state f = with ST do
+  [pgame, client, dynamics, server, game_session_data] <- split state
+  updateSessionData client f
+  combine state [pgame, client, dynamics, server, game_session_data]
+
+-- pgameUpdateCharacter : (character_id : CharacterId) ->
+--                        (f : Character -> Character) ->
+--                        PGame -> PGame
+
+
+-- updatePGame : (GameIO m, Dynamics m, Client m, Server m) =>
+--               (state : Var) ->
+--               (f : PGame -> PGame) ->
+--               ST m () [state ::: GameState s {m}]
+
+mainUpdateCharacter : (GameIO m, Dynamics m, Client m, Server m) =>
+                      (state : Var) ->
+                      (character_id : CharacterId) ->
+                      (f : Character -> Character) ->
+                      ST m () [state ::: GameState Connected {m}]
+mainUpdateCharacter state character_id f = with ST do
+  updatePGame state {s=Connected} $ pgameUpdateCharacter character_id f
+  character <- queryPGame state character {s=Connected}
+  updateClientSessionData state $ setCharacter character
+
 startSession : (GameIO m, Dynamics m, Client m, Server m) =>
                (state : Var) ->
                (map_ref : ContentReference) ->
@@ -147,11 +169,12 @@ startSession state map_ref = with ST do
   dynamicsCommands <- getDynamicsCommands server
   runCommands dynamics dynamicsCommands
   initialCommands <- getInSessionCommands server
-  Right () <- Client.connect client map_ref character_object_id | Left e => with ST do
-      endServer server
-      endDynamics dynamics
-      combine state [pgame, client]
-      pure $ fail $ "couldn't connect client, error:\n" ++ e
+  Right () <- Client.connect client map_ref character_object_id character
+          | Left e => with ST do
+                  endServer server
+                  endDynamics dynamics
+                  combine state [pgame, client]
+                  pure $ fail $ "couldn't connect client, error:\n" ++ e
   runServerCommands client initialCommands
   game_session_data <- new $ fromTicks !ticks
   combine state [pgame, client, dynamics, server, game_session_data]
@@ -169,7 +192,9 @@ save state = with ST do
   lift $ saveSettings newSettings
   characterId' <- queryPGame state characterId {s=Connected}
   character <- queryPGame state character {s=Connected}
-  updatePGame state {s=Connected} $ updateTimeline $ updateCharacter characterId' $ const character
+  -- updatePGame state {s=Connected} $ updateTimeline $ updateCharacter characterId' $ const character
+  -- updatePGame state {s=Connected} $ pgameUpdateCharacter characterId' $ const character
+  mainUpdateCharacter state characterId' $ const character
   timeline <- queryPGame state timeline {s=Connected}
   lift $ saveTimeline "saves/one.json" timeline
 
@@ -234,7 +259,8 @@ runGameCommand : (GameIO m, Dynamics m, Client m, Server m) =>
                  (gameCommand : GameCommand) ->
                  ST m () [state ::: GameState Connected {m}]
 runGameCommand state (UpdateCharacter character_id f)
-  = updatePGame state {s=Connected} $ pgameUpdateCharacter character_id f
+  = mainUpdateCharacter state character_id f
+  -- = updatePGame state {s=Connected} $ pgameUpdateCharacter character_id f
 
 runGameCommands : (GameIO m, Dynamics m, Client m, Server m) =>
                   (state : Var) ->
@@ -285,7 +311,8 @@ game state = with ST do
   case !(loop state) of
     Exit => endSession state
     Relog to => with ST do
-      updatePGame state {s=Connected} $ pgameUpdateCharacter characterId $ setMap to
+      -- updatePGame state {s=Connected} $ pgameUpdateCharacter characterId $ setMap to
+      mainUpdateCharacter state characterId $ setMap to
       endSession state
       game state
 

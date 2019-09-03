@@ -24,6 +24,9 @@ import Settings
 import Exception
 import Timeline
 
+-- TODO FIX the scope of the server is currently a single map
+-- has to be changed to a 'timeline'
+
 public export
 interface Server (m : Type -> Type) where
   SServer : Type

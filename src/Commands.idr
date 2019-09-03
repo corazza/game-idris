@@ -3,6 +3,7 @@ module Commands
 import public Physics.Vector2D
 
 import Objects
+import GameIO
 
 public export
 data Direction = Left | Right | Up | Down
@@ -30,13 +31,16 @@ Show Action where
 public export
 data Command = Start Action ObjectId
              | Stop Action ObjectId
+             | Equip ContentReference ObjectId
 
 export
 getId : Command -> ObjectId
 getId (Start x y) = y
 getId (Stop x y) = y
+getId (Equip ref id) = id
 
 export
 Show Command where
   show (Start x id) = id ++ " start " ++ show x
   show (Stop x id) = id ++ " stop " ++ show x
+  show (Equip ref id) = id ++ " equip " ++ ref

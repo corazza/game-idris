@@ -46,6 +46,11 @@ setDimensions dims = record {
   surfaceParameters $= record { dimensions = Just dims }
 }
 
+export
+resetDimensions : UISurface -> UISurface
+resetDimensions = record { surfaceParameters $= record { dimensions = Nothing } }
+
+export
 setChildren : List UISurface -> UISurface -> UISurface
 setChildren xs = record { children = xs }
 
@@ -59,6 +64,14 @@ export
 Show Root where
   show (MkRoot x y s) = "(" ++ show x ++ ", " ++ show y ++ ") with " ++ show s
 
+export
+puiSetRootSurface : UISurface -> Root -> Root
+puiSetRootSurface surface (MkRoot x y s) = MkRoot x y surface
+
+export
+surfaceToRoot : (f : UISurface -> UISurface) -> Root -> Root
+surfaceToRoot f (MkRoot x y surface) = MkRoot x y (f surface)
+
 public export
 record PUI where
   constructor MkPUI
@@ -66,7 +79,7 @@ record PUI where
   idCounter : Nat
   shown : DDict ContentReference Root
   hidden : DDict ContentReference Root
-  clicks : List String
+  clicks : List Click
 
 export
 initialPUI : PreloadResults -> PUI
@@ -81,7 +94,7 @@ nextId : PUI -> PUI
 nextId = record { idCounter $= S }
 
 export
-puiAddClick : (click : String) -> PUI -> PUI
+puiAddClick : (click : Click) -> PUI -> PUI
 puiAddClick click = record { clicks $= append click }
 
 export
@@ -102,11 +115,11 @@ dimensionsFromChildren surface xs
   = let widths = map fst xs
         heights = map snd xs
         in case layout (surfaceParameters surface) of
-            Vertical => let x = fromMaybe 14 $ head' $ sort widths
+            Vertical => let x = fromMaybe 0 $ head' $ sort widths
                             y = sum heights
                             in (x, y)
             Horizontal => let x = sum widths
-                              y = fromMaybe 13 $ head' $ sort heights
+                              y = fromMaybe 0 $ head' $ sort heights
                               in (x, y)
 
 decideDimensions : UISurface -> List (Int, Int) -> (Int, Int)
@@ -175,6 +188,13 @@ puiShowRoot ref pui = case lookup ref (hidden pui) of
     shown $= insert ref root
   } pui
 
+export
+puiUpdateRoot : (ref : ContentReference) -> (f : Root -> Root) -> PUI -> PUI
+puiUpdateRoot ref f = record {
+  hidden $= update ref f,
+  shown $= update ref f
+}
+
 inRect : (xy : (Int, Int)) -> SDLRect -> Bool
 inRect (x, y) (MkSDLRect rx ry rw rh)
   =  x >= rx
@@ -184,16 +204,16 @@ inRect (x, y) (MkSDLRect rx ry rw rh)
 
 getClickFromSurface : (xy : (Int, Int)) ->
                       UISurface ->
-                      Maybe String
+                      Maybe Click
 getClickFromSurface xy surface = case inRect xy (rect surface) of
   False => Nothing
   True => let children_results = map (getClickFromSurface xy) (children surface)
               final_result = head' $ catMaybes children_results
               in fromMaybe (click (surfaceParameters surface)) (map Just final_result)
 
-getClickFromRoot : (xy : (Int, Int)) -> Root -> Maybe String
+getClickFromRoot : (xy : (Int, Int)) -> Root -> Maybe Click
 getClickFromRoot xy (MkRoot rx ry surface) = getClickFromSurface xy surface
 
 export
-getClick : (xy : (Int, Int)) -> List Root -> Maybe String
+getClick : (xy : (Int, Int)) -> List Root -> Maybe Click
 getClick xy = head' . catMaybes . map (getClickFromRoot xy)

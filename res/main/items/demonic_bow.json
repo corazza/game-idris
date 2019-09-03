@@ -1,8 +1,9 @@
 {
   "name": "Bow",
+  "icon": "main/images/demonic_weapons/demonic_bows/Bow 1 Animation/Bow-1.png",
 
   "equip": {
-    "slot": "two hands",
+    "slot": "hands",
     "ability": {
       "type": "throw",
       "ref": "main/objects/wooden_arrow.json",

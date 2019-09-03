@@ -56,6 +56,12 @@ interface SDL (m : Type -> Type) where
                ST m () [draw ::: SSDL]
 
   filledRect : (draw : Var) -> (dst : SDLRect) -> Color -> ST m () [draw ::: SSDL]
+  drawText : (draw : Var) ->
+             (text : String) ->
+             (size : Int) ->
+             (color : Color) ->
+             (dst : SDLRect) ->
+             ST m () [draw ::: SSDL]
 
   -- TODO resetCache : ...
 
@@ -109,6 +115,11 @@ SDL IO where
   filledRect sdl (MkSDLRect x y z w) (MkColor r g b a) = with ST do
     [renderer, imageCache] <- split sdl
     lift $ SDL2.filledRect !(read renderer) x y z w r g b a
+    combine sdl [renderer, imageCache]
+
+  drawText sdl text size (MkColor r g b a) rect = with ST do
+    [renderer, imageCache] <- split sdl
+    lift $ SDL2.renderText !(read renderer) text size (r, g, b, a) rect
     combine sdl [renderer, imageCache]
 
   getTexture sdl ref = with ST do

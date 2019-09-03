@@ -9,6 +9,13 @@ public export
 data SurfaceRenderMethod
   = Image ContentReference
   | Colored Color
+  | Text String Int Color -- text, size
+
+export
+Show SurfaceRenderMethod where
+  show (Image x) = "image (" ++ x ++ ")"
+  show (Colored color) = "color (" ++ show color ++ ")"
+  show (Text string size color) = show size ++ " text (" ++ string ++ ")"
 
 ObjectCaster SurfaceRenderMethod where
   objectCast dict = with Checked do
@@ -16,6 +23,11 @@ ObjectCaster SurfaceRenderMethod where
     case type of
       "color" => getColor "color" dict >>= pure . Colored
       "image" => getString "image" dict >>= pure . Image
+      "text" => with Checked do
+        text <- getString "text" dict
+        size <- getInt "size" dict
+        color <- getColor "color" dict
+        pure $ Text text size color
       x => fail $ x ++ " is not a valid surface render type"
 
 public export
@@ -24,6 +36,13 @@ record SurfaceRenderDescription where
   inactive : SurfaceRenderMethod
   hover : Maybe SurfaceRenderMethod
   clicked : Maybe SurfaceRenderMethod
+
+export
+Show SurfaceRenderDescription where
+  show rd
+    =  "{ inactive: " ++ show (inactive rd)
+    ++ ", hover: " ++ show (hover rd)
+    ++ ", clicked: " ++ show (clicked rd)
 
 ObjectCaster SurfaceRenderDescription where
   objectCast dict = case hasKey "inactive" dict of
@@ -41,6 +60,8 @@ data DisplayStyle = Center
                   | Up | Down | Left | Right
                   | UpLeft | UpRight | DownLeft | DownRight
 
+Show DisplayStyle where
+  show ds = "some displayStyle"
 
 stringDisplayStyleDict : Dict String DisplayStyle
 stringDisplayStyleDict = fromList [
@@ -76,11 +97,41 @@ Cast String (Checked Layout) where
   cast x = pick "layout" x stringLayoutDict
 
 public export
+data Click = Inventory ContentReference
+           | Character ContentReference
+           | MainMenuExit
+           | MainMenuOptions
+
+clickDict : Dict String Click
+clickDict = fromList [
+  ("main menu exit", MainMenuExit),
+  ("main menu options", MainMenuOptions)
+]
+
+Cast String (Checked Click) where
+  cast x = pick "click" x clickDict
+
+export
+Show Click where
+  show (Inventory x) = "inventory " ++ x
+  show (Character x) = "character " ++ x
+  show MainMenuExit = "main menu exit"
+  show MainMenuOptions = "main menu options"
+
+getClick : JSONDict -> Checked (Maybe Click)
+getClick dict = case hasKey "click" dict of
+  True => with Checked do
+    click <- getString "click" dict
+    click' <- the (Checked Click) $ cast click
+    pure $ Just click'
+  False => pure Nothing
+
+public export
 record SurfaceParameters where
   constructor MkSurfaceParameters
   dimensions : Maybe (Int, Int)
   render : SurfaceRenderDescription
-  click : Maybe String
+  click : Maybe Click
   displayStyle : DisplayStyle
   layout : Layout
 
@@ -88,9 +139,9 @@ export
 Show SurfaceParameters where
   show sp
     =  "{ dimensions: " ++ show (dimensions sp)
-    -- ++ ", render: " ++ show (render sp)
+    ++ ", render: " ++ show (render sp)
     ++ ", click: " ++ show (click sp)
-    -- ++ ", displayStyle: " ++ show (displayStyle sp)
+    ++ ", displayStyle: " ++ show (displayStyle sp)
     ++ ", layout: " ++ show (layout sp)
     ++ " }"
 
@@ -107,7 +158,7 @@ ObjectCaster SurfaceParameters where
   objectCast dict = with Checked do
     dimensions <- getDimensions dict
     render <- the (Checked SurfaceRenderDescription) $ getCastable "render" dict
-    click <- getStringMaybe "click" dict
+    click <- getClick dict
     displayStyle' <- getStringOrDefault "displayStyle" "center" dict
     displayStyle <- cast displayStyle'
     layout' <- getStringOrDefault "layout" "vertical" dict
@@ -120,6 +171,14 @@ record SurfaceDescription where
   id : Maybe SurfaceId
   surfaceParameters : SurfaceParameters
   children : List SurfaceDescription
+
+export
+Show SurfaceDescription where
+  show sd
+    =  "{ id: " ++ show (SurfaceDescription.id sd)
+    ++ ", parameters: " ++ show (surfaceParameters sd)
+    ++ ", children: " ++ show (children sd)
+    ++ "}"
 
 mutual
   getChildren : JSONDict -> Checked (List SurfaceDescription)

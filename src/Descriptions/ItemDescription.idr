@@ -8,16 +8,20 @@ import Descriptions.AbilityDescription
 public export
 data EquipSlot
   = Head
-  | TwoHands
-  | OneHand
+  | Hands
   | Feet
+
+export
+Show EquipSlot where
+  show Head = "head"
+  show Hands = "hands"
+  show Feet = "feet"
 
 Cast String (Checked EquipSlot) where
   cast "head" = pure Head
-  cast "two hands" = pure TwoHands
-  cast "one hand" = pure OneHand
+  cast "hands" = pure Hands
   cast "feet" = pure Feet
-  cast _ = fail "equip slot must be of \"head\" | \"two hands\" | \"one hand\" | \"feet\""
+  cast _ = fail "equip slot must be of \"head\" | \"hands\" | \"feet\""
 
 getSlot : JSONDict -> Checked EquipSlot
 getSlot dict = case lookup "slot" dict of
@@ -43,6 +47,7 @@ record ItemDescription where
   name : String
   unique : Bool
   equip : Maybe EquipDescription
+  icon : ContentReference
 
 export
 ObjectCaster ItemDescription where
@@ -50,4 +55,5 @@ ObjectCaster ItemDescription where
     name <- getString "name" dict
     unique <- getBoolMaybe "unique" dict
     equip <- the (Checked (Maybe EquipDescription)) $ getCastableMaybe "equip" dict
-    pure $ MkItemDescription name (fromMaybe False unique) equip
+    icon <- getString "icon" dict
+    pure $ MkItemDescription name (fromMaybe False unique) equip icon

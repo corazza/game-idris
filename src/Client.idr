@@ -5,6 +5,7 @@ import Control.ST.ImplicitCall
 
 import Client.PClient
 import Client.UI
+import Client.UI.Inventory
 import Client.Rendering
 import Client.Rendering.PRendering
 import Client.Rendering.Camera
@@ -14,6 +15,7 @@ import Client.ClientCommands
 import Server.PServer
 import Descriptions.MapDescription
 import Descriptions.ObjectDescription
+import Descriptions.SurfaceDescription
 import Descriptions.ObjectDescription.RenderDescription
 import Dynamics
 import Dynamics.PDynamics
@@ -40,6 +42,7 @@ interface Client (m : Type -> Type) where
   connect : (client : Var) ->
             (map : ContentReference) ->
             (characterId : ObjectId) ->
+            (character : Character) ->
             ST m (Checked ()) [client ::: SClient Disconnected :->
                                 \res => if isRight res
                                             then (SClient Connected)
@@ -51,6 +54,7 @@ interface Client (m : Type -> Type) where
   queryPClient : (client : Var) -> (q : PClient -> a) -> ST m a [client ::: SClient s]
   updatePClient : (client : Var) -> (f : PClient -> PClient) -> ST m () [client ::: SClient s]
   querySessionData : (client : Var) -> (q : SessionData -> a) -> ST m a [client ::: SClient Connected]
+  updateSessionData : (client : Var) -> (f : SessionData -> SessionData) -> ST m () [client ::: SClient Connected]
 
   -- processes server commands and strips own controls NETWORKING
   runServerCommand : (client : Var) ->
@@ -106,10 +110,18 @@ interface Client (m : Type -> Type) where
            ST m (List ClientCommand) [client ::: SClient Connected]
 
   private
-  getClicks : (client : Var) -> ST m (List String) [client ::: SClient Connected]
+  getClicks : (client : Var) -> ST m (List Click) [client ::: SClient Connected]
 
   private
-  processClicks : (client : Var) -> (clicks : List String) -> ST m () [client ::: SClient Connected]
+  processClick : (client : Var) ->
+                 (click : Click) ->
+                 ST m (Maybe Command) [client ::: SClient Connected]
+
+  private
+  processClicks : (client : Var) ->
+                  (clicks : List Click) ->
+                  (acc : List Command) ->
+                  ST m (List Command) [client ::: SClient Connected]
 
   private
   characterAttack : (client : Var) ->
@@ -164,12 +176,17 @@ export
       combine client [pclient, session_data, rendering, ui, sdl]
 
   querySessionData client q = with ST do
-      [pclient, session_data, rendering, ui, sdl] <- split client
-      session_data' <- read session_data
-      combine client [pclient, session_data, rendering, ui, sdl]
-      pure $ q session_data'
+    [pclient, session_data, rendering, ui, sdl] <- split client
+    session_data' <- read session_data
+    combine client [pclient, session_data, rendering, ui, sdl]
+    pure $ q session_data'
 
-  connect client map_ref characterId = with ST do
+  updateSessionData client f = with ST do
+    [pclient, session_data, rendering, ui, sdl] <- split client
+    update session_data f
+    combine client [pclient, session_data, rendering, ui, sdl]
+
+  connect client map_ref characterId character = with ST do
     preload <- queryPClient client preload {s=Disconnected}
     case getMapDescription map_ref preload of
       Left e => pure $ fail $ "client couldn't get map description, error:\n" ++ e
@@ -180,7 +197,7 @@ export
         loadMap rendering map_description
         follow rendering characterId
         [pclient, ui, sdl] <- split client
-        session_data <- new $ MkSessionData characterId
+        session_data <- new $ MkSessionData characterId character
         combine client [pclient, session_data, rendering, ui, sdl]
         pure $ Right ()
 
@@ -227,6 +244,18 @@ export
     pure Nothing
   runClientCommand client (Mouse (ButtonDown x y)) = characterAttack client Start x y
   runClientCommand client (Mouse (ButtonUp x y)) = characterAttack client Stop x y
+  runClientCommand client (Stop Inventory) = with ST do
+    items' <- querySessionData client (items . character)
+    preload <- queryPClient client preload {s=Connected}
+    case inventorySurfaces items' preload of
+      Left e => with ST do
+        lift $ log $ "couldn't create inventory surface, error:\n" ++ e
+        pure Nothing
+      Right inventory_surfaces => with ST do
+        [pclient, session_data, rendering, ui, sdl] <- split client
+        setRootChildren ui "main/ui/inventory.json" inventory_surfaces
+        combine client [pclient, session_data, rendering, ui, sdl]
+        pure Nothing
   runClientCommand client clientCommand = pure Nothing
 
   runClientCommands client [] acc = pure acc
@@ -265,10 +294,10 @@ export
       Right (clientCommands, commands) => with ST do
         clientCommands' <- feedUI client clientCommands
         fromClient <- runClientCommands client clientCommands' []
-        let newCommands = fromClient ++ commands
-        runCommands client newCommands
         clicks <- getClicks client
-        processClicks client clicks
+        clickCommands <- processClicks client clicks []
+        let newCommands = clickCommands ++ fromClient ++ commands
+        runCommands client newCommands
         pure $ Right newCommands
 
   feedUI client clientCommands = with ST do
@@ -283,7 +312,17 @@ export
     combine client [pclient, session_data, rendering, ui, sdl]
     pure clicks
 
-  processClicks client clicks = pure ()
+  processClick client (Inventory x) = with ST do
+    characterId <- querySessionData client characterId
+    pure $ Just $ Equip x characterId
+  processClick client (Character x) = pure Nothing
+  processClick client MainMenuExit = pure Nothing
+  processClick client MainMenuOptions = pure Nothing
+
+  processClicks client [] acc = pure acc
+  processClicks client (click::xs) acc = case !(processClick client click) of
+    Nothing => processClicks client xs acc
+    Just cmd => processClicks client xs (append cmd acc)
 
   updatePRendering client f = with ST do
     [pclient, session_data, rendering, ui, sdl] <- split client

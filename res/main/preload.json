@@ -49,6 +49,7 @@
   ],
 
   "ui": [
-    "main/ui/main_menu.json"
+    "main/ui/main_menu.json",
+    "main/ui/inventory.json"
   ]
 }

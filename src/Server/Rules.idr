@@ -45,6 +45,11 @@ interface Rules (m : Type -> Type) where
                  (character : Character) ->
                  ST m () [rules ::: SRules]
 
+  queryCharacter : (rules : Var) ->
+                   (id : ObjectId) ->
+                   (q : Character -> a) ->
+                   ST m a [rules ::: SRules]
+
   updateCharacter : (rules : Var) ->
                     (id : ObjectId) ->
                     (f : Character -> Character) ->
@@ -102,6 +107,10 @@ GameIO m => Rules m where
   addCharacter rules id character_id character =
     updatePRules rules $ prulesAddCharacter id character_id character
 
+  queryCharacter rules id q = with ST do
+    Just (character_id, character) <- queryPRules rules $ prulesGetCharacter id
+    pure $ q character
+
   updateCharacter rules id f = with ST do
     Just (character_id, character) <- queryPRules rules $ prulesGetCharacter id
     updatePRules rules $ prulesUpdateCharacter id f
@@ -120,6 +129,7 @@ GameIO m => Rules m where
           in updatePRules rules $ output (Create creation)
 
   runCommand rules (Stop (Attack at) id) = runScript rules $ attackScript id at
+  runCommand rules (Equip ref id) = runScript rules $ equipScript id ref
   runCommand rules _ = pure ()
 
   runCommands rules [] = pure ()
@@ -140,6 +150,7 @@ GameIO m => Rules m where
     Just body <- queryPRules rules $ getBody id | pure ()
     runAbility rules id at desc body
   runScript rules (GetCharacter id) = queryPRules rules $ prulesGetCharacter' id
+  runScript rules (QueryCharacter id q) = queryCharacter rules id q
   runScript rules (UpdateCharacter id f) = updateCharacter rules id f
   runScript rules (GetStartTime id) = queryPRules rules $ getStartTime id
   runScript rules (GetDirection id) = queryPRules rules $ getDirection id
