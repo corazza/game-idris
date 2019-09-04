@@ -1,9 +1,9 @@
 module Client.Input
 
 import Physics.Vector2D
+import Graphics.SDL2
 
 import Client.Rendering.Camera
-import Client.SDL
 import Client.ClientCommands
 import Commands
 import Objects

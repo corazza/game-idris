@@ -51,5 +51,9 @@
   "ui": [
     "main/ui/main_menu.json",
     "main/ui/inventory.json"
+  ],
+
+  "fonts": [
+    "main/fonts/inventory_count.json"
   ]
 }

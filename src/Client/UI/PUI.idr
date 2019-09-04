@@ -1,10 +1,11 @@
 module Client.UI.PUI
 
+import Graphics.SDL2
+
 import GameIO
 import Descriptions.SurfaceDescription
 import JSONCache
 import Objects
-import Client.SDL
 
 public export
 data SurfaceState = Inactive | Hover | Clicked

@@ -9,13 +9,13 @@ public export
 data SurfaceRenderMethod
   = Image ContentReference
   | Colored Color
-  | Text String Int Color -- text, size
+  | Text String ContentReference -- text, font
 
 export
 Show SurfaceRenderMethod where
   show (Image x) = "image (" ++ x ++ ")"
   show (Colored color) = "color (" ++ show color ++ ")"
-  show (Text string size color) = show size ++ " text (" ++ string ++ ")"
+  show (Text string font) = font ++ " text (" ++ string ++ ")"
 
 ObjectCaster SurfaceRenderMethod where
   objectCast dict = with Checked do
@@ -25,9 +25,8 @@ ObjectCaster SurfaceRenderMethod where
       "image" => getString "image" dict >>= pure . Image
       "text" => with Checked do
         text <- getString "text" dict
-        size <- getInt "size" dict
-        color <- getColor "color" dict
-        pure $ Text text size color
+        font <- getString "font" dict
+        pure $ Text text font
       x => fail $ x ++ " is not a valid surface render type"
 
 public export

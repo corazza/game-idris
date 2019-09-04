@@ -32,6 +32,7 @@ modules = Data.AVL.DDict
         , Descriptions.ObjectDescription.RulesDescription
         , Descriptions.ObjectDescription.RulesDescription.BehaviorDescription
         , Descriptions.SurfaceDescription
+        , Descriptions.FontDescription
         , Dynamics
         , Dynamics.DynamicsControl
         , Dynamics.PDynamics
@@ -45,6 +46,7 @@ modules = Data.AVL.DDict
         , Client
         , Client.PClient
         , Client.SDL
+        , Client.SDL.PSDL
         , Client.Input
         , Client.ClientCommands
         , Client.Rendering

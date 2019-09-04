@@ -14,7 +14,7 @@ makeClick = Just . Inventory
 
 numberSurface : (n : Nat) -> Maybe Click -> SurfaceDescription
 numberSurface n click
-  = let inactive = Text (show n) 10 (MkColor 255 255 255 255)
+  = let inactive = Text (show n) "main/fonts/inventory_count.json"
         render_desc = MkSurfaceRenderDescription inactive Nothing Nothing
         sparams = MkSurfaceParameters
           (Just (15, 15)) render_desc click Center Vertical

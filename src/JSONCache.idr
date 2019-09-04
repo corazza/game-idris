@@ -18,6 +18,7 @@ import Descriptions.WallDescription
 import Descriptions.AnimationDescription
 import Descriptions.NumericPropertyRender
 import Descriptions.SurfaceDescription
+import Descriptions.FontDescription
 
 public export
 record Preload where
@@ -29,11 +30,12 @@ record Preload where
   behaviors : List ContentReference
   items : List ContentReference
   ui : List ContentReference
+  fonts : List ContentReference
 %name Preload preload
 
 export
 Show Preload where
-  show (MkPreload objects walls animations maps behaviors items ui)
+  show (MkPreload objects walls animations maps behaviors items ui fonts)
     =  "{ objects: " ++ show objects
     ++ ", walls: " ++ show walls
     ++ ", animations: " ++ show animations
@@ -41,6 +43,7 @@ Show Preload where
     ++ ", behaviors: " ++ show behaviors
     ++ ", items: " ++ show items
     ++ ", ui: " ++ show ui
+    ++ ", fonts: " ++ show fonts
     ++ " }"
 
 export
@@ -53,7 +56,8 @@ ObjectCaster Preload where
     behaviors <- getStrings "behaviors" dict
     items <- getStrings "items" dict
     ui <- getStrings "ui" dict
-    pure $ MkPreload objects walls animations maps behaviors items ui
+    fonts <- getStrings "fonts" dict
+    pure $ MkPreload objects walls animations maps behaviors items ui fonts
 
 public export
 CacheType : Type -> Type
@@ -69,6 +73,7 @@ record PreloadResults where
   behaviors : CacheType BehaviorDescription
   items : CacheType ItemDescription
   ui : CacheType SurfaceDescription
+  fonts : CacheType FontDescription
   numPropRender : NumPropRenderDescriptionDict
 %name PreloadResults preload
 
@@ -119,10 +124,17 @@ getBehaviorDescription ref
 
 export
 getSurfaceDescription : (ref : ContentReference) ->
-                   (preload : PreloadResults) ->
-                   Checked SurfaceDescription
+                        (preload : PreloadResults) ->
+                        Checked SurfaceDescription
 getSurfaceDescription ref
   = maybeToEither (lookupError "ui description" ref) . lookup ref . ui
+
+export
+getFontDescription : (ref : ContentReference) ->
+                     (preload : PreloadResults) ->
+                     Checked FontDescription
+getFontDescription ref
+  = maybeToEither (lookupError "font description" ref) . lookup ref . fonts
 
 export
 getNumPropRender : (id : NumericPropertyId) ->
@@ -217,7 +229,9 @@ preloadResults preload_info = with ST do
   behaviors_dict <- preloadDict {r=BehaviorDescription} (behaviors preload_info)
   items_dict <- preloadDict {r=ItemDescription} (items preload_info)
   ui_dict <- preloadDict {r=SurfaceDescription} (ui preload_info)
+  fonts_dict <- preloadDict {r=FontDescription} (fonts preload_info)
   Right numPropRender <- preloadNumProp
         | Left e => pure (fail e)
   pure $ Right $ MkPreloadResults
-    objects_dict walls_dict animations_dict maps_dict behaviors_dict items_dict ui_dict numPropRender
+    objects_dict walls_dict animations_dict maps_dict behaviors_dict items_dict
+    ui_dict fonts_dict numPropRender

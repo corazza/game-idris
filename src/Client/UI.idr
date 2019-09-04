@@ -2,6 +2,7 @@ module Client.UI
 
 import Control.ST
 import Control.ST.ImplicitCall
+import Graphics.SDL2
 
 import GameIO
 import Client.UI.PUI
@@ -221,8 +222,8 @@ executeMethod : (SDL m, UI m, GameIO m) =>
                 ST m () [ui ::: SUI {m}, sdl ::: SSDL {m}]
 executeMethod ui sdl rect (Image x) = drawWholeCenter sdl x rect 0.0 0
 executeMethod ui sdl rect (Colored color) = filledRect sdl rect color
-executeMethod ui sdl rect (Text string size color)
-  = drawText sdl string size color rect
+executeMethod ui sdl rect (Text string font)
+  = drawText sdl string font rect
 
 pickRenderMethod : SurfaceState -> SurfaceRenderDescription -> SurfaceRenderMethod
 pickRenderMethod Inactive desc = inactive desc

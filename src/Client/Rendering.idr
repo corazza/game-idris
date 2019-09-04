@@ -3,6 +3,7 @@ module Client.Rendering
 import Control.ST
 import Control.ST.ImplicitCall
 import Physics.Box2D
+import Graphics.SDL2
 
 import Client.Rendering.Camera
 import Client.Rendering.PRendering

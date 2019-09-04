@@ -3,11 +3,9 @@
      "characters": {
           "character": {
                "items": {
-                    "equipment": {
-                         "hands": "main/items/demonic_bow.json"
-                    },
+                    "equipment": {},
                     "inventory": {
-                         "main/items/demonic_bow.json": 3
+                         "main/items/demonic_bow.json": 4
                     }
                },
                "map": "main/maps/castle.json",

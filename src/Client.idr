@@ -2,6 +2,7 @@ module Client
 
 import Control.ST
 import Control.ST.ImplicitCall
+import Graphics.SDL2
 
 import Client.PClient
 import Client.UI
@@ -140,7 +141,7 @@ export
 
   startClient settings preload = with ST do
     pclient <- new $ MkPClient preload settings
-    sdl <- startSDL (resolutionX settings) (resolutionY settings)
+    sdl <- startSDL (resolutionX settings) (resolutionY settings) preload
     ui <- startUI preload
     client <- new ()
     combine client [pclient, ui, sdl]
