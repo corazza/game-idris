@@ -32,12 +32,14 @@ public export
 data Command = Start Action ObjectId
              | Stop Action ObjectId
              | Equip ContentReference ObjectId
+             | Unequip ContentReference ObjectId
 
 export
 getId : Command -> ObjectId
 getId (Start x y) = y
 getId (Stop x y) = y
 getId (Equip ref id) = id
+getId (Unequip ref id) = id
 
 export
 Show Command where

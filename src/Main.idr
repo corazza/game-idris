@@ -21,6 +21,7 @@ import Client
 import Client.Rendering
 import Client.SDL
 import Client.PClient
+import Client.ClientCommands
 
 record PGame where
   constructor MkPGame
@@ -119,16 +120,6 @@ updateClientSessionData state f = with ST do
   [pgame, client, dynamics, server, game_session_data] <- split state
   updateSessionData client f
   combine state [pgame, client, dynamics, server, game_session_data]
-
--- pgameUpdateCharacter : (character_id : CharacterId) ->
---                        (f : Character -> Character) ->
---                        PGame -> PGame
-
-
--- updatePGame : (GameIO m, Dynamics m, Client m, Server m) =>
---               (state : Var) ->
---               (f : PGame -> PGame) ->
---               ST m () [state ::: GameState s {m}]
 
 mainUpdateCharacter : (GameIO m, Dynamics m, Client m, Server m) =>
                       (state : Var) ->
@@ -233,6 +224,7 @@ iterateCarry dynamics server time characterId = with ST do
           serverCommands <- getInSessionCommands server
           pure (0, serverCommands)
 
+-- TODO what the fuck
 runSessionCommand : (GameIO m, Dynamics m, Client m, Server m) =>
                     (state : Var) ->
                     (sessionCommand : SessionCommand) ->
@@ -260,7 +252,14 @@ runGameCommand : (GameIO m, Dynamics m, Client m, Server m) =>
                  ST m () [state ::: GameState Connected {m}]
 runGameCommand state (UpdateCharacter character_id f)
   = mainUpdateCharacter state character_id f
-  -- = updatePGame state {s=Connected} $ pgameUpdateCharacter character_id f
+runGameCommand state (RulesClientCommand character_id cmd) = with ST do
+  characterId' <- queryPGame state characterId {s=Connected}
+  case characterId' == character_id of
+    False => pure ()
+    True => with ST do
+      [pgame, client, dynamics, server, game_session_data] <- split state
+      runClientCommand client cmd
+      combine state [pgame, client, dynamics, server, game_session_data]
 
 runGameCommands : (GameIO m, Dynamics m, Client m, Server m) =>
                   (state : Var) ->

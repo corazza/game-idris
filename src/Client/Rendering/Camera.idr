@@ -54,7 +54,7 @@ export
 positionToScreen : Camera -> Vector2D -> (Int, Int)
 positionToScreen camera@(MkCamera (cx, cy) zoom _ resolution yd) (ox, oy)
   = let (rx, ry) = resolution' camera
-        (x, y) = zoom `scale` (ox - cx, cy - oy) in
+        (x, y) = zoom `scale` (ox - cx, cy + yd - oy) in
         (round $ x + rx/2, round $ y + ry/2)
 
 export
@@ -63,7 +63,7 @@ screenToPosition camera (sx, sy)
   = let (rx, ry) = resolution' camera
         screenVector = (cast sx - rx/2, -(cast sy - ry/2))
         s = (1.0 / zoom camera) `scale` screenVector
-        in position camera + s
+        in (position camera + (0, yd camera)) + s
 
 export
 getRect : Camera -> (position : Vector2D) -> (dimensions : Vector2D) -> SDLRect

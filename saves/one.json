@@ -5,7 +5,7 @@
                "items": {
                     "equipment": {},
                     "inventory": {
-                         "main/items/demonic_bow.json": 4
+                         "main/items/demonic_bow.json": 12
                     }
                },
                "map": "main/maps/castle.json",

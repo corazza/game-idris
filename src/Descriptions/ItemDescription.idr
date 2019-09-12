@@ -9,19 +9,19 @@ public export
 data EquipSlot
   = Head
   | Hands
-  | Feet
+  | Legs
 
 export
 Show EquipSlot where
   show Head = "head"
   show Hands = "hands"
-  show Feet = "feet"
+  show Legs = "legs"
 
 Cast String (Checked EquipSlot) where
   cast "head" = pure Head
   cast "hands" = pure Hands
-  cast "feet" = pure Feet
-  cast _ = fail "equip slot must be of \"head\" | \"hands\" | \"feet\""
+  cast "legs" = pure Legs
+  cast _ = fail "equip slot must be of \"head\" | \"hands\" | \"legs\""
 
 getSlot : JSONDict -> Checked EquipSlot
 getSlot dict = case lookup "slot" dict of

@@ -29,11 +29,14 @@ interface UI (m : Type -> Type) where
               (f : PUI -> PUI) ->
               ST m () [ui ::: SUI]
 
-
   newId : (ui : Var) -> ST m SurfaceId [ui ::: SUI]
   decideId : (ui : Var) ->
              (desc : SurfaceDescription) ->
              ST m SurfaceId [ui ::: SUI]
+  decideName : (ui : Var) ->
+               (desc : SurfaceDescription) ->
+               (id : SurfaceId) ->
+               ST m SurfaceName [ui ::: SUI]
 
   surfaceFromDesc : (ui : Var) ->
                     (desc : SurfaceDescription) ->
@@ -70,8 +73,30 @@ interface UI (m : Type -> Type) where
                     (ref : ContentReference) ->
                     (surface_descs : List SurfaceDescription) ->
                     ST m () [ui ::: SUI]
-  logRoot : (ui : Var) -> (ref : ContentReference) -> ST m () [ui ::: SUI]
 
+  logRoot : (ui : Var) -> (ref : ContentReference) -> ST m () [ui ::: SUI]
+  logSurface : (ui : Var) -> (ref : SurfaceReference) -> ST m () [ui ::: SUI]
+
+  updateSurface : (ui : Var) ->
+                  (ref : SurfaceReference) ->
+                  (f : UISurface -> UISurface) ->
+                  ST m () [ui ::: SUI]
+  updateSurfaces : (ui : Var) ->
+                   (ref_fs : List (SurfaceReference, UISurface -> UISurface)) ->
+                   ST m () [ui ::: SUI]
+
+  setSurface : (ui : Var) ->
+               (ref : SurfaceReference) ->
+               (desc : SurfaceDescription) ->
+               ST m () [ui ::: SUI]
+  setSurfaces : (ui : Var) ->
+                (ref_descs : List (SurfaceReference, SurfaceDescription)) ->
+                ST m () [ui ::: SUI]
+
+  setSurfaceChildren : (ui : Var) ->
+                       (ref : SurfaceReference) ->
+                       (surface_descs : List SurfaceDescription) ->
+                       ST m () [ui ::: SUI]
 
   processCommand : (ui : Var) ->
                    (command : ClientCommand) ->
@@ -115,10 +140,16 @@ export
     Nothing => newId ui
     Just x => pure x
 
+  decideName ui desc id = case name desc of
+    Nothing => pure id
+    Just x => pure x
+
   surfaceFromDesc ui desc = with ST do
     children <- surfacesFromDescs ui (children desc)
     id <- decideId ui desc
-    pure $ MkUISurface id (surfaceParameters desc) Inactive children (MkSDLRect 0 0 0 0)
+    name <- decideName ui desc id
+    pure $ MkUISurface
+      id name (surfaceParameters desc) (0, 0) Inactive children (MkSDLRect 0 0 0 0)
 
   surfacesFromDescs ui [] = pure []
   surfacesFromDescs ui (desc::xs)
@@ -165,12 +196,12 @@ export
   setRootSurface ui ref surface_desc = with ST do
     surface <- surfaceFromDesc ui surface_desc
     updateRoot ui ref $ puiSetRootSurface surface
-    updateRoot ui ref $ surfaceToRoot resetDimensions
+    -- updateRoot ui ref $ surfaceToRoot resetDimensions
 
   setRootChildren ui ref surface_descs = with ST do
     surfaces <- surfacesFromDescs ui surface_descs
     updateRoot ui ref $ surfaceToRoot $ setChildren surfaces
-    updateRoot ui ref $ surfaceToRoot resetDimensions
+    -- updateRoot ui ref $ surfaceToRoot resetDimensions
 
   logRoot ui ref = with ST do
     shown' <- queryPUI ui shown
@@ -180,11 +211,35 @@ export
       (Nothing, Just root) => lift $ log $ show root
       _ => pure ()
 
+  logSurface ui (MkSurfaceReference x xs) = ?sdkfkds_1
+
+  setSurfaceChildren ui ref surface_descs = with ST do
+    surfaces <- surfacesFromDescs ui surface_descs
+    updateSurface ui ref $ setChildren surfaces
+
+  updateSurface ui (MkSurfaceReference root_ref ids) f =
+    updateRoot ui root_ref $ updateSurfaceInRoot ids f
+
+  updateSurfaces ui [] = pure ()
+  updateSurfaces ui ((ref, f)::xs) = with ST do
+    updateSurface ui ref f
+    updateSurfaces ui xs
+
+  setSurface ui ref desc = with ST do
+    surface <- surfaceFromDesc ui desc
+    updateSurface ui ref $ const surface
+
+  setSurfaces ui [] = pure ()
+  setSurfaces ui ((ref, desc)::xs) = with ST do
+    setSurface ui ref desc
+    setSurfaces ui xs
+
   processCommand ui (Stop MainMenu) = with ST do
     toggleRoot ui "main/ui/main_menu.json" 100 100
     pure $ Left ()
   processCommand ui command@(Stop Inventory) = with ST do
-    toggleRoot ui "main/ui/inventory.json" 500 200
+    toggleRoot ui "main/ui/character.json" 400 200
+    toggleRoot ui "main/ui/inventory.json" 650 200
     pure $ Right command -- not eaten because the client has to feed further info
   processCommand ui (Mouse x) = pure $ map Mouse !(processMouseEvent ui x)
   processCommand ui command = pure $ Right command
@@ -221,9 +276,8 @@ executeMethod : (SDL m, UI m, GameIO m) =>
                 (method : SurfaceRenderMethod) ->
                 ST m () [ui ::: SUI {m}, sdl ::: SSDL {m}]
 executeMethod ui sdl rect (Image x) = drawWholeCenter sdl x rect 0.0 0
-executeMethod ui sdl rect (Colored color) = filledRect sdl rect color
-executeMethod ui sdl rect (Text string font)
-  = drawText sdl string font rect
+executeMethod ui sdl rect (Colored color) = pure () -- filledRect sdl rect color
+executeMethod ui sdl rect (Text string font) = drawText sdl string font rect
 
 pickRenderMethod : SurfaceState -> SurfaceRenderDescription -> SurfaceRenderMethod
 pickRenderMethod Inactive desc = inactive desc
@@ -236,13 +290,14 @@ mutual
                   (sdl : Var) ->
                   (surface : UISurface) ->
                   ST m () [ui ::: SUI {m}, sdl ::: SSDL {m}]
-  renderSurface ui sdl surface
-    =  let render_desc = render $ surfaceParameters surface
-           layout = layout $ surfaceParameters surface
-           render_method = pickRenderMethod (state surface) render_desc
-           in with ST do
-             executeMethod ui sdl (rect surface) render_method
-             renderSurfaces ui sdl (children surface) layout
+  renderSurface ui sdl surface = let layout = layout $ surfaceParameters surface in
+    case render $ surfaceParameters surface of
+      Nothing => renderSurfaces ui sdl (children surface) layout
+      Just render_desc =>
+        let render_method = pickRenderMethod (state surface) render_desc
+            in with ST do
+              executeMethod ui sdl (rect surface) render_method
+              renderSurfaces ui sdl (children surface) layout
 
   renderSurfaces : (SDL m, UI m, GameIO m) =>
                    (ui : Var) ->

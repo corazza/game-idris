@@ -20,36 +20,44 @@ public export
 record UISurface where
   constructor MkUISurface
   id : SurfaceId
+  name : SurfaceName
   surfaceParameters : SurfaceParameters
+  dimensions : (Int, Int)
   state : SurfaceState
   children : List UISurface
   rect : SDLRect -- calculated in refresh, used for clicks and rendering
+%name UISurface surface
 
 export
 Show UISurface where
-  show (MkUISurface id surfaceParameters state children rect)
-    =  "{ id: " ++ show id
+  show (MkUISurface id name surfaceParameters dimensions state children rect)
+    =  "{ id: " ++ id
+    ++ ", name: " ++ name
     ++ ", surfaceParameters: " ++ show surfaceParameters
+    ++ ", dimensions: " ++ show dimensions
     ++ ", state: " ++ show state
+    ++ ", rect: " ++ show rect
     ++ ", children: " ++ show children
-    ++ ", rect:" ++ show rect
     ++ " }"
 
 layout : UISurface -> Layout
 layout = layout . surfaceParameters
 
-export
-getDimensions : UISurface -> (Int, Int)
-getDimensions surface = fromMaybe (0, 0) $ dimensions (surfaceParameters surface)
-
 setDimensions : (Int, Int) -> UISurface -> UISurface
 setDimensions dims = record {
-  surfaceParameters $= record { dimensions = Just dims }
+  dimensions = dims
+  -- surfaceParameters $= record { dimensions = Just dims }
 }
 
 export
-resetDimensions : UISurface -> UISurface
-resetDimensions = record { surfaceParameters $= record { dimensions = Nothing } }
+setRenderDescription : Maybe SurfaceRenderDescription -> UISurface -> UISurface
+setRenderDescription desc = record {
+  surfaceParameters $= record { render = desc }
+}
+
+-- export
+-- resetDimensions : UISurface -> UISurface
+-- resetDimensions = record { surfaceParameters $= record { dimensions = Nothing } }
 
 export
 setChildren : List UISurface -> UISurface -> UISurface
@@ -68,6 +76,42 @@ Show Root where
 export
 puiSetRootSurface : UISurface -> Root -> Root
 puiSetRootSurface surface (MkRoot x y s) = MkRoot x y surface
+
+isChild : SurfaceName -> (SurfaceName, UISurface) -> Bool
+isChild x (x', surface) = x == x'
+
+transformFind : List (List (SurfaceName, UISurface)) ->
+                (SurfaceName, UISurface) ->
+                (List UISurface, UISurface, List UISurface)
+transformFind [xs1, xs2] x = (map snd xs1, snd x, map snd xs2)
+-- transformFind xs x = ?
+
+findChild : SurfaceName ->
+            List (SurfaceName, UISurface) ->
+            Maybe (List UISurface, UISurface, List UISurface)
+findChild x name_child = let found = head' $ filter (isChild x) name_child
+                             without = split (isChild x) name_child
+                             in map (transformFind without) found
+
+updateSubsurface : List SurfaceName ->
+                   (f : UISurface -> UISurface) ->
+                   UISurface ->
+                   UISurface
+updateSubsurface [] f surface = f surface
+updateSubsurface (x::xs) f surface
+  = let children = children surface
+        names = map UISurface.name children
+        name_child = zip names children
+        in case findChild x name_child of
+          Nothing => surface
+          Just (first, child_matching_id, rest) =>
+            let updated_matching = updateSubsurface xs f child_matching_id
+                new_children = concat [first, updated_matching :: rest]
+                in setChildren new_children surface
+
+export
+updateSurfaceInRoot : List SurfaceName -> (f : UISurface -> UISurface) -> Root -> Root
+updateSurfaceInRoot names f (MkRoot x y s) = MkRoot x y (updateSubsurface names f s)
 
 export
 surfaceToRoot : (f : UISurface -> UISurface) -> Root -> Root
@@ -138,12 +182,11 @@ refreshSurface surface
           = (setDimensions newDimensions . setChildren children_surfaces) surface
         in (refreshed_surface, newDimensions)
 
-
 mutual
   refreshRect : (Int, Int) -> UISurface -> UISurface
   refreshRect xy@(x, y) surface
     = let refreshed_children = refreshChildrenRect xy (layout surface) (children surface) []
-          (width, height) = getDimensions surface
+          (width, height) = dimensions surface
           rect = MkSDLRect x y width height
           in (setRect rect . setChildren refreshed_children) surface
 
@@ -153,7 +196,7 @@ mutual
                         (children : List UISurface) ->
                         (acc : List UISurface) ->
                         List UISurface
-  refreshChildrenRect (x, y) layout [] acc = acc
+  refreshChildrenRect (x, y) layout [] acc = reverse acc
   refreshChildrenRect (x, y) layout (surface::xs) acc
     = let refreshed = refreshRect (x, y) surface
           (MkSDLRect x y width height) = rect refreshed

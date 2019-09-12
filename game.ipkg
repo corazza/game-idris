@@ -56,6 +56,7 @@ modules = Data.AVL.DDict
         , Client.UI
         , Client.UI.PUI
         , Client.UI.Inventory
+        , Client.UI.Character
 
 main = Main
 

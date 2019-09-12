@@ -41,6 +41,7 @@ fromCommand (Start Walk id) = Just $ UpdateControl id startWalking
 fromCommand (Stop Walk id) = Just $ UpdateControl id stopWalking
 fromCommand (Start (Interact x) id) = Nothing
 fromCommand (Stop (Interact x) id) = Just $ QueryFor id x
+fromCommand _ = Nothing
 
 export
 filterControl : ObjectId -> List DynamicsCommand -> List DynamicsCommand
@@ -107,6 +108,7 @@ record BodyData where
   controls : Maybe ObjectControl
   touching : Set ObjectId
   effects : List PhysicsEffect
+  groundAngle : Maybe Double
 %name BodyData body_data
 
 export
@@ -212,7 +214,8 @@ pdynamicsAddObject : (id : ObjectId) ->
                      (effects : List PhysicsEffect) ->
                      PDynamics -> PDynamics
 pdynamicsAddObject id position angle (box2d_id, body) control effects
-  = let body_data = MkBodyData position angle nullVector 0 box2d_id body control empty effects
+  = let body_data = MkBodyData position angle nullVector 0 box2d_id body control
+                               empty effects Nothing
         in record { objects $= addObject id body_data, ids $= addId box2d_id id }
 
 export

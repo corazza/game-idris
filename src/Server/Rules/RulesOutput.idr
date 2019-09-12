@@ -1,5 +1,6 @@
 module Server.Rules.RulesOutput
 
+import Client.ClientCommands
 import Descriptions.MapDescription
 import Commands
 import Objects
@@ -14,6 +15,7 @@ data RulesOutput
   | NumericPropertyCurrent ObjectId NumericPropertyId Double
   | ExitTo ObjectId ContentReference
   | UpdateCharacter CharacterId (Character -> Character)
+  | RulesClientCommand CharacterId ClientCommand
 
 export
 Show RulesOutput where

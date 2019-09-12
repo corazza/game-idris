@@ -2,11 +2,12 @@ module Server.PServer
 
 import Physics.Vector2D
 
+import Client.ClientCommands
+import Dynamics.PDynamics
+import Descriptions.MapDescription
 import GameIO
 import Objects
-import Dynamics.PDynamics
 import Commands
-import Descriptions.MapDescription
 import Exception
 import JSONCache
 import Timeline
@@ -52,6 +53,7 @@ Show SessionCommand where
 public export
 data GameCommand
   = UpdateCharacter CharacterId (Character -> Character)
+  | RulesClientCommand CharacterId ClientCommand
 
 public export
 LoginResponse : Type

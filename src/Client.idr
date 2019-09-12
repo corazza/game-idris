@@ -7,6 +7,7 @@ import Graphics.SDL2
 import Client.PClient
 import Client.UI
 import Client.UI.Inventory
+import Client.UI.Character
 import Client.Rendering
 import Client.Rendering.PRendering
 import Client.Rendering.Camera
@@ -104,6 +105,9 @@ interface Client (m : Type -> Type) where
 
   private
   refreshSettings : (client : Var) -> ST m () [client ::: SClient Connected]
+
+  -- private
+  -- addUICommand : (client : Var) -> ST m ()
 
   private
   feedUI : (client : Var) ->
@@ -245,19 +249,24 @@ export
     pure Nothing
   runClientCommand client (Mouse (ButtonDown x y)) = characterAttack client Start x y
   runClientCommand client (Mouse (ButtonUp x y)) = characterAttack client Stop x y
-  runClientCommand client (Stop Inventory) = with ST do
+  runClientCommand client (Stop Inventory) = runClientCommand client RefreshInventory
+  runClientCommand client RefreshInventory = with ST do
     items' <- querySessionData client (items . character)
     preload <- queryPClient client preload {s=Connected}
-    case inventorySurfaces items' preload of
-      Left e => with ST do
+    case (inventorySurfaces items' preload, equipmentSurfaces items' preload) of
+      (Left e, _) => with ST do
         lift $ log $ "couldn't create inventory surface, error:\n" ++ e
         pure Nothing
-      Right inventory_surfaces => with ST do
+      (_, Left e) => with ST do
+        lift $ log $ "couldn't create equipment updates, error:\n" ++ e
+        pure Nothing
+      (Right inventory_surfaces, Right equipment_surfaces) => with ST do
         [pclient, session_data, rendering, ui, sdl] <- split client
-        setRootChildren ui "main/ui/inventory.json" inventory_surfaces
+        setSurfaceChildren ui itemlistRef inventory_surfaces
+        setSurfaces ui equipment_surfaces
         combine client [pclient, session_data, rendering, ui, sdl]
         pure Nothing
-  runClientCommand client clientCommand = pure Nothing
+  runClientCommand client _ = pure Nothing
 
   runClientCommands client [] acc = pure acc
   runClientCommands client (cmd::xs) acc = with ST do
@@ -316,7 +325,9 @@ export
   processClick client (Inventory x) = with ST do
     characterId <- querySessionData client characterId
     pure $ Just $ Equip x characterId
-  processClick client (Character x) = pure Nothing
+  processClick client (Character x) = with ST do
+    characterId <- querySessionData client characterId
+    pure $ Just $ Unequip x characterId
   processClick client MainMenuExit = pure Nothing
   processClick client MainMenuOptions = pure Nothing
 

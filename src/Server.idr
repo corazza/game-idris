@@ -8,6 +8,7 @@ import Server.PServer
 import Server.Rules
 import Server.Rules.PRules
 import Server.Rules.RulesOutput
+import Client.ClientCommands
 import Dynamics
 import Dynamics.PDynamics
 import Dynamics.DynamicsEvent
@@ -250,6 +251,8 @@ export
     = updatePServer server $ addSessionCommand $ Relog object_id ref
   processRulesOutput server (UpdateCharacter character_id f)
     = updatePServer server $ addGameCommand $ UpdateCharacter character_id f
+  processRulesOutput server (RulesClientCommand character_id cmd)
+    = updatePServer server $ addGameCommand $ RulesClientCommand character_id cmd
      -- TODO update logged in
 
   processRulesOutputs server [] = pure ()

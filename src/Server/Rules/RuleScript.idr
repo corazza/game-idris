@@ -6,6 +6,7 @@ import Server.Rules.Behavior
 import Server.Rules.RulesOutput
 import Server.Rules.RuleEvent
 import Server.Rules.NumericProperties
+import Client.ClientCommands
 import Descriptions.ObjectDescription.RulesDescription
 import Descriptions.ItemDescription
 import Descriptions.AbilityDescription
@@ -28,6 +29,7 @@ data RuleScript : Type -> Type where
   GetCharacter : (id : ObjectId) -> RuleScript (Maybe Character)
   QueryCharacter : (id : ObjectId) -> (q : Character -> a) -> RuleScript a
   UpdateCharacter : (id : ObjectId) -> (f : Character -> Character) -> RuleScript ()
+  RulesClientCommand : (id : ObjectId) -> ClientCommand -> RuleScript ()
 
   GetStartTime : (id : ObjectId) -> RuleScript (Maybe Int) -- time since in this state
   GetDirection : (id : ObjectId) -> RuleScript (Maybe BehaviorDirection)
@@ -210,7 +212,9 @@ collisionScript collision_data id = with RuleScript do
 lootScript : (looter : ObjectId) ->
              (item : ContentReference) ->
              UnitRuleScript
-lootScript looter item = UpdateCharacter looter $ loot item
+lootScript looter item = with RuleScript do
+  UpdateCharacter looter $ loot item
+  RulesClientCommand looter RefreshInventory
 
 -- TODO chaining (moves are universal, so they go first)
 runInteractAction : (interact_string : String) ->
@@ -316,7 +320,7 @@ attackScript id at = case !(GetCharacter id) of
 
 clearSlot : (equipper : ObjectId) -> EquipSlot -> UnitRuleScript
 clearSlot equipper slot = with RuleScript do
-  Just item_ref <- QueryCharacter equipper (getAtSlot slot)
+  Just item_ref <- QueryCharacter equipper (getAtSlot slot) | Nothing => pure ()
   UpdateCharacter equipper $ resetSlot slot
   lootScript equipper item_ref
 
@@ -336,3 +340,12 @@ equipScript equipper item = case !(QueryCharacter equipper (hasItem item)) of
         clearSlot equipper slot'
         UpdateCharacter equipper $ equip item slot'
         UpdateCharacter equipper $ removeItem item
+        RulesClientCommand equipper RefreshInventory
+
+export
+unequipScript : (equipper : ObjectId) ->
+                (item : ContentReference) ->
+                UnitRuleScript
+unequipScript equipper item = case !(QueryCharacter equipper (hasEquipped item)) of
+  Nothing => pure ()
+  Just slot => clearSlot equipper slot

@@ -9,7 +9,8 @@ import Physics.Box2D
 import Physics.Box2D.Definitions
 
 import public Serializer
-import Exception
+import public Objects
+import public Exception
 
 public export
 interface (Monad m, ConsoleIO m) => GameIO (m : Type -> Type) where
@@ -80,11 +81,6 @@ GameIO IO where
   -- pollEvent = Box2D.pollEvent
   pollEvents = Box2D.pollEvents
 
-
-public export
-ContentReference : Type
-ContentReference = String
-%name ContentReference ref
 
 public export
 interface ObjectCaster a where
@@ -192,7 +188,7 @@ export
 getStringOrDefault : String -> String -> JSONDict -> Checked String
 getStringOrDefault key default dict = case hasKey key dict of
   True => getString key dict
-  False => pure default  
+  False => pure default
 
 export
 getStringMaybe : String -> JSONDict -> Checked (Maybe String)

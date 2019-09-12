@@ -8,31 +8,35 @@ import Objects
 import Descriptions.Color
 import Descriptions.SurfaceDescription
 import Descriptions.ItemDescription
+import Client.UI.PUI
 
-makeClick : ContentReference -> Maybe Click
-makeClick = Just . Inventory
+makeInventoryClick : ContentReference -> Maybe Click
+makeInventoryClick = Just . Inventory
+
+makeCharacterClick : ContentReference -> Maybe Click
+makeCharacterClick = Just . Character
 
 numberSurface : (n : Nat) -> Maybe Click -> SurfaceDescription
 numberSurface n click
   = let inactive = Text (show n) "main/fonts/inventory_count.json"
         render_desc = MkSurfaceRenderDescription inactive Nothing Nothing
         sparams = MkSurfaceParameters
-          (Just (15, 15)) render_desc click Center Vertical
-        in MkSurfaceDescription Nothing sparams empty
+          (Just (15, 15)) (Just render_desc) click Center Vertical
+        in MkSurfaceDescription Nothing Nothing sparams empty
 
-itemSurface : (click : ContentReference) ->
-              (icon : ContentReference) ->
-              (name : String) ->
-              (n : Nat) ->
-              SurfaceDescription
-itemSurface click icon name n
+inventoryItemSurface : (click : ContentReference) ->
+                       (icon : ContentReference) ->
+                       (name : String) ->
+                       (n : Nat) ->
+                       SurfaceDescription
+inventoryItemSurface click icon name n
   = let inactive = Image icon
         render_desc = MkSurfaceRenderDescription inactive Nothing Nothing
-        click' = makeClick click
+        click' = makeInventoryClick click
         sparams = MkSurfaceParameters
-          (Just (50, 50)) render_desc click' Center Vertical
+          (Just (50, 50)) (Just render_desc) click' Center Vertical
         num = numberSurface n click'
-        in MkSurfaceDescription Nothing sparams [num]
+        in MkSurfaceDescription Nothing Nothing sparams [num]
 
 partialListApply : List (a -> b) -> List a -> List b
 partialListApply = zipWith (\p, q => p q)
@@ -46,8 +50,12 @@ inventorySurfaces (MkItems equipment inventory) preload = with Checked do
   item_descs <- catResults $ map (flip getItemDescription preload) item_refs
   let icon_refs = map icon item_descs
   let item_names = map name item_descs
-  let surface_clicks = map itemSurface item_refs
+  let surface_clicks = map inventoryItemSurface item_refs
   let surface_icons = partialListApply surface_clicks icon_refs
   let surface_names = partialListApply surface_icons item_names
   let surfaces = partialListApply surface_names item_nums
   pure $ surfaces
+
+export
+itemlistRef : SurfaceReference
+itemlistRef = MkSurfaceReference "main/ui/inventory.json" ["itemlist"]

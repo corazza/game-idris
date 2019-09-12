@@ -1,6 +1,7 @@
 module Client.PClient
 
 import Client.UI.Inventory
+import Client.UI.UICommand
 import JSONCache
 import GameIO
 import Exception

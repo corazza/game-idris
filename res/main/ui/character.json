@@ -1,0 +1,106 @@
+{
+  "render": {
+    "type": "color",
+    "color": [191, 191, 191, 38]
+  },
+  "displayStyle": "center",
+  "layout": "vertical",
+  "children": [
+      {
+        "width": 100,
+        "height": 30,
+        "render": {
+          "type": "text",
+          "text": "Equipment",
+          "font": "main/fonts/ui_title.json"
+        },
+        "displayStyle": "center",
+        "layout": "vertical",
+        "children": []
+      },
+      {
+        "name": "slots",
+        "displayStyle": "center",
+        "layout": "vertical",
+        "children": [
+          {
+            "name": "head",
+            "displayStyle": "center",
+            "layout": "vertical",
+            "children": [
+              {
+                "width": 100,
+                "height": 30,
+                "render": {
+                  "type": "text",
+                  "text": "Head",
+                  "font": "main/fonts/ui_text.json"
+                },
+                "displayStyle": "center",
+                "layout": "vertical",
+                "children": []
+              },
+              {
+                "name": "image",
+                "displayStyle": "center",
+                "layout": "vertical",
+                "children": []
+              }
+            ]
+          },
+
+          {
+            "name": "hands",
+            "displayStyle": "center",
+            "layout": "vertical",
+            "children": [
+              {
+                "width": 100,
+                "height": 30,
+                "render": {
+                  "type": "text",
+                  "text": "Hands",
+                  "font": "main/fonts/ui_text.json"
+                },
+                "displayStyle": "center",
+                "layout": "vertical",
+                "children": []
+              },
+              {
+                "name": "image",
+                "displayStyle": "center",
+                "layout": "vertical",
+                "children": []
+              }
+            ]
+          },
+
+          {
+            "name": "legs",
+            "displayStyle": "center",
+            "layout": "vertical",
+            "children": [
+              {
+                "width": 100,
+                "height": 30,
+                "render": {
+                  "type": "text",
+                  "text": "Legs",
+                  "font": "main/fonts/ui_text.json"
+                },
+                "displayStyle": "center",
+                "layout": "vertical",
+                "children": []
+              },
+              {
+                "name": "image",
+                "displayStyle": "center",
+                "layout": "vertical",
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+  ]
+}

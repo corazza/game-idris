@@ -42,6 +42,7 @@ Show SurfaceRenderDescription where
     =  "{ inactive: " ++ show (inactive rd)
     ++ ", hover: " ++ show (hover rd)
     ++ ", clicked: " ++ show (clicked rd)
+    ++ " }"
 
 ObjectCaster SurfaceRenderDescription where
   objectCast dict = case hasKey "inactive" dict of
@@ -129,7 +130,7 @@ public export
 record SurfaceParameters where
   constructor MkSurfaceParameters
   dimensions : Maybe (Int, Int)
-  render : SurfaceRenderDescription
+  render : Maybe SurfaceRenderDescription
   click : Maybe Click
   displayStyle : DisplayStyle
   layout : Layout
@@ -156,7 +157,8 @@ export
 ObjectCaster SurfaceParameters where
   objectCast dict = with Checked do
     dimensions <- getDimensions dict
-    render <- the (Checked SurfaceRenderDescription) $ getCastable "render" dict
+    render <- the (Checked (Maybe SurfaceRenderDescription)) $
+      getCastableMaybe "render" dict
     click <- getClick dict
     displayStyle' <- getStringOrDefault "displayStyle" "center" dict
     displayStyle <- cast displayStyle'
@@ -168,6 +170,7 @@ public export
 record SurfaceDescription where
   constructor MkSurfaceDescription
   id : Maybe SurfaceId
+  name : Maybe SurfaceName
   surfaceParameters : SurfaceParameters
   children : List SurfaceDescription
 
@@ -175,6 +178,7 @@ export
 Show SurfaceDescription where
   show sd
     =  "{ id: " ++ show (SurfaceDescription.id sd)
+    ++ ", name: " ++ show (name sd)
     ++ ", parameters: " ++ show (surfaceParameters sd)
     ++ ", children: " ++ show (children sd)
     ++ "}"
@@ -189,6 +193,7 @@ mutual
   ObjectCaster SurfaceDescription where
     objectCast dict = with Checked do
       id <- getStringMaybe "id" dict
+      name <- getStringMaybe "name" dict
       surfaceParameters <- the (Checked SurfaceParameters) $ objectCast dict
       children <- getChildren dict
-      pure $ MkSurfaceDescription id surfaceParameters children
+      pure $ MkSurfaceDescription id name surfaceParameters children

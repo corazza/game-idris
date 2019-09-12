@@ -3,6 +3,11 @@ module Objects
 import public Data.AVL.DDict
 
 public export
+ContentReference : Type
+ContentReference = String
+%name ContentReference ref
+
+public export
 CharacterId : Type
 CharacterId = String
 %name CharacterId charater_id
@@ -19,6 +24,20 @@ public export
 SurfaceId : Type
 SurfaceId = String
 %name SurfaceId surface_id
+
+-- non-unique globally, unique among peers (as children), used for references
+public export
+SurfaceName : Type
+SurfaceName = String
+%name SurfaceName surface_name
+
+public export
+data SurfaceReference = MkSurfaceReference ContentReference (List SurfaceName)
+%name SurfaceReference surface_ref
+
+export
+Show SurfaceReference where
+  show (MkSurfaceReference x xs) = "{ root: " ++ show x ++ ", ids: " ++ show xs ++ " }"
 
 public export
 ObjectId : Type

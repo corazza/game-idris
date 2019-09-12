@@ -9,6 +9,7 @@ import Server.Rules.NumericProperties
 import Server.Rules.RulesOutput
 import Server.Rules.RuleScript
 import Server.Rules.Behavior
+import Client.ClientCommands
 import Dynamics.PDynamics
 import Dynamics.DynamicsEvent
 import Descriptions.MapDescription
@@ -45,16 +46,6 @@ interface Rules (m : Type -> Type) where
                  (character : Character) ->
                  ST m () [rules ::: SRules]
 
-  queryCharacter : (rules : Var) ->
-                   (id : ObjectId) ->
-                   (q : Character -> a) ->
-                   ST m a [rules ::: SRules]
-
-  updateCharacter : (rules : Var) ->
-                    (id : ObjectId) ->
-                    (f : Character -> Character) ->
-                    ST m () [rules ::: SRules]
-
   removeObject : (rules : Var) ->
                  (id : ObjectId) ->
                  ST m () [rules ::: SRules]
@@ -73,10 +64,23 @@ interface Rules (m : Type -> Type) where
   runCommand : (rules : Var) -> Command -> ST m () [rules ::: SRules]
   runCommands : (rules : Var) -> List Command -> ST m () [rules ::: SRules]
 
-  -- private
-  -- dataUpdate : (rules : Var) -> Command -> ST m () [rules ::: SRules]
-  -- private
-  -- dataUpdates : (rules : Var) -> List Command -> ST m () [rules ::: SRules]
+  private
+  queryCharacter : (rules : Var) ->
+                   (id : ObjectId) ->
+                   (q : Character -> a) ->
+                   ST m a [rules ::: SRules]
+
+  private
+  updateCharacter : (rules : Var) ->
+                    (id : ObjectId) ->
+                    (f : Character -> Character) ->
+                    ST m () [rules ::: SRules]
+
+  private
+  clientCommand : (rules : Var) ->
+                  (id : ObjectId) ->
+                  (cmd : ClientCommand) ->
+                  ST m () [rules ::: SRules]
 
   private
   runScript : (rules : Var) -> RuleScript a -> ST m a [rules ::: SRules]
@@ -116,6 +120,10 @@ GameIO m => Rules m where
     updatePRules rules $ prulesUpdateCharacter id f
     updatePRules rules $ output (UpdateCharacter character_id f)
 
+  clientCommand rules id cmd = with ST do
+    Just (character_id, character) <- queryPRules rules $ prulesGetCharacter id
+    updatePRules rules $ output (RulesClientCommand character_id cmd)
+
   removeObject rules id = updatePRules rules $ prulesRemoveObject id
 
   runAbility rules id at (Throw ref impulse) body
@@ -130,6 +138,7 @@ GameIO m => Rules m where
 
   runCommand rules (Stop (Attack at) id) = runScript rules $ attackScript id at
   runCommand rules (Equip ref id) = runScript rules $ equipScript id ref
+  runCommand rules (Unequip ref id) = runScript rules $ unequipScript id ref
   runCommand rules _ = pure ()
 
   runCommands rules [] = pure ()
@@ -152,6 +161,7 @@ GameIO m => Rules m where
   runScript rules (GetCharacter id) = queryPRules rules $ prulesGetCharacter' id
   runScript rules (QueryCharacter id q) = queryCharacter rules id q
   runScript rules (UpdateCharacter id f) = updateCharacter rules id f
+  runScript rules (RulesClientCommand id cmd) = clientCommand rules id cmd
   runScript rules (GetStartTime id) = queryPRules rules $ getStartTime id
   runScript rules (GetDirection id) = queryPRules rules $ getDirection id
   runScript rules (GetController id) = queryPRules rules $ getController id

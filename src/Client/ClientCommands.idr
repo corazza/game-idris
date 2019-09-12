@@ -26,9 +26,11 @@ data ClientCommand
   = Start ClientAction
   | Stop ClientAction
   | Mouse MouseEvent
+  | RefreshInventory
 
 export
 Show ClientCommand where
   show (Start action) = "start " ++ show action
   show (Stop action) = "stop " ++ show action
   show (Mouse event) = show event
+  show RefreshInventory = "refresh inventory"

@@ -1,10 +1,32 @@
 {
-  "id": "inventory",
   "render": {
     "type": "color",
     "color": [191, 191, 191, 38]
   },
   "displayStyle": "center",
   "layout": "vertical",
-  "children": []
+  "children": [
+    {
+      "width": 100,
+      "height": 30,
+      "render": {
+        "type": "text",
+        "text": "Inventory",
+        "font": "main/fonts/ui_title.json"
+      },
+      "displayStyle": "center",
+      "layout": "vertical",
+      "children": []
+    },
+    {
+      "name": "itemlist",
+      "render": {
+        "type": "color",
+        "color": [191, 191, 191, 38]
+      },
+      "displayStyle": "center",
+      "layout": "vertical",
+      "children": []
+    }
+  ]
 }

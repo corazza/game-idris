@@ -50,10 +50,13 @@
 
   "ui": [
     "main/ui/main_menu.json",
-    "main/ui/inventory.json"
+    "main/ui/inventory.json",
+    "main/ui/character.json"
   ],
 
   "fonts": [
-    "main/fonts/inventory_count.json"
+    "main/fonts/inventory_count.json",
+    "main/fonts/ui_title.json",
+    "main/fonts/ui_text.json"
   ]
 }

@@ -91,7 +91,7 @@ getTransition dict = the (Checked Transition) $ getCastable "transition" dict
 getHandler : (name : String) -> (dict : JSONDict) -> Checked (Maybe Transition)
 getHandler name dict = case lookup name dict of
   Nothing => pure Nothing
-  Just (JObject xs) => case lookup "transition" (fromList xs) of
+  Just (JObject xs) => case Dict.lookup "transition" (fromList xs) of
     Nothing => fail $ name ++ " must have transition field"
     Just x => case the (Checked Transition) (cast x) of
       Left e => fail e
@@ -101,7 +101,7 @@ getHandler name dict = case lookup name dict of
 getTime : JSONDict -> Checked (Maybe (Double, Maybe String, Transition))
 getTime dict = case lookup "onTime" dict of
   Nothing => pure Nothing
-  Just (JObject xs) => let dict' = fromList xs in
+  Just (JObject xs) => let dict' = Dict.fromList xs in
     case lookup "transition" dict' of
       Nothing => fail "onTime must have transition field"
       Just x => case the (Checked Transition) (cast x) of

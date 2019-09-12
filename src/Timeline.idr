@@ -12,22 +12,22 @@ record Equipment where
   constructor MkEquipment
   head : Maybe ContentReference
   hands : Maybe ContentReference
-  feet : Maybe ContentReference
+  legs : Maybe ContentReference
 %name Equipment equipment
 
 ObjectCaster Equipment where
   objectCast dict = with Checked do
     head <- getStringMaybe "head" dict
     hands <- getStringMaybe "hands" dict
-    feet <- getStringMaybe "feet" dict
-    pure $ MkEquipment head hands feet
+    legs <- getStringMaybe "legs" dict
+    pure $ MkEquipment head hands legs
 
 Serialize Equipment where
   toDict eq = with ST do
     equipmentObject <- makeObject
     addStringMaybe equipmentObject "head" $ head eq
     addStringMaybe equipmentObject "hands" $ hands eq
-    addStringMaybe equipmentObject "feet" $ feet eq
+    addStringMaybe equipmentObject "legs" $ legs eq
     getDict equipmentObject
 
 export
@@ -37,17 +37,27 @@ noEquipment = MkEquipment Nothing Nothing Nothing
 addItemEquipment : ContentReference -> EquipSlot -> Equipment -> Equipment
 addItemEquipment ref Head = record { head = Just ref }
 addItemEquipment ref Hands = record { hands = Just ref }
-addItemEquipment ref Feet = record { feet = Just ref }
+addItemEquipment ref Legs = record { legs = Just ref }
 
 getAtSlotEquipment : Equipment -> EquipSlot -> Maybe ContentReference
 getAtSlotEquipment equipment Head = head equipment
 getAtSlotEquipment equipment Hands = hands equipment
-getAtSlotEquipment equipment Feet = feet equipment
+getAtSlotEquipment equipment Legs = legs equipment
 
 resetSlotEquipment : EquipSlot -> Equipment -> Equipment
 resetSlotEquipment Head = record { head = Nothing }
 resetSlotEquipment Hands = record { hands = Nothing }
-resetSlotEquipment Feet = record { feet = Nothing }
+resetSlotEquipment Legs = record { legs = Nothing }
+
+inSlot : EquipSlot -> Maybe ContentReference -> ContentReference -> Maybe EquipSlot
+inSlot slot Nothing ref = Nothing
+inSlot slot (Just x) ref = case x == ref of
+  False => Nothing
+  True => Just slot
+
+inEquipment : ContentReference -> Equipment -> Maybe EquipSlot
+inEquipment ref (MkEquipment head hands legs) = head' $ catMaybes $
+  [inSlot Head head ref, inSlot Hands hands ref, inSlot Legs legs ref]
 
 public export
 Inventory : Type
@@ -172,6 +182,11 @@ hasItem ref character = case items character of
   (MkItems equipment inventory) => case lookup ref inventory of
     Just (S k) => True
     _ => False
+
+export
+hasEquipped : ContentReference -> Character -> Maybe EquipSlot
+hasEquipped ref character = case items character of
+  (MkItems equipment inventory) => inEquipment ref equipment
 
 export
 removeItem : ContentReference -> Character -> Character
