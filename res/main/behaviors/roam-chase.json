@@ -7,7 +7,7 @@
       "time": 0,
       "transition": {
         "state": "roam",
-        "actions": ["move left", "begin walk"]
+        "actions": [{"type": "move left"}, {"type": "begin walk"}]
       }
     }
   },
@@ -18,14 +18,14 @@
       "time_parameter": "roam_duration",
       "transition": {
         "state": "roam",
-        "action": "change direction"
+        "action": {"type": "change direction"}
       }
     },
 
     "onHit": {
       "transition": {
         "state": "chase",
-        "actions": ["begin chase", "end walk"]
+        "actions": [{"type": "begin chase"}, {"type": "end walk"}]
       }
     }
   },
@@ -36,7 +36,7 @@
       "time_parameter": "chase_duration",
       "transition": {
         "state": "roam",
-        "actions": ["end chase", "stop", "begin walk"]
+        "actions": [{"type": "end chase"}, {"type": "stop"}, {"type": "begin walk"}]
       }
     }
   }

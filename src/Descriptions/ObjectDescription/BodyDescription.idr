@@ -6,6 +6,7 @@ import Physics.Vector2D
 
 import GameIO
 import Exception
+import Descriptions.BitsDescription
 
 export
 ObjectCaster Shape where
@@ -40,29 +41,6 @@ Show FixtureParameters where
     ++ ", name: " ++ show (name fp)
     ++ " }"
 
-entryToBits : (String, Int) -> (String, Bits 16)
-entryToBits (name, x) = (name, intToBits $ cast x)
-
-categoryNums : Dict String (Bits 16)
-categoryNums = fromList $ map entryToBits [
-  ("wall", 1),
-  ("inanimate", 2),
-  ("animate", 4),
-  ("projectile", 8),
-  ("drop", 16)
-]
-
-decideBits : List (Bits 16) -> Int
-decideBits = fromInteger . bitsToInt . foldr or (intToBits 0)
-
-getBits : (key : String) -> JSONDict -> Checked (Maybe Int)
-getBits key dict = case hasKey key dict of
-  False => pure Nothing
-  True => with Checked do
-    categories <- getStrings key dict
-    nums <- catResults $ map (flip (pick "bits") categoryNums) categories
-    pure $ Just $ decideBits nums
-
 export -- TODO rewrite with getMaybe or smth so it validates
 getFixtureParameters : JSONDict -> Checked FixtureParameters
 getFixtureParameters dict
@@ -74,8 +52,8 @@ getFixtureParameters dict
         groupIndex = eitherToMaybe $ getInt "groupIndex" dict
         in with Checked do
           name <- getStringMaybe "name" dict
-          categoryBits <- getBits "categoryBits" dict
-          maskBits <- getBits "maskBits" dict
+          categoryBits <- getBitsMaybe "categoryBits" dict
+          maskBits <- getBitsMaybe "maskBits" dict
           pure $ MkFixtureParameters
             offset angle density friction restitution groupIndex categoryBits maskBits name
 
@@ -169,7 +147,7 @@ ObjectCaster BodyDescription where
     fixtures <- getFixtures dict
     effects <- getPhysicsEffects dict
     let groupIndex = eitherToMaybe $ getInt "groupIndex" dict
-    categoryBits <- getBits "categoryBits" dict
-    maskBits <- getBits "maskBits" dict
+    categoryBits <- getBitsMaybe "categoryBits" dict
+    maskBits <- getBitsMaybe "maskBits" dict
     pure $ MkBodyDescription
       type fixedRotation bullet fixtures effects groupIndex categoryBits maskBits

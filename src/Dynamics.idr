@@ -16,6 +16,7 @@ import Objects
 import Exception
 import Settings
 import Descriptions.JointDescription
+import Descriptions.BitsDescription
 import Descriptions.ObjectDescription.BodyDescription
 
 public export
@@ -76,6 +77,13 @@ interface Dynamics (m : Type -> Type) where
           (object_id : ObjectId) ->
           (aabb : AABB) ->
           ST m () [dynamics ::: SDynamics]
+
+  private
+  setunsetMaskBits : (dynamics : Var) ->
+                     (set : Bool) ->
+                     (id : ObjectId) ->
+                     (bits : List String) ->
+                     ST m () [dynamics ::: SDynamics]
 
   private
   groundUpdate : (dynamics : Var) ->
@@ -145,6 +153,15 @@ Dynamics IO where
 
   updateControl dynamics id f = update dynamics $ pdynamicsUpdateControl id f
 
+  setunsetMaskBits dynamics set id bits = with ST do
+    Just body_data <- queryPDynamics dynamics $ getBodyData id
+    let body' = body body_data
+    case getBits bits of
+      Left e => lift $ log $ "couldn't set mask bits, error:\n" ++ e
+      Right bits_as_int =>
+        let f = if set then setFilterBit else unsetFilterBit
+            in lift $ f body' Nothing bits_as_int 2
+
   runCommand dynamics (Create id def fixtures control effects impulse) = with ST do
     addBody dynamics id def fixtures control effects
     case impulse of
@@ -157,6 +174,8 @@ Dynamics IO where
     Just (x, y) <- queryPDynamics dynamics $ (map position . getBodyData object_id)
           | pure ()
     query dynamics object_id (MkAABB (x-span, y-span) (x+span, y+span))
+  runCommand dynamics (SetMaskBits id bits) = setunsetMaskBits dynamics True id bits
+  runCommand dynamics (UnsetMaskBits id bits) = setunsetMaskBits dynamics False id bits
 
   runCommands dynamics [] = pure ()
   runCommands dynamics (cmd::xs) = runCommand dynamics cmd >>= const (runCommands dynamics xs)

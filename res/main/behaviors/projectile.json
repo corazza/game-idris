@@ -9,7 +9,7 @@
         "state": "after",
         "actions": [
           {"type": "projectile damage"},
-          {"type": "add mask bit", "maskBit": "projectile"}
+          {"type": "unset mask bits", "maskBits": ["projectile", "animate"]}
         ]
       }
     }

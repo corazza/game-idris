@@ -7,7 +7,7 @@
       "interact_string": "to",
       "transition": {
         "state": "single",
-        "action": "door"
+        "action": {"type": "door"}
       }
     }
   }

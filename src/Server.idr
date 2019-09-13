@@ -253,6 +253,12 @@ export
     = updatePServer server $ addGameCommand $ UpdateCharacter character_id f
   processRulesOutput server (RulesClientCommand character_id cmd)
     = updatePServer server $ addGameCommand $ RulesClientCommand character_id cmd
+  processRulesOutput server (SetMaskBits object_id xs)
+    = updatePServer server $ addDynamicsCommand $ SetMaskBits object_id xs
+  processRulesOutput server (UnsetMaskBits object_id xs)
+    = updatePServer server $ addDynamicsCommand $ UnsetMaskBits object_id xs
+  processRulesOutput server cmd =
+    lift $ log $ "unimplemented handler in processRulesOutput for: " ++ show cmd
      -- TODO update logged in
 
   processRulesOutputs server [] = pure ()

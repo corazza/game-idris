@@ -2,12 +2,11 @@ module Descriptions.ObjectDescription.RulesDescription.BehaviorDescription
 
 import GameIO
 import Exception
+import Descriptions.BitsDescription
 
 public export
 BehaviorState : Type
 BehaviorState = String
-
-
 
 public export
 data BehaviorAction
@@ -17,7 +16,8 @@ data BehaviorAction
   | BeginChase | EndChase
   | BeginWalk | EndWalk
   | Door | Loot
-  | AddMaskBit String
+  | SetMaskBits (List String)
+  | UnsetMaskBits (List String)
 
 export
 Show BehaviorAction where
@@ -33,7 +33,8 @@ Show BehaviorAction where
   show EndWalk = "end walk"
   show Door = "door"
   show Loot = "loot"
-  show (AddMaskBit x) = "add mask bit " ++ x
+  show (SetMaskBits xs) = "set mask bit " ++ show xs
+  show (UnsetMaskBits xs) = "unset mask bit " ++ show xs
 
 actionPicker : Dict String BehaviorAction
 actionPicker = fromList [
@@ -60,9 +61,10 @@ ObjectCaster BehaviorAction where
     type <- getString "type" dict
     case the (Checked BehaviorAction) $ cast type of
       Left e => case type of
-        "add mask bit" => with Checked do
-          maskBit <- getString "maskBit" dict
-          pure $ AddMaskBit maskBit
+        "set mask bit" => getString "maskBit" dict >>= pure . SetMaskBits . (::[])
+        "unset mask bit" => getString "maskBit" dict >>= pure . UnsetMaskBits . (::[])
+        "set mask bits" => getStrings "maskBits" dict >>= pure . SetMaskBits
+        "unset mask bits" => getStrings "maskBits" dict >>= pure . UnsetMaskBits
       Right r => pure r
 
 getActions : JSONDict -> Checked (List BehaviorAction)

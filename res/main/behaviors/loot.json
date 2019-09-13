@@ -8,7 +8,7 @@
       "interact_string": "loot",
       "transition": {
         "state": "looted",
-        "action": "loot"
+        "action": {"type": "loot"}
       }
     }
   },

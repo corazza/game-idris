@@ -25,6 +25,8 @@ data DynamicsCommand
   | Destroy ObjectId
   | UpdateControl ObjectId (ControlState -> ControlState)
   | QueryFor ObjectId Double
+  | SetMaskBits ObjectId (List String)
+  | UnsetMaskBits ObjectId (List String)
 
 export
 fromCommand : Command -> Maybe DynamicsCommand
@@ -55,6 +57,8 @@ Show DynamicsCommand where
   show (UpdateControl id f) = "update control of " ++ id
   show (QueryFor id x) = "query for " ++ id ++ ", " ++ show x
   show (CreateJoint id desc) = "create joint " ++ id
+  show (SetMaskBits id bits) = "set mask bits " ++ show bits ++ " to " ++ id
+  show (UnsetMaskBits id bits) = "unset mask bits " ++ show bits ++ " to " ++ id
 
 export
 createWallCommand : WallCreation -> ObjectDescription -> DynamicsCommand

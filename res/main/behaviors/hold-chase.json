@@ -7,7 +7,7 @@
       "time": 0,
       "transition": {
         "state": "hold",
-        "action": "stop"
+        "action": {"type": "stop"}
       }
     }
   },
@@ -16,7 +16,7 @@
     "onHit": {
       "transition": {
         "state": "chase",
-        "action": "begin chase"
+        "action": {"type": "begin chase"}
       }
     }
   },
@@ -27,7 +27,7 @@
       "time_parameter": "chase_duration",
       "transition": {
         "state": "hold",
-        "actions": ["end chase", "stop"]
+        "actions": [{"type": "end chase"}, {"type": "stop"}]
       }
     }
   }

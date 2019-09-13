@@ -107,9 +107,6 @@ beginChaseScript target self = UpdateData self (beginChase target)
 endChaseScript : ObjectId -> RuleScript ()
 endChaseScript id = UpdateData id endChase
 
-  -- Damage : (target : ObjectId) -> (for : Double) -> RuleScript ()
-  -- Hit : (attacker : ObjectId) -> (target : ObjectId) -> (for : Double) -> RuleScript ()
-
 runHitAction : (target : ObjectId) ->
                (attacker : ObjectId) ->
                BehaviorAction ->
@@ -124,7 +121,8 @@ runHitAction target attacker BeginChase = beginChaseScript attacker target
 runHitAction target attacker EndChase = endChaseScript target
 runHitAction target attacker BeginWalk = beginWalkScript target
 runHitAction target attacker EndWalk = endWalkScript target
-runHitAction target attacker (AddMaskBit x) = Output $ AddMaskBit x
+runHitAction target attacker (SetMaskBits xs) = Output $ SetMaskBits target xs
+runHitAction target attacker (UnsetMaskBits xs) = Output $ UnsetMaskBits target xs
 
 export
 hitScript : (target : ObjectId) ->
@@ -189,6 +187,10 @@ runCollisionAction collision_data BeginWalk = beginWalkScript (self_id collision
 runCollisionAction collision_data EndWalk = endWalkScript (self_id collision_data)
 runCollisionAction collision_data Door = pure ()
 runCollisionAction collision_data Loot = pure ()
+runCollisionAction collision_data (SetMaskBits xs)
+  = Output $ SetMaskBits (self_id collision_data) xs
+runCollisionAction collision_data (UnsetMaskBits xs)
+  = Output $ UnsetMaskBits (self_id collision_data) xs
 
 runTimeAction : ObjectId -> BehaviorAction -> UnitRuleScript
 runTimeAction id MoveLeft = startMovementScript id Left
@@ -203,6 +205,8 @@ runTimeAction id BeginWalk = beginWalkScript id
 runTimeAction id EndWalk = endWalkScript id
 runTimeAction id Door = pure ()
 runTimeAction id Loot = pure ()
+runTimeAction id (SetMaskBits xs) = Output $ SetMaskBits id xs
+runTimeAction id (UnsetMaskBits xs) = Output $ UnsetMaskBits id xs
 
 collisionScript : CollisionData -> ObjectId -> UnitRuleScript
 collisionScript collision_data id = with RuleScript do
@@ -240,6 +244,10 @@ runInteractAction interact_string initiator target EndWalk = endWalkScript targe
 runInteractAction interact_string initiator target Door
   = Output $ ExitTo initiator interact_string
 runInteractAction interact_string initiator target Loot = lootScript initiator interact_string
+runInteractAction interact_string initiator target (SetMaskBits xs)
+  = Output $ SetMaskBits target xs
+runInteractAction interact_string initiator target (UnsetMaskBits xs)
+  = Output $ UnsetMaskBits target xs
 
 interactScript : (initiator : ObjectId) -> (target : ObjectId) -> UnitRuleScript
 interactScript initiator target = with RuleScript do
