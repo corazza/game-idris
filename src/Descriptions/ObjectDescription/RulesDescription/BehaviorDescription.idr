@@ -8,6 +8,7 @@ BehaviorState : Type
 BehaviorState = String
 
 
+
 public export
 data BehaviorAction
   = MoveLeft | MoveRight | Stop | ChangeDirection
@@ -16,6 +17,7 @@ data BehaviorAction
   | BeginChase | EndChase
   | BeginWalk | EndWalk
   | Door | Loot
+  | AddMaskBit String
 
 export
 Show BehaviorAction where
@@ -31,6 +33,7 @@ Show BehaviorAction where
   show EndWalk = "end walk"
   show Door = "door"
   show Loot = "loot"
+  show (AddMaskBit x) = "add mask bit " ++ x
 
 actionPicker : Dict String BehaviorAction
 actionPicker = fromList [
@@ -52,24 +55,29 @@ export
 Cast String (Checked BehaviorAction) where
   cast actionString = pick "action" actionString actionPicker
 
-public export
-record Transition where
-  constructor MkTransition
-  state : BehaviorState
-  actions : List BehaviorAction
+ObjectCaster BehaviorAction where
+  objectCast dict = with Checked do
+    type <- getString "type" dict
+    case the (Checked BehaviorAction) $ cast type of
+      Left e => case type of
+        "add mask bit" => with Checked do
+          maskBit <- getString "maskBit" dict
+          pure $ AddMaskBit maskBit
+      Right r => pure r
 
 getActions : JSONDict -> Checked (List BehaviorAction)
 getActions dict = case hasKey "actions" dict of
   False => case hasKey "action" dict of
     False => pure empty
-    True => with Checked do
-      action_string <- getString "action" dict
-      action <- cast action_string
-      pure [action]
-  True => with Checked do
-    action_strings <- getStrings "actions" dict
-    let actions = the (List (Checked BehaviorAction)) $ map cast action_strings
-    catResults actions
+    True => getCastable "action" dict >>= pure . (::[])
+  True => getArray "actions" dict >>=
+    catResults . map (the (Checked BehaviorAction) . cast)
+
+public export
+record Transition where
+  constructor MkTransition
+  state : BehaviorState
+  actions : List BehaviorAction
 
 ObjectCaster Transition where
   objectCast dict = with Checked do

@@ -15,10 +15,8 @@ import Exception
 import Settings
 import Objects
 import Commands
-import Dynamics
-import Dynamics.PDynamics
+import Dynamics.BodyData
 import Dynamics.DynamicsControl
-import Descriptions
 import Descriptions.ObjectDescription
 import Descriptions.AnimationDescription
 import Descriptions.MapDescription

@@ -10,7 +10,7 @@ import JSONCache
 import Descriptions.AbilityDescription
 import Descriptions.ObjectDescription.RulesDescription
 import Descriptions.ObjectDescription.RulesDescription.BehaviorDescription
-import Dynamics.PDynamics
+import Dynamics.BodyData
 import Timeline
 
 public export

@@ -9,10 +9,12 @@ record CollisionForObject where
   constructor MkCollisionForObject
   id : ObjectId
   velocity : Vector2D
+  fixtureName : String
 
 export
 Show CollisionForObject where
-  show (MkCollisionForObject id velocity) = id ++ " with velocity " ++ show velocity
+  show (MkCollisionForObject id velocity fixtureName)
+    = id ++ " with velocity " ++ show velocity ++ " (fixture name: " ++ fixtureName ++ ")"
 
 public export
 data DynamicsEvent
@@ -27,6 +29,14 @@ record CollisionData where
   constructor MkCollisionData
   self : CollisionForObject
   other : CollisionForObject
+%name CollisionData collision_data
+
+export
+Show CollisionData where
+  show (MkCollisionData self other)
+    =  "{ self: " ++ show self
+    ++ ", other: " ++ show other
+    ++ " }"
 
 public export
 data Selector = First | Second
@@ -43,3 +53,11 @@ self_id (MkCollisionData self other) = id self
 export
 other_id : CollisionData -> ObjectId
 other_id (MkCollisionData self other) = id other
+
+export
+self_fixture : CollisionData -> String
+self_fixture (MkCollisionData self other) = fixtureName self
+
+export
+other_fixture : CollisionData -> String
+other_fixture (MkCollisionData self other) = fixtureName other

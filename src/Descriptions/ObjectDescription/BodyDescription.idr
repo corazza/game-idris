@@ -26,6 +26,7 @@ record FixtureParameters where
   groupIndex : Maybe Int
   categoryBits : Maybe Int
   maskBits : Maybe Int
+  name : Maybe String
 
 export
 Show FixtureParameters where
@@ -36,6 +37,7 @@ Show FixtureParameters where
     ++ ", friction: " ++ show (friction fp)
     ++ ", restitution: " ++ show (restitution fp)
     ++ ", group index: " ++ show (groupIndex fp)
+    ++ ", name: " ++ show (name fp)
     ++ " }"
 
 entryToBits : (String, Int) -> (String, Bits 16)
@@ -71,16 +73,17 @@ getFixtureParameters dict
         restitution = eitherToMaybe $ getDouble "restitution" dict
         groupIndex = eitherToMaybe $ getInt "groupIndex" dict
         in with Checked do
+          name <- getStringMaybe "name" dict
           categoryBits <- getBits "categoryBits" dict
           maskBits <- getBits "maskBits" dict
           pure $ MkFixtureParameters
-            offset angle density friction restitution groupIndex categoryBits maskBits
+            offset angle density friction restitution groupIndex categoryBits maskBits name
 
 export
 fixtureFromParametersShape : FixtureParameters -> Shape -> FixtureDefinition
 fixtureFromParametersShape fp shape
   = MkFixtureDefinition shape (offset fp) (angle fp) (density fp) (friction fp)
-          (restitution fp) (groupIndex fp) (categoryBits fp) (maskBits fp)
+          (restitution fp) (groupIndex fp) (categoryBits fp) (maskBits fp) (name fp)
 
 export
 ObjectCaster FixtureDefinition where

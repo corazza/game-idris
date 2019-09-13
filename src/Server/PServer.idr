@@ -3,7 +3,8 @@ module Server.PServer
 import Physics.Vector2D
 
 import Client.ClientCommands
-import Dynamics.PDynamics
+import Dynamics.BodyData
+import Dynamics.DynamicsCommand
 import Descriptions.MapDescription
 import GameIO
 import Objects

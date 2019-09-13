@@ -8,14 +8,26 @@
     "bullet": true,
     "groupIndex": -1,
     "categoryBits": ["animate"],
-    "fixture": {
-      "shape": {
-        "type": "box",
-        "dimensions": [0.5, 0.8]
+    "fixtures": [
+      {
+        "shape": {
+          "type": "box",
+          "dimensions": [0.5, 0.7]
+        },
+        "density": 5,
+        "friction": 0.3
       },
-      "density": 5,
-      "friction": 0.3
-    }
+      {
+        "name": "feet",
+        "shape": {
+          "type": "box",
+          "dimensions": [0.5, 0.1]
+        },
+        "offset": [0, -0.7],
+        "density": 5,
+        "friction": 0.3
+      }
+    ]
   },
 
   "control": {

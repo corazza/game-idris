@@ -6,14 +6,12 @@ import Control.ST.ImplicitCall
 import Client.Rendering.Camera
 import Client.Rendering.Info
 import Client.SDL
-import Dynamics
-import Dynamics.PDynamics
+import Dynamics.BodyData
 import GameIO
 import Objects
 import Descriptions
 import JSONCache
 import Settings
-import Descriptions
 import Descriptions.MapDescription
 import Descriptions.ObjectDescription.RulesDescription
 import Descriptions.ObjectDescription.RenderDescription

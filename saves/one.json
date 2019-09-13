@@ -3,9 +3,11 @@
      "characters": {
           "character": {
                "items": {
-                    "equipment": {},
+                    "equipment": {
+                         "hands": "main/items/demonic_bow.json"
+                    },
                     "inventory": {
-                         "main/items/demonic_bow.json": 12
+                         "main/items/demonic_bow.json": 11
                     }
                },
                "map": "main/maps/castle.json",
@@ -13,7 +15,7 @@
                "object": "main/objects/character.json",
                "position": [
                     0,
-                    -3
+                    -6.5
                ]
           }
      }

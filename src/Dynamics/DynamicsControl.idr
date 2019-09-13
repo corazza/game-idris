@@ -137,6 +137,10 @@ speed (MkObjectControl controlState controlParameters)
       in if walking controlState then 0.5 * speed else speed
 
 export
+airspeed : ObjectControl -> Double
+airspeed = (*) 0.45 . speed
+
+export
 initialControl : ControlParameters -> ObjectControl
 initialControl = MkObjectControl (initialControlStateFacing Rightward)
 

@@ -1,7 +1,7 @@
 {
   "name": "Castle",
   "dimensions": [200, 100],
-  "spawn": [0, -6],
+  "spawn": [0, -7],
 
   "background": {
     "image": "main/images/backgrounds/castle.jpg",

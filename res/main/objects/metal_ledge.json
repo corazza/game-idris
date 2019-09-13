@@ -10,7 +10,7 @@
         "dimensions": [4, 0.3]
       },
       "density": 12,
-      "friction": 0.1,
+      "friction": 0.8,
       "restitution": 0.1
     }
   },

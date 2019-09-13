@@ -10,7 +10,7 @@ import Server.Rules.RulesOutput
 import Server.Rules.RuleScript
 import Server.Rules.Behavior
 import Client.ClientCommands
-import Dynamics.PDynamics
+import Dynamics.BodyData
 import Dynamics.DynamicsEvent
 import Descriptions.MapDescription
 import Descriptions.ItemDescription

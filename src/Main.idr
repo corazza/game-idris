@@ -14,6 +14,8 @@ import Objects
 import Dynamics
 import Dynamics.PDynamics
 import Dynamics.DynamicsEvent
+import Dynamics.DynamicsCommand
+import Dynamics.BodyData
 import Server
 import Server.PServer
 import Server.Rules

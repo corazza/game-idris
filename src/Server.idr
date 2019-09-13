@@ -9,9 +9,9 @@ import Server.Rules
 import Server.Rules.PRules
 import Server.Rules.RulesOutput
 import Client.ClientCommands
-import Dynamics
-import Dynamics.PDynamics
+import Dynamics.BodyData
 import Dynamics.DynamicsEvent
+import Dynamics.DynamicsCommand
 import Commands
 import GameIO
 import Objects
@@ -345,7 +345,7 @@ export
     createJoints server (joints map_description)
 
   destroy server id = with ST do
-    updatePServer server $ addDynamicsCommand $ PDynamics.Destroy id
+    updatePServer server $ addDynamicsCommand $ DynamicsCommand.Destroy id
     updatePServer server $ addInSessionCommand $ PServer.Destroy id
     removeRules server id
 

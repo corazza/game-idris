@@ -15,12 +15,11 @@ import Client.SDL
 import Client.Input
 import Client.ClientCommands
 import Server.PServer
+import Dynamics.BodyData
 import Descriptions.MapDescription
 import Descriptions.ObjectDescription
 import Descriptions.SurfaceDescription
 import Descriptions.ObjectDescription.RenderDescription
-import Dynamics
-import Dynamics.PDynamics
 import JSONCache
 import GameIO
 import Settings

@@ -16,6 +16,7 @@ data RulesOutput
   | ExitTo ObjectId ContentReference
   | UpdateCharacter CharacterId (Character -> Character)
   | RulesClientCommand CharacterId ClientCommand
+  | AddMaskBit String
 
 export
 Show RulesOutput where

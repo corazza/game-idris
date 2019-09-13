@@ -124,6 +124,7 @@ runHitAction target attacker BeginChase = beginChaseScript attacker target
 runHitAction target attacker EndChase = endChaseScript target
 runHitAction target attacker BeginWalk = beginWalkScript target
 runHitAction target attacker EndWalk = endWalkScript target
+runHitAction target attacker (AddMaskBit x) = Output $ AddMaskBit x
 
 export
 hitScript : (target : ObjectId) ->
@@ -157,13 +158,18 @@ doHit attacker target for = with RuleScript do
   doDamage target for
   hitScript target attacker for -- handler
 
-projectileDamage : (projectile_id : ObjectId) -> (target : ObjectId) -> UnitRuleScript
-projectileDamage projectile_id target = with RuleScript do
-  Just damage <- GetStat projectile_id "damage"
-            | Nothing => pure () -- TODO warning
-  Just creator <- GetCreator projectile_id
-            | Nothing => pure () -- TODO warning
-  doHit creator target damage
+projectileDamage : CollisionData -> UnitRuleScript
+projectileDamage collision_data
+  = case self_fixture collision_data == "projectile head" of
+      True => let projectile_id = self_id collision_data
+                  target = other_id collision_data
+                  in with RuleScript do
+                    Just damage <- GetStat projectile_id "damage"
+                                | Nothing => pure () -- TODO warning
+                    Just creator <- GetCreator projectile_id
+                                 | Nothing => pure () -- TODO warning
+                    doHit creator target damage
+      False => pure ()
 
 runCollisionAction : CollisionData -> BehaviorAction -> RuleScript ()
 runCollisionAction collision_data MoveLeft
@@ -174,8 +180,7 @@ runCollisionAction collision_data Stop
   = stopMovementScript (self_id collision_data)
 runCollisionAction collision_data ChangeDirection
   = changeDirectionScript (self_id collision_data)
-runCollisionAction collision_data ProjectileDamage
-  = projectileDamage (self_id collision_data) (other_id collision_data)
+runCollisionAction collision_data ProjectileDamage = projectileDamage collision_data
 runCollisionAction collision_data Attack = pure ()
 runCollisionAction collision_data BeginChase
   = beginChaseScript (other_id collision_data) (self_id collision_data)

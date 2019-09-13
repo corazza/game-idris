@@ -24,8 +24,8 @@ interface (Monad m, ConsoleIO m) => GameIO (m : Type -> Type) where
   createWorld : Vector2D -> m Box2D.World
   destroyWorld : Box2D.World -> m ()
   createBody : Box2D.World -> BodyDefinition -> m (Int, Body)
-  createFixture : Body -> FixtureDefinition -> m Fixture
-  createFixture' : Body -> Shape -> Double -> m Fixture
+  createFixture : Box2D.World -> Body -> FixtureDefinition -> m Fixture
+  createFixture' : Box2D.World -> Body -> Shape -> Double -> m Fixture
   destroy : Box2D.World -> Body -> m ()
   step : Box2D.World ->
          (timeStep : Double) ->

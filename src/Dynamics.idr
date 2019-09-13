@@ -6,6 +6,9 @@ import Physics.Box2D
 import Physics.Vector2D
 
 import Dynamics.PDynamics
+import Dynamics.BodyData
+import Dynamics.Movement
+import Dynamics.DynamicsCommand
 import Dynamics.DynamicsControl
 import Dynamics.DynamicsEvent
 import GameIO
@@ -23,6 +26,7 @@ interface Dynamics (m : Type -> Type) where
   endDynamics : (dynamics : Var) -> ST m () [remove dynamics SDynamics]
 
   queryPDynamics : (dynamics : Var) -> (q : PDynamics -> a) -> ST m a [dynamics ::: SDynamics]
+  updatePDynamics : (dynamics : Var) -> (f : PDynamics -> PDynamics) -> ST m () [dynamics ::: SDynamics]
 
   addBody : (dynamics : Var) ->
             (id : ObjectId) ->
@@ -52,6 +56,8 @@ interface Dynamics (m : Type -> Type) where
   iterate : (dynamics : Var) -> ST m (List DynamicsEvent) [dynamics ::: SDynamics]
 
   private
+  updateGroundingAngle : (dynamics : Var) -> ObjectId -> ST m () [dynamics ::: SDynamics]
+  private
   updateFromBody : (dynamics : Var) -> (ObjectId, BodyData) -> ST m () [dynamics ::: SDynamics]
   private
   updatesFromBody : (dynamics : Var) -> List (ObjectId, BodyData) -> ST m () [dynamics ::: SDynamics]
@@ -70,6 +76,13 @@ interface Dynamics (m : Type -> Type) where
           (object_id : ObjectId) ->
           (aabb : AABB) ->
           ST m () [dynamics ::: SDynamics]
+
+  private
+  groundUpdate : (dynamics : Var) ->
+                 CollisionData ->
+                 ST m () [dynamics ::: SDynamics]
+  private
+  ungroundUpdate : (dynamics : Var) -> CollisionForObject -> ST m () [dynamics ::: SDynamics]
 
   private
   handleEvent : (dynamics : Var) -> (event : DynamicsEvent) -> ST m () [dynamics ::: SDynamics]
@@ -96,6 +109,7 @@ Dynamics IO where
     delete dynamics
 
   queryPDynamics dynamics q = read dynamics >>= pure . q
+  updatePDynamics dynamics f = update dynamics f
 
   addBody dynamics id def fixtures control effects = case !(idExists dynamics id) of
     True => pure ()
@@ -161,11 +175,23 @@ Dynamics IO where
     handleEvents dynamics dynamicsEvents
     pure dynamicsEvents
 
+  updateGroundingAngle dynamics id = with ST do
+    Just ((other_id, x)::xs) <- queryPDynamics dynamics $ pdynamicsQueryObject id grounding
+                             | pure ()
+    Just self_data <- queryPDynamics dynamics $ getBodyData $ id
+                    | pure ()
+    Just other_data <- queryPDynamics dynamics $ getBodyData $ other_id
+                    | pure ()
+    let collision_angle = angle other_data - angle self_data
+    updatePDynamics dynamics $
+      pdynamicsUpdateObject id $ setGrounding ((other_id, collision_angle)::xs)
+
   updateFromBody dynamics (id, bodyData) = with ST do
     let body = body bodyData
     newPosition <- lift $ getPosition body
     newAngle <- lift $ getAngle body
     newVelocity <- lift $ getVelocity body
+    updateGroundingAngle dynamics id
     update dynamics $ pdynamicsUpdateObject id (record {
       position = newPosition,
       angle = newAngle,
@@ -205,8 +231,30 @@ Dynamics IO where
   applyEffectss dynamics (both@(id, bodyData)::xs)
     = applyEffects dynamics both (effects bodyData) >>= const (applyEffectss dynamics xs)
 
-  handleEvent dynamics (CollisionStart one two) = update dynamics $ touched (id one) (id two)
-  handleEvent dynamics (CollisionStop one two) = update dynamics $ untouched (id one) (id two)
+  groundUpdate dynamics collision_data = case self_fixture collision_data == "feet" of
+    False => pure ()
+    True => with ST do
+      Just self_data <- queryPDynamics dynamics $ getBodyData $ self_id collision_data
+                      | pure ()
+      Just other_data <- queryPDynamics dynamics $ getBodyData $ other_id collision_data
+                      | pure ()
+      let collision_angle = angle other_data - angle self_data
+      updatePDynamics dynamics $ pdynamicsUpdateObject (self_id collision_data) $
+        addGrounding (other_id collision_data) collision_angle
+  ungroundUpdate dynamics self = case fixtureName self == "feet" of
+    False => pure ()
+    True => updatePDynamics dynamics $
+              pdynamicsUpdateObject (id self) $ removeGrounding
+
+  handleEvent dynamics event@(CollisionStart one two) = with ST do
+    update dynamics $ touched (id one) (id two)
+    let collision_data = buildCollisionData one two
+    groundUpdate dynamics $ collision_data First
+    groundUpdate dynamics $ collision_data Second
+  handleEvent dynamics (CollisionStop one two) = with ST do
+    update dynamics $ untouched (id one) (id two)
+    ungroundUpdate dynamics one
+    ungroundUpdate dynamics two
   handleEvent dynamics _ = pure ()
 
   handleEvents dynamics [] = pure ()

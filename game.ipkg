@@ -35,8 +35,11 @@ modules = Data.AVL.DDict
         , Descriptions.FontDescription
         , Dynamics
         , Dynamics.DynamicsControl
+        , Dynamics.BodyData
+        , Dynamics.DynamicsCommand
         , Dynamics.PDynamics
         , Dynamics.DynamicsEvent
+        , Dynamics.Movement
         , Server
         , Server.PServer
         , Server.Rules
