@@ -1,24 +1,31 @@
 {
-  "states": ["before", "after", "garbage"],
+  "states": ["before", "intermediate", "after", "garbage"],
   "start": "before",
   "end": "garbage",
 
   "before": {
     "onCollision": {
       "transition": {
+        "state": "intermediate",
+        "action": {"type": "projectile damage"}
+      }
+    }
+  },
+
+  "intermediate": {
+    "onTime": {
+      "time": 0.3,
+      "transition": {
         "state": "after",
-        "actions": [
-          {"type": "projectile damage"},
-          {"type": "unset mask bits", "maskBits": ["projectile", "animate"]}
-        ]
+        "action": {"type": "unset mask bits", "maskBits": ["projectile", "animate"]}
       }
     }
   },
 
   "after": {
     "onTime": {
-      "time": 5,
-      "time_parameter": "garbage_time",
+      "time": 4.7,
+      "time_parameter": "garbage time",
       "transition": {
         "state": "garbage"
       }

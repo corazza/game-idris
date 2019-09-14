@@ -16,6 +16,7 @@ import Client.Input
 import Client.ClientCommands
 import Server.PServer
 import Dynamics.BodyData
+import Dynamics.DynamicsEvent
 import Descriptions.MapDescription
 import Descriptions.ObjectDescription
 import Descriptions.SurfaceDescription
@@ -27,6 +28,7 @@ import Exception
 import Objects
 import Commands
 import Timeline
+import Timeline.Items
 
 public export
 data ClientState = Disconnected | Connected
@@ -69,6 +71,10 @@ interface Client (m : Type -> Type) where
   iterate : (client : Var) ->
             (bodyData : Objects BodyData) ->
             ST m (Either () (List Command)) [client ::: SClient Connected]
+
+  applyAnimationUpdates : (client : Var) ->
+                          (animationUpdates : List AnimationUpdate) ->
+                          ST m () [client ::: SClient Connected]
 
   getSettings : (client : Var) -> ST m ClientSettings [client ::: SClient Connected]
 
@@ -282,6 +288,10 @@ export
         True => pure ()
   runServerCommand client (UpdateNumericProperty object_id prop_id current)
     = updatePRendering client $ prenderingUpdateNumericProperty object_id prop_id current
+  runServerCommand client (SetAttackShowing id ref)
+    = updatePRendering client $ prenderingSetAttackShowing id ref
+  runServerCommand client (UnsetAttackShowing id)
+    = updatePRendering client $ prenderingUnsetAttackShowing id
 
   runServerCommands client [] = pure ()
   runServerCommands client (cmd::xs)
@@ -308,6 +318,11 @@ export
         let newCommands = clickCommands ++ fromClient ++ commands
         runCommands client newCommands
         pure $ Right newCommands
+
+  applyAnimationUpdates client xs = with ST do
+    [pclient, session_data, rendering, ui, sdl] <- split client
+    Rendering.applyAnimationUpdates rendering xs
+    combine client [pclient, session_data, rendering, ui, sdl]
 
   feedUI client clientCommands = with ST do
     [pclient, session_data, rendering, ui, sdl] <- split client

@@ -56,6 +56,8 @@ interface Dynamics (m : Type -> Type) where
 
   iterate : (dynamics : Var) -> ST m (List DynamicsEvent) [dynamics ::: SDynamics]
 
+  getAnimationUpdates : (dynamics : Var) -> ST m (List AnimationUpdate) [dynamics ::: SDynamics]
+
   private
   updateGroundingAngle : (dynamics : Var) -> ObjectId -> ST m () [dynamics ::: SDynamics]
   private
@@ -169,7 +171,12 @@ Dynamics IO where
       Just x => applyImpulse dynamics id x
   runCommand dynamics (CreateJoint id desc) = addJoint dynamics id desc
   runCommand dynamics (Destroy id) = removeBody dynamics id
-  runCommand dynamics (UpdateControl id f) = updateControl dynamics id f
+  runCommand dynamics (UpdateControl id f) = with ST do
+    updateControl dynamics id f
+    Just animationState <- queryPDynamics dynamics $ (map animationState . getBodyData id)
+          | pure ()
+    updatePDynamics dynamics $ pdynamicsAddAnimationUpdate $
+      MkAnimationUpdate id animationState
   runCommand dynamics (QueryFor object_id span) = with ST do
     Just (x, y) <- queryPDynamics dynamics $ (map position . getBodyData object_id)
           | pure ()
@@ -193,6 +200,11 @@ Dynamics IO where
     let dynamicsEvents = catMaybes $ map (box2DEventToDynamicsEvent dynamics') events
     handleEvents dynamics dynamicsEvents
     pure dynamicsEvents
+
+  getAnimationUpdates dynamics = with ST do
+    result <- queryPDynamics dynamics animationUpdates
+    updatePDynamics dynamics flushAnimationUpdates
+    pure result
 
   updateGroundingAngle dynamics id = with ST do
     Just ((other_id, x)::xs) <- queryPDynamics dynamics $ pdynamicsQueryObject id grounding

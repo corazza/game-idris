@@ -55,8 +55,8 @@
     "behavior": {
       "ref": "main/behaviors/roam-chase.json",
       "double_parameters": {
-        "chase_duration": 3,
-        "roam_duration": 2
+        "chase_duration": 8,
+        "roam_duration": 4
       }
     }
   },

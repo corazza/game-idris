@@ -6,6 +6,7 @@ import GameIO
 import Exception
 import Objects
 import Descriptions.AbilityDescription
+import Timeline.Items
 
 public export
 record NumericPropertyDescription where
@@ -89,6 +90,7 @@ record RulesDescription where
   stats : Maybe StatsDict
   attack : Maybe AbilityDescription
   behavior : Maybe BehaviorParameters
+  items : Maybe Items
 
 toProperty : (String, JSON) -> Checked (String, NumericPropertyDescription)
 toProperty (name, json) = with Checked do
@@ -123,4 +125,5 @@ ObjectCaster RulesDescription where
     stats <- getStats dict
     attack <- the (Checked (Maybe AbilityDescription)) $ getCastableMaybe "attack" dict
     behavior <- the (Checked (Maybe BehaviorParameters)) $ getCastableMaybe "behavior" dict
-    pure $ MkRulesDescription numericProperties stats attack behavior
+    items <- the (Checked (Maybe Items)) $ getCastableMaybe "items" dict
+    pure $ MkRulesDescription numericProperties stats attack behavior items

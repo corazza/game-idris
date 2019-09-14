@@ -3,7 +3,7 @@ module Client.UI.Character
 import GameIO
 import Exception
 import JSONCache
-import Timeline
+import Timeline.Items
 import Objects
 import Descriptions.Color
 import Descriptions.SurfaceDescription

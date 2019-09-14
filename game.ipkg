@@ -14,6 +14,7 @@ modules = Data.AVL.DDict
         , Commands
         , Objects
         , Timeline
+        , Timeline.Items
         , Settings
         , Main
         , Descriptions
@@ -44,6 +45,7 @@ modules = Data.AVL.DDict
         , Server
         , Server.PServer
         , Server.Rules
+        , Server.Rules.RulesData
         , Server.Rules.Behavior
         , Server.Rules.PRules
         , Server.Rules.NumericProperties

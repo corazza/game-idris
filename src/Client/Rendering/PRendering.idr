@@ -17,7 +17,22 @@ import Descriptions.ObjectDescription.RulesDescription
 import Descriptions.ObjectDescription.RenderDescription
 
 public export
-data AnimationState = MkAnimationState Int -- state, started (ms)
+record AnimationState where
+  constructor MkAnimationState
+  name : String
+  started : Int
+  attackShowing : Maybe ContentReference
+
+setStarted : Int -> AnimationState -> AnimationState
+setStarted ticks = record { started = ticks }
+
+setAttackShowing : ContentReference -> AnimationState -> AnimationState
+setAttackShowing ref = record { attackShowing = Just ref }
+unsetAttackShowing : AnimationState -> AnimationState
+unsetAttackShowing = record { attackShowing = Nothing }
+
+setName : String -> AnimationState -> AnimationState
+setName name' = record { name = name' }
 
 public export
 record PRendering where
@@ -82,17 +97,22 @@ getRenderingDescription id
   = head' . catMaybes . map (DDict.lookup id) . map snd . toList . layers
 
 export
+getBodyData : ObjectId -> PRendering -> Maybe BodyData
+getBodyData id = lookup id . bodyData
+
+export
 addInitialAnimationState : (id : ObjectId) -> (clock : Int) -> PRendering -> PRendering
 addInitialAnimationState id clock
-  = record { animationStates $= addObject id (MkAnimationState clock) }
+  = record { animationStates $= addObject id (MkAnimationState "resting" clock Nothing) }
 
 export
 getAnimationState : (id : ObjectId) -> PRendering -> Maybe AnimationState
 getAnimationState id prendering = lookup id (animationStates prendering)
 
 export
-setAnimationState : (id : ObjectId) -> (state : AnimationState) -> PRendering -> PRendering
-setAnimationState id state = record { animationStates $= updateObject id (const state) }
+setAnimationStateStarted : (id : ObjectId) -> (ticks : Int) -> PRendering -> PRendering
+setAnimationStateStarted id ticks
+  = record { animationStates $= updateObject id (setStarted ticks) }
 
 export
 removeAnimationState : (id : ObjectId) -> PRendering -> PRendering
@@ -111,6 +131,35 @@ prenderingUpdateNumericProperty : (object_id : ObjectId) ->
                                   PRendering -> PRendering
 prenderingUpdateNumericProperty object_id prop_id current
   = record { info $= updateObject object_id (updateNumericProperty prop_id current) }
+
+export
+prenderingUpdateAnimationState : (object_id : ObjectId) ->
+                                 (f : AnimationState -> AnimationState) ->
+                                 PRendering -> PRendering
+prenderingUpdateAnimationState object_id f
+  = record { animationStates $= updateObject object_id f }
+
+export
+prenderingSetAttackShowing : (object_id : ObjectId) ->
+                             (ref : ContentReference) ->
+                             PRendering -> PRendering
+prenderingSetAttackShowing object_id ref
+  = prenderingUpdateAnimationState object_id (setAttackShowing ref)
+  -- = record { animationStates $= updateObject object_id (setAttackShowing ref) }
+
+export
+prenderingUnsetAttackShowing : (object_id : ObjectId) ->
+                               PRendering -> PRendering
+prenderingUnsetAttackShowing object_id
+  = prenderingUpdateAnimationState object_id unsetAttackShowing
+  -- = record { animationStates $= updateObject object_id unsetAttackShowing }
+
+export
+prenderingUpdateAnimationStateName : (object_id : ObjectId) ->
+                                     (name : String) ->
+                                     PRendering -> PRendering
+prenderingUpdateAnimationStateName object_id
+  = prenderingUpdateAnimationState object_id . setName
 
 export
 setBodyData : (bodyData : Objects BodyData) -> PRendering -> PRendering

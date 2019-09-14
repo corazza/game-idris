@@ -7,6 +7,7 @@ import Objects
 public export
 data AbilityDescription
   = Throw ContentReference Double -- ref, impulse
+  | Melee Double Double -- range, damage
 
 export
 ObjectCaster AbilityDescription where
@@ -17,4 +18,8 @@ ObjectCaster AbilityDescription where
         ref <- getString "ref" dict
         impulse <- getDouble "impulse" dict
         pure $ Throw ref impulse
-      _ => fail "ability type must be of \"throw\""
+      "melee" => with Checked do
+        range <- getDouble "range" dict
+        damage <- getDouble "damage" dict
+        pure $ Melee range damage
+      _ => fail "ability type must be of \"throw\"|\"melee\""

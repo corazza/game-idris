@@ -257,6 +257,10 @@ export
     = updatePServer server $ addDynamicsCommand $ SetMaskBits object_id xs
   processRulesOutput server (UnsetMaskBits object_id xs)
     = updatePServer server $ addDynamicsCommand $ UnsetMaskBits object_id xs
+  processRulesOutput server (SetAttackShowing object_id ref)
+    = updatePServer server $ addInSessionCommand $ SetAttackShowing object_id ref
+  processRulesOutput server (UnsetAttackShowing object_id)
+    = updatePServer server $ addInSessionCommand $ UnsetAttackShowing object_id
   processRulesOutput server cmd =
     lift $ log $ "unimplemented handler in processRulesOutput for: " ++ show cmd
      -- TODO update logged in

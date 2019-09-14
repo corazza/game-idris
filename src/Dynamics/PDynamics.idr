@@ -22,7 +22,12 @@ record PDynamics where
   objects : Objects BodyData
   ids : Ids Int
   timeStep : Int
+  animationUpdates : List AnimationUpdate
 %name PDynamics dynamics
+
+export
+flushAnimationUpdates : PDynamics -> PDynamics
+flushAnimationUpdates = record { animationUpdates = empty }
 
 pairUpdate : (f : ObjectId -> BodyData -> BodyData) -> ObjectId -> ObjectId -> PDynamics -> PDynamics
 pairUpdate f one two = record { objects $= updateObject one (f two) . updateObject two (f one) }
@@ -37,7 +42,8 @@ untouched = pairUpdate removeTouching
 
 export
 pdynamicsInStart : (world : Box2D.World) -> (timeStep : Int) -> PDynamics
-pdynamicsInStart world timeStep = MkPDynamics world emptyObjects emptyIds timeStep
+pdynamicsInStart world timeStep
+  = MkPDynamics world emptyObjects emptyIds timeStep empty
 
 export
 addBody' : (GameIO m, Monad m) =>
@@ -142,3 +148,7 @@ jointDescToDef desc pdynamics
       (Just a, Just b) => pure $ MkRevoluteJointDefinition
         a (localAnchorA desc) b (localAnchorB desc) (collideConnected desc)
       _ => Nothing
+
+export
+pdynamicsAddAnimationUpdate : AnimationUpdate -> PDynamics -> PDynamics
+pdynamicsAddAnimationUpdate update = record { animationUpdates $= append update }

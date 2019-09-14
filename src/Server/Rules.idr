@@ -8,6 +8,7 @@ import Server.Rules.PRules
 import Server.Rules.NumericProperties
 import Server.Rules.RulesOutput
 import Server.Rules.RuleScript
+import Server.Rules.RulesData
 import Server.Rules.Behavior
 import Client.ClientCommands
 import Dynamics.BodyData
@@ -23,6 +24,7 @@ import Commands
 import JSONCache
 import Exception
 import Timeline
+import Timeline.Items
 
 public export
 interface Rules (m : Type -> Type) where
@@ -136,7 +138,8 @@ GameIO m => Rules m where
             ref from (Just impulse') (Just id) (Just angle') Nothing Nothing
           in updatePRules rules $ output (Create creation)
 
-  runCommand rules (Stop (Attack at) id) = runScript rules $ attackScript id at
+  runCommand rules (Start (Attack at) id) = runScript rules $ beginAttackScript id at
+  runCommand rules (Stop (Attack at) id) = runScript rules $ endAttackScript id at
   runCommand rules (Equip ref id) = runScript rules $ equipScript id ref
   runCommand rules (Unequip ref id) = runScript rules $ unequipScript id ref
   runCommand rules _ = pure ()
@@ -149,23 +152,29 @@ GameIO m => Rules m where
   runScript rules (Transition id state scripts) = with ST do
     updatePRules rules $ prulesUpdateController id $ transition !ticks state
     runUnitScripts rules scripts
-  runScript rules (UpdateData id f)
+  runScript rules (UpdateBehaviorData id f)
     = updatePRules rules $ prulesUpdateController id $ updateData f
   runScript rules (GetItemDescription ref) = with ST do
     preload' <- queryPRules rules preload
     pure $ getItemDescription ref preload'
-  runScript rules (GetAttack id) =  queryPRules rules $ getAttack id
+  runScript rules (GetAttack id) = queryPRules rules $ getAttack id
   runScript rules (Ability id at desc) = with ST do
     Just body <- queryPRules rules $ getBody id | pure ()
     runAbility rules id at desc body
-  runScript rules (GetCharacter id) = queryPRules rules $ prulesGetCharacter' id
-  runScript rules (QueryCharacter id q) = queryCharacter rules id q
-  runScript rules (UpdateCharacter id f) = updateCharacter rules id f
   runScript rules (RulesClientCommand id cmd) = clientCommand rules id cmd
   runScript rules (GetStartTime id) = queryPRules rules $ getStartTime id
   runScript rules (GetDirection id) = queryPRules rules $ getDirection id
   runScript rules (GetController id) = queryPRules rules $ getController id
   runScript rules (GetPosition id) = queryPRules rules $ getPosition id
+  runScript rules (QueryData id q) = queryPRules rules $ prulesQueryObject id q
+  runScript rules (UpdateData id f) = updatePRules rules $ prulesUpdateObject id f
+  runScript rules (QueryItems id q) = queryPRules rules $ prulesQueryItems id q
+  runScript rules (UpdateItems id f) = with ST do
+    updatePRules rules $ prulesUpdateItems id f
+    characters' <- queryPRules rules characters
+    case hasKey id characters' of
+      False => pure ()
+      True => updateCharacter rules id (itemsToCharacter f)
   runScript rules (UpdateNumericProperty for id f)
     = updatePRules rules $ prulesUpdateNumProp for id f
   runScript rules (QueryNumericProperty for id q)

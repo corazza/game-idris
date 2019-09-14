@@ -6,6 +6,7 @@ import Server.Rules.Behavior
 import Server.Rules.RulesOutput
 import Server.Rules.RuleEvent
 import Server.Rules.NumericProperties
+import Server.Rules.RulesData
 import Client.ClientCommands
 import Descriptions.ObjectDescription.RulesDescription
 import Descriptions.ItemDescription
@@ -17,24 +18,29 @@ import GameIO
 import Objects
 import Exception
 import Timeline
+import Timeline.Items
 
 public export
 data RuleScript : Type -> Type where
   Output : RulesOutput -> RuleScript ()
   Transition : (id : ObjectId) -> BehaviorState -> List (RuleScript ()) -> RuleScript ()
-  UpdateData : (id : ObjectId) -> (f : BehaviorData -> BehaviorData) -> RuleScript ()
-  GetItemDescription : (ref : ContentReference) -> RuleScript (Checked ItemDescription)
-  GetAttack : (id : ObjectId) -> RuleScript (Maybe AbilityDescription)
+  UpdateBehaviorData : (id : ObjectId) -> (f : BehaviorData -> BehaviorData) -> RuleScript ()
   Ability : (id : ObjectId) -> (at : Vector2D) -> (desc : AbilityDescription) -> RuleScript ()
-  GetCharacter : (id : ObjectId) -> RuleScript (Maybe Character)
-  QueryCharacter : (id : ObjectId) -> (q : Character -> a) -> RuleScript a
-  UpdateCharacter : (id : ObjectId) -> (f : Character -> Character) -> RuleScript ()
   RulesClientCommand : (id : ObjectId) -> ClientCommand -> RuleScript ()
+
+  GetItemDescription : (ref : ContentReference) -> RuleScript (Checked ItemDescription)
+  GetAttack : (id : ObjectId) -> RuleScript (Maybe ContentReference)
 
   GetStartTime : (id : ObjectId) -> RuleScript (Maybe Int) -- time since in this state
   GetDirection : (id : ObjectId) -> RuleScript (Maybe BehaviorDirection)
   GetController : (id : ObjectId) -> RuleScript (Maybe BehaviorController)
   GetPosition : (id : ObjectId) -> RuleScript (Maybe Vector2D)
+
+  QueryData : (id : ObjectId) -> (q : RulesData -> a) -> RuleScript (Maybe a)
+  UpdateData : (id : ObjectId) -> (f : RulesData -> RulesData) -> RuleScript ()
+
+  QueryItems : (id : ObjectId) -> (q : Items -> a) -> RuleScript (Maybe a)
+  UpdateItems : (id : ObjectId) -> (f : Items -> Items) -> RuleScript ()
 
   UpdateNumericProperty : ObjectId ->
                           NumericPropertyId ->
@@ -102,10 +108,10 @@ endWalkScript id
   = Output $ RuleCommand $ Stop Walk id
 
 beginChaseScript : (target : ObjectId) -> (self : ObjectId) -> UnitRuleScript
-beginChaseScript target self = UpdateData self (beginChase target)
+beginChaseScript target self = UpdateBehaviorData self (beginChase target)
 
 endChaseScript : ObjectId -> RuleScript ()
-endChaseScript id = UpdateData id endChase
+endChaseScript id = UpdateBehaviorData id endChase
 
 runHitAction : (target : ObjectId) ->
                (attacker : ObjectId) ->
@@ -222,7 +228,7 @@ lootScript : (looter : ObjectId) ->
              (item : ContentReference) ->
              UnitRuleScript
 lootScript looter item = with RuleScript do
-  UpdateCharacter looter $ loot item
+  UpdateItems looter $ loot item
   RulesClientCommand looter RefreshInventory
 
 -- TODO chaining (moves are universal, so they go first)
@@ -317,33 +323,48 @@ mainScript time id = with AIScript do
   garbageScript id
 
 export
-attackScript : (id : ObjectId) -> (at : Vector2D) -> UnitRuleScript
-attackScript id at = case !(GetCharacter id) of
-  Just character => case attackItem character of
-    Nothing => pure ()
-    Just ref => with RuleScript do
-      Right attack_item <- GetItemDescription ref | Left e =>
-            Log ("couldn't get item description " ++ show (attackItem character) ++ " (attackScript)")
-      case equip attack_item of
-        Nothing => pure ()
-        Just (MkEquipDescription slot ability) => Ability id at ability
-  Nothing => with RuleScript do
-    Just attack <- GetAttack id | pure ()
-    Ability id at attack
+beginAttackScript : (id : ObjectId) -> (at : Vector2D) -> UnitRuleScript
+beginAttackScript id at = case !(GetAttack id) of
+  Nothing => pure ()
+  Just ref => Output $ SetAttackShowing id ref
+
+export
+endAttackScript : (id : ObjectId) -> (at : Vector2D) -> UnitRuleScript
+endAttackScript id at = case !(GetAttack id) of
+  Nothing => pure ()
+  Just ref => with RuleScript do
+    Output $ UnsetAttackShowing id
+    Right attack_item <- GetItemDescription ref | Left e =>
+      Log ("couldn't get item description (attackScript), error:\n" ++ e)
+    case equip attack_item of
+      Just (MkEquipDescription slot (Just ability)) => Ability id at ability
+      _ => pure ()
+
+-- attackScript id at = case !(GetCharacter id) of
+--   Just character => case attackItem character of
+--     Nothing => pure ()
+--     Just ref => with RuleScript do
+--       Right attack_item <- GetItemDescription ref | Left e =>
+--             Log ("couldn't get item description " ++ show (attackItem character) ++ " (attackScript)")
+--       case equip attack_item of
+--         Just (MkEquipDescription slot (Just ability)) => Ability id at ability
+--         _ => pure ()
+--   Nothing => with RuleScript do
+--     Just attack <- GetAttack id | pure ()
+--     Ability id at attack
 
 clearSlot : (equipper : ObjectId) -> EquipSlot -> UnitRuleScript
 clearSlot equipper slot = with RuleScript do
-  Just item_ref <- QueryCharacter equipper (getAtSlot slot) | Nothing => pure ()
-  UpdateCharacter equipper $ resetSlot slot
+  Just (Just item_ref) <- QueryItems equipper (getAtSlot slot) | pure ()
+  UpdateItems equipper $ resetSlot slot
   lootScript equipper item_ref
 
 export
 equipScript : (equipper : ObjectId) ->
               (item : ContentReference) ->
               UnitRuleScript
-equipScript equipper item = case !(QueryCharacter equipper (hasItem item)) of
-  False => pure ()
-  True => with RuleScript do
+equipScript equipper item = case !(QueryItems equipper (hasItem item)) of
+  Just True => with RuleScript do
     Right item_desc <- GetItemDescription item
           | Left e => Log ("couldn't get item " ++ item ++ ", error: " ++ e)
     case equip item_desc of
@@ -351,14 +372,15 @@ equipScript equipper item = case !(QueryCharacter equipper (hasItem item)) of
       Just equip_desc => with RuleScript do
         let slot' = slot equip_desc
         clearSlot equipper slot'
-        UpdateCharacter equipper $ equip item slot'
-        UpdateCharacter equipper $ removeItem item
+        UpdateItems equipper $ equip item slot'
+        UpdateItems equipper $ removeItem item
         RulesClientCommand equipper RefreshInventory
+  _ => pure ()
 
 export
 unequipScript : (equipper : ObjectId) ->
                 (item : ContentReference) ->
                 UnitRuleScript
-unequipScript equipper item = case !(QueryCharacter equipper (hasEquipped item)) of
-  Nothing => pure ()
-  Just slot => clearSlot equipper slot
+unequipScript equipper item = case !(QueryItems equipper (hasEquipped item)) of
+  Just (Just slot) => clearSlot equipper slot
+  _ => pure ()

@@ -2,6 +2,7 @@ module Server.Rules.PRules
 
 import Server.Rules.NumericProperties
 import Server.Rules.Behavior
+import Server.Rules.RulesData
 import Server.Rules.RulesOutput
 import Objects
 import GameIO
@@ -12,41 +13,7 @@ import Descriptions.ObjectDescription.RulesDescription
 import Descriptions.ObjectDescription.RulesDescription.BehaviorDescription
 import Dynamics.BodyData
 import Timeline
-
-public export
-record RulesData where
-  constructor MkRulesData
-  numericProperties : Maybe NumericPropertyDict
-  stats : Maybe StatsDict
-  attack : Maybe AbilityDescription
-  creator : Maybe ObjectId
-  controller : Maybe BehaviorController
-
-makeData : (desc : RulesDescription) ->
-           (controller : Maybe BehaviorController) ->
-           (creator : Maybe ObjectId) ->
-           RulesData
-makeData desc controller creator = MkRulesData
-  (numPropDictFromDescription desc) (stats desc) (attack desc) creator controller
-
-updateNumPropInData : NumericPropertyId ->
-                      (f : NumericProperty -> NumericProperty) ->
-                      RulesData -> RulesData
-updateNumPropInData id f
-  = record { numericProperties $= map (updateNumericProperty id f) }
-
-queryNumPropInData : NumericPropertyId ->
-                     (q : NumericProperty -> a) ->
-                     RulesData -> Maybe a
-queryNumPropInData id q rules_data
-  = numericProperties rules_data >>= (queryNumericProperty id q)
-
-updateControllerInData : (f : BehaviorController -> BehaviorController) ->
-                         RulesData -> RulesData
-updateControllerInData f = record { controller $= map f }
-
-hasController : RulesData -> Bool
-hasController = isJust . controller
+import Timeline.Items
 
 public export
 record PRules where
@@ -80,7 +47,8 @@ prulesAddObject id rules_desc for_controller creator
 export
 prulesAddCharacter : ObjectId -> CharacterId -> Character -> PRules -> PRules
 prulesAddCharacter id character_id character
-  = record { characters $= addObject id (character_id, character) }
+  = record { characters $= addObject id (character_id, character),
+             objects $= updateObject id (setItems (items character)) }
 
 export
 prulesGetCharacter : ObjectId -> PRules -> Maybe (CharacterId, Character)
@@ -107,10 +75,26 @@ prulesUpdateObject id f
   = record { objects $= updateObject id f }
 
 export
+prulesUpdateItems : (id : ObjectId) ->
+                    (f : Items -> Items) ->
+                    PRules -> PRules
+prulesUpdateItems id f = prulesUpdateObject id (itemsToData f) where
+  itemsToData : (f : Items -> Items) -> (RulesData -> RulesData)
+  itemsToData f = record { items $= map f }
+
+export
 prulesQueryObject : (id : ObjectId) ->
                     (q : RulesData -> a) ->
                     PRules -> Maybe a
 prulesQueryObject id q prules = lookup id (objects prules) >>= pure . q
+
+export
+prulesQueryItems : (id : ObjectId) ->
+                   (q : Items -> a) ->
+                   PRules -> Maybe a
+prulesQueryItems id q = join . prulesQueryObject id (itemsToData q) where
+  itemsToData : (q : Items -> a) -> (RulesData -> Maybe a)
+  itemsToData q = map q . items
 
 export
 getController : ObjectId -> PRules -> Maybe BehaviorController
@@ -141,8 +125,8 @@ getCreator : (for : ObjectId) -> PRules -> Maybe ObjectId
 getCreator for = join . prulesQueryObject for creator
 
 export
-getAttack : (for : ObjectId) -> PRules -> Maybe AbilityDescription
-getAttack for = join . prulesQueryObject for attack
+getAttack : (for : ObjectId) -> PRules -> Maybe ContentReference
+getAttack for prules = prulesQueryObject for items prules >>= join . map attackItem
 
 export
 getStats : (for : ObjectId) -> PRules -> Maybe StatsDict

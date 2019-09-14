@@ -34,6 +34,7 @@ data InSession
   | Destroy ObjectId
   | Control Command
   | UpdateNumericProperty ObjectId NumericPropertyId Double
+  | SetAttackShowing ObjectId ContentReference | UnsetAttackShowing ObjectId
 
 export
 Show InSession where
@@ -41,6 +42,8 @@ Show InSession where
   show (Destroy id) = "destroy " ++ id
   show (Control cmd) = "control " ++ show cmd
   show (UpdateNumericProperty object_id prop_id current) = "info update"
+  show (SetAttackShowing id ref) = "set attack showing " ++ ref ++ " on " ++ id
+  show (UnsetAttackShowing id) = "unset attack showing on " ++ id
 
 public export
 data SessionCommand

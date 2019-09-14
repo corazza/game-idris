@@ -36,11 +36,11 @@ AnimationParametersDict = Dict String AnimationParameters
 
 public export
 data RenderMethod = Invisible
-                       | Tiled ContentReference Vector2D (Nat, Nat)
-                       | ColoredCircle Color Double
-                       | ColoredRect Color Vector2D
-                       | Single ContentReference Vector2D
-                       | Animated AnimationParametersDict
+                  | Tiled ContentReference Vector2D (Nat, Nat)
+                  | ColoredCircle Color Double
+                  | ColoredRect Color Vector2D
+                  | Single ContentReference Vector2D Bool
+                  | Animated AnimationParametersDict
 %name RenderMethod render_description
 
 export
@@ -53,7 +53,7 @@ Show RenderMethod where
     ++  ")"
   show (ColoredCircle color radius) = "colored with " ++ show color
   show (ColoredRect color dims) = "colored with " ++ show color
-  show (Single ref dims) = "single with " ++ ref ++ ", dims: " ++ show dims
+  show (Single ref dims facingRight) = "single with " ++ ref ++ ", dims: " ++ show dims
   show (Animated x) = "animated ( " ++ show x ++ " )"
 
 toParameters : (String, JSON) -> Checked (String, AnimationParameters)
@@ -71,6 +71,7 @@ getAnimationStates dict = case lookup "states" dict of
     pure $ fromList aparams
   _ => fail "animation states aren't JObject"
 
+export
 ObjectCaster RenderMethod where
   objectCast dict = with Checked do
     type <- getString "type" dict
@@ -86,7 +87,8 @@ ObjectCaster RenderMethod where
       "single" => with Checked do
         image <- getString "image" dict
         dimensions <- getVector "dimensions" dict
-        pure $ Single image dimensions
+        facingRight <- getBoolOrDefault True "facingRight" dict
+        pure $ Single image dimensions facingRight
       "tile" => with Checked do
         image <- getString "image" dict
         tileDims <- getVector "tileDims" dict

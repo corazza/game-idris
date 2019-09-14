@@ -61,3 +61,6 @@ self_fixture (MkCollisionData self other) = fixtureName self
 export
 other_fixture : CollisionData -> String
 other_fixture (MkCollisionData self other) = fixtureName other
+
+public export
+data AnimationUpdate = MkAnimationUpdate ObjectId String

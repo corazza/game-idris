@@ -89,6 +89,11 @@
     {
       "ref": "main/objects/drops/demonic_bow.json",
       "position": [5, -5]
+    },
+
+    {
+      "ref": "main/objects/drops/black_sword.json",
+      "position": [7, -5]
     }
   ],
 

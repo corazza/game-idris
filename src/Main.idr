@@ -25,6 +25,8 @@ import Client.SDL
 import Client.PClient
 import Client.ClientCommands
 
+-- %flag C "-g -fno-omit-frame-pointer"
+
 record PGame where
   constructor MkPGame
   settings : GameSettings
@@ -291,6 +293,8 @@ loop state = with ST do
   let time = passed + (carry game_session_data')
   (newCarry, serverCommands) <- iterateCarry dynamics server time characterId
   runServerCommands client serverCommands
+  animationUpdates <- getAnimationUpdates dynamics
+  applyAnimationUpdates client animationUpdates
   write game_session_data $ MkGameSessionData beforems newCarry
   sessionCommands <- getSessionCommands server
   gameCommands <- getGameCommands server
@@ -317,6 +321,7 @@ game state = with ST do
       endSession state
       game state
 
+export
 start : (GameIO m, Dynamics m, Client m, Server m) => ST m () []
 start = with ST do
   Right dynamics_settings <- lift $ loadDynamicsSettings

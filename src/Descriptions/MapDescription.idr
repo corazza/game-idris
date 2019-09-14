@@ -14,6 +14,7 @@ import Descriptions.Color
 import GameIO
 import Exception
 import Timeline
+import Timeline.Items
 import Objects
 
 public export -- loaded by server, received by client
@@ -52,7 +53,7 @@ creationBodyDescriptionToDefinition creation desc = MkBodyDefinition
   (type desc) (position creation) (angle creation) (fixedRotation desc) (bullet desc)
 
 fromBehavior : BehaviorParameters -> RulesDescription
-fromBehavior bp = MkRulesDescription Nothing Nothing Nothing (Just bp)
+fromBehavior bp = MkRulesDescription Nothing Nothing Nothing (Just bp) Nothing
 
 export
 rulesDescFromCreation : Maybe RulesDescription -> Creation -> Maybe RulesDescription

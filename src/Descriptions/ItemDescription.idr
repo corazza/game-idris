@@ -4,6 +4,7 @@ import GameIO
 import Exception
 import Objects
 import Descriptions.AbilityDescription
+import Descriptions.ObjectDescription.RenderDescription
 
 public export
 data EquipSlot
@@ -33,12 +34,13 @@ public export
 record EquipDescription where
   constructor MkEquipDescription
   slot : EquipSlot
-  ability : AbilityDescription
+  ability : Maybe AbilityDescription
 
 ObjectCaster EquipDescription where
   objectCast dict = with Checked do
     slot <- getSlot dict
-    ability <- the (Checked AbilityDescription) $ getCastable "ability" dict
+    ability <- the (Checked (Maybe AbilityDescription)) $
+      getCastableMaybe "ability" dict
     pure $ MkEquipDescription slot ability
 
 public export
@@ -48,6 +50,7 @@ record ItemDescription where
   unique : Bool
   equip : Maybe EquipDescription
   icon : ContentReference
+  attackRender : Maybe RenderMethod
 
 export
 ObjectCaster ItemDescription where
@@ -56,4 +59,6 @@ ObjectCaster ItemDescription where
     unique <- getBoolMaybe "unique" dict
     equip <- the (Checked (Maybe EquipDescription)) $ getCastableMaybe "equip" dict
     icon <- getString "icon" dict
-    pure $ MkItemDescription name (fromMaybe False unique) equip icon
+    attackRender <- the (Checked (Maybe RenderMethod)) $
+      getCastableMaybe "attackRender" dict
+    pure $ MkItemDescription name (fromMaybe False unique) equip icon attackRender

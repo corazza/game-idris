@@ -1,0 +1,16 @@
+{
+  "name": "Black Sword",
+  "icon": "main/images/black_sword.png",
+
+  "equip": {
+    "slot": "hands"
+  },
+
+  "drop": "main/objects/drop/black_sword.json",
+
+  "attackRender": {
+    "type": "single",
+    "image": "main/images/black_sword.png",
+    "dimensions": [0.6, 1]
+  }
+}

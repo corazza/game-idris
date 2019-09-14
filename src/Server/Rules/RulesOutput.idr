@@ -18,6 +18,7 @@ data RulesOutput
   | RulesClientCommand CharacterId ClientCommand
   | SetMaskBits ObjectId (List String)
   | UnsetMaskBits ObjectId (List String)
+  | SetAttackShowing ObjectId ContentReference | UnsetAttackShowing ObjectId
 
 export
 Show RulesOutput where

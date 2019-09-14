@@ -1,5 +1,5 @@
 {
-  "name": "Bow",
+  "name": "Demonic Bow",
   "icon": "main/images/demonic_weapons/demonic_bows/Bow 1 Animation/Bow-1.png",
 
   "equip": {
@@ -11,5 +11,12 @@
     }
   },
 
-  "drop": "main/objects/drop/demonic_bow.json"
+  "drop": "main/objects/drop/demonic_bow.json",
+
+  "attackRender": {
+    "type": "single",
+    "image": "main/images/demonic_weapons/demonic_bows/Bow 1 Animation/Bow-1.png",
+    "dimensions": [0.7, 0.7],
+    "facingRight": false
+  }
 }

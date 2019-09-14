@@ -17,6 +17,7 @@ import Objects
 import Commands
 import Dynamics.BodyData
 import Dynamics.DynamicsControl
+import Dynamics.DynamicsEvent
 import Descriptions.ObjectDescription
 import Descriptions.AnimationDescription
 import Descriptions.MapDescription
@@ -24,6 +25,7 @@ import Descriptions.Color
 import Descriptions.ObjectDescription.RenderDescription
 import Descriptions.ObjectDescription.RulesDescription
 import Descriptions.NumericPropertyRender
+import Descriptions.ItemDescription
 
 public export
 interface SDL m => Rendering (m : Type -> Type) where
@@ -61,6 +63,12 @@ interface SDL m => Rendering (m : Type -> Type) where
 
   getSettings : (rendering : Var) -> ST m RenderingSettings [rendering ::: SRendering]
 
+  applyAnimationUpdate : (rendering : Var) ->
+                         (animationUpdates : AnimationUpdate) ->
+                         ST m () [rendering ::: SRendering]
+  applyAnimationUpdates : (rendering : Var) ->
+                          (animationUpdates : List AnimationUpdate) ->
+                          ST m () [rendering ::: SRendering]
   private
   loadWalls : (rendering : Var) ->
               MapDescription ->
@@ -121,18 +129,18 @@ export
     addWalls rendering walls
 
   runCommand rendering (Start (Movement Left) id) = ticks >>=
-    update rendering . setAnimationState id . MkAnimationState
+    update rendering . setAnimationStateStarted id
   runCommand rendering (Start (Movement Right) id) = ticks >>=
-    update rendering . setAnimationState id . MkAnimationState
+    update rendering . setAnimationStateStarted id
   runCommand rendering (Start (Movement Up) id) = pure ()
   runCommand rendering (Start (Movement Down) id) = pure ()
   runCommand rendering (Start (Attack x) id) = pure ()
   runCommand rendering (Start Walk id) = ticks >>=
-    update rendering . setAnimationState id . MkAnimationState
+    update rendering . setAnimationStateStarted id
   runCommand rendering (Stop (Movement Left) id) = ticks >>=
-    update rendering . setAnimationState id . MkAnimationState
+    update rendering . setAnimationStateStarted id
   runCommand rendering (Stop (Movement Right) id) = ticks >>=
-    update rendering . setAnimationState id . MkAnimationState
+    update rendering . setAnimationStateStarted id
   runCommand rendering (Stop (Movement Up) id) = pure ()
   runCommand rendering (Stop (Movement Down) id) = pure ()
   runCommand rendering (Stop (Attack x) id) = pure ()
@@ -151,6 +159,13 @@ export
     update rendering refreshSettings
     queryPRendering rendering settings
 
+  applyAnimationUpdate rendering (MkAnimationUpdate id name)
+    = update rendering $ prenderingUpdateAnimationStateName id name
+
+  applyAnimationUpdates rendering [] = pure ()
+  applyAnimationUpdates rendering (x::xs) = applyAnimationUpdate rendering x >>=
+    const (applyAnimationUpdates rendering xs)
+
 missingStateError : (state : String) -> (for : ObjectId) -> String
 missingStateError state for
   = "couldn't get animation parameters for state \"" ++ state ++ "\""  ++ " for " ++ for
@@ -163,18 +178,24 @@ missingDescription ref for error
   =  "missing animation description " ++ ref ++ " for " ++ for ++ " error:\n" ++ error
 
 -- 0 no flip, 1 vertical, 2 horizontal, 3 both
-getFlip : BodyData -> AnimationDescription -> Int
-getFlip body_data animation_description
-  = case (facingRight animation_description, forceDirection body_data) of
-      (True, Leftward) => 2
-      (True, Rightward) => 0
-      (False, Leftward) => 0
-      (False, Rightward) => 2
+-- getFlip : Int -> AnimationDescription -> Int
+-- getFlip orig animation_description
+--   = case (facingRight animation_description, orig) of
+--       (True, 2) => 2
+--       (True, 0) => 0
+--       (False, 2) => 0
+--       (False, 0) => 2
 
 getFlip' : BodyData -> Int
 getFlip' body_data = case forceDirection body_data of
   Leftward => 2
   Rightward => 0
+
+correctFacing : Bool -> Int -> Int
+correctFacing True x = x
+correctFacing False 2 = 0
+correctFacing False 0 = 2
+correctFacing _ x = x
 
 getDegAngle : BodyData -> Double
 getDegAngle body_data = -(angle body_data) / (2.0*pi) * 360.0
@@ -247,7 +268,7 @@ renderNumericProperties rendering sdl camera body_data info_render [] = pure ()
 renderNumericProperties rendering sdl camera body_data info_render ((id, info)::xs)
   = renderNumericProperty rendering sdl camera body_data info_render id info
 
-renderObjectInfoAll : SDL m => Rendering m => GameIO m =>
+executeMethodInfoAll : SDL m => Rendering m => GameIO m =>
                       (rendering : Var) ->
                       (sdl : Var) ->
                       (camera : Camera) ->
@@ -255,50 +276,84 @@ renderObjectInfoAll : SDL m => Rendering m => GameIO m =>
                       (info_render : InfoRenderParameters) ->
                       (object_info : ObjectInfo) ->
                       ST m () [rendering ::: SRendering {m}, sdl ::: SSDL {m}]
-renderObjectInfoAll rendering sdl camera body_data info_render object_info
+executeMethodInfoAll rendering sdl camera body_data info_render object_info
   = case numericProperties object_info of
       Nothing => pure ()
       Just dict => let properties = toList dict in
           renderNumericProperties rendering sdl camera body_data info_render properties
 
-renderObject : SDL m => Rendering m => GameIO m =>
-               (rendering : Var) ->
-               (sdl : Var) ->
-               (camera : Camera) ->
-               (id : ObjectId) ->
-               (body_data : BodyData) ->
-               (rendering_description : RenderMethod) ->
-               ST m () [rendering ::: SRendering {m}, sdl ::: SSDL {m}]
-renderObject rendering sdl camera id body_data Invisible = pure ()
-renderObject rendering sdl camera id body_data (Tiled ref tileDims@(w, h) howMany@(nx, ny))
-  = let tileDimsFull = dimToScreen camera (2 `scale` tileDims)
-        topleft = position body_data - (cast nx * w, - cast ny * h)
-        initial = positionToScreen camera topleft
-        in tile sdl camera ref initial tileDimsFull (nx, ny)
-renderObject rendering sdl camera id body_data (ColoredRect color dims)
-  = let rect = getRect camera (position body_data) dims
-        in filledRect sdl rect color
-renderObject rendering sdl camera id body_data (ColoredCircle color radius) = pure ()
-renderObject rendering sdl camera id body_data (Single ref dims)
-  = let rect = getRect camera (position body_data) dims
-        in drawWholeCenter sdl ref rect (getDegAngle body_data) (getFlip' body_data)
-renderObject rendering sdl camera id body_data (Animated state_dict) = with ST do
-  preload <- queryPRendering rendering preload
-  let animationState = animationState body_data
-  case lookup animationState state_dict of
-    Nothing => lift $ log $ missingStateError animationState id
-    Just aparams => let animation_ref = ref aparams in
-      case getAnimationDescription animation_ref preload of
-        Left e => lift $ log $ missingDescription animation_ref id e
-        Right animation_description => with ST do
-          Just (MkAnimationState started) <- queryPRendering rendering (getAnimationState id)
-                | Nothing => lift (log $ "couldn't get animation state for " ++ id)
-          let src = getSrc !ticks (fps aparams) animation_description
-          let dst = getRect camera (position body_data) (dimensions aparams)
-          let sheet = sheet animation_description
-          let deg_angle = getDegAngle body_data
-          let flip = getFlip body_data animation_description
-          drawCenter sdl sheet src dst deg_angle flip
+mutual
+  renderEquipment : SDL m => Rendering m => GameIO m =>
+                    (rendering : Var) ->
+                    (sdl : Var) ->
+                    (camera : Camera) ->
+                    (eq_id : ObjectId) ->
+                    (position : Vector2D) ->
+                    (angle : Double) ->
+                    (flip : Int) ->
+                    (carry_dims : Vector2D) ->
+                    (ref : ContentReference) ->
+                    ST m () [rendering ::: SRendering {m}, sdl ::: SSDL {m}]
+  renderEquipment rendering sdl camera eq_id position angle flip carry_dims ref = with ST do
+    preload <- queryPRendering rendering preload
+    case getItemDescription ref preload of
+      Left e => lift $ log $
+        "couldn't get item description for " ++ ref ++ " (executeMethod)"
+      Right item_desc => case attackRender item_desc of
+        Nothing => pure ()
+        Just method =>
+          executeMethod rendering sdl camera eq_id position angle flip method
+
+  executeMethod : SDL m => Rendering m => GameIO m =>
+                 (rendering : Var) ->
+                 (sdl : Var) ->
+                 (camera : Camera) ->
+                 (id : ObjectId) ->
+                 (position : Vector2D) ->
+                 (angle : Double) ->
+                 (flip : Int) ->
+                 (rendering_description : RenderMethod) ->
+                 ST m () [rendering ::: SRendering {m}, sdl ::: SSDL {m}]
+  executeMethod rendering sdl camera id position angle flip Invisible = pure ()
+  executeMethod rendering sdl camera id position angle flip (Tiled ref tileDims@(w, h) howMany@(nx, ny))
+    = let tileDimsFull = dimToScreen camera (2 `scale` tileDims)
+          topleft = position - (cast nx * w, - cast ny * h)
+          initial = positionToScreen camera topleft
+          in tile sdl camera ref initial tileDimsFull (nx, ny)
+  executeMethod rendering sdl camera id position angle flip (ColoredRect color dims)
+    = let rect = getRect camera position dims
+          in filledRect sdl rect color
+  executeMethod rendering sdl camera id position angle flip (ColoredCircle color radius) = pure ()
+  executeMethod rendering sdl camera id position angle flip (Single ref dims facingRight)
+    = let rect = getRect camera position dims
+          in drawWholeCenter sdl ref rect angle (correctFacing facingRight flip)
+  executeMethod rendering sdl camera id position angle flip (Animated state_dict) =
+    case !(queryPRendering rendering (getAnimationState id)) of
+      Nothing => pure ()
+      Just (MkAnimationState name started attackShowing) =>
+        case lookup name state_dict of
+          Nothing => pure ()
+          Just aparams => with ST do
+            preload <- queryPRendering rendering preload
+            let animation_ref = ref aparams
+            case getAnimationDescription animation_ref preload of
+              Left e => lift $ log $ missingDescription animation_ref id e
+              Right animation_description =>
+                let src = getSrc !ticks (fps aparams) animation_description
+                    dimensions' = dimensions aparams
+                    dst = getRect camera position dimensions'
+                    sheet = sheet animation_description
+                    flip = correctFacing (facingRight animation_description) flip
+                    in with ST do
+                      drawCenter sdl sheet src dst angle flip
+                      case attackShowing of
+                        Nothing => pure ()
+                        Just ref => with ST do
+                          let eq_id = id ++ "_equipment"
+                          updatePRendering rendering $
+                            addInitialAnimationState eq_id !ticks
+                          renderEquipment
+                            rendering sdl camera eq_id position 0 flip dimensions' ref
 
 renderLayer : SDL m => Rendering m => GameIO m =>
               (rendering : Var) ->
@@ -314,22 +369,16 @@ renderLayer rendering sdl ((id, render_description)::xs) = with ST do
       renderLayer rendering sdl xs
     Just body_data => with ST do
       camera <- queryPRendering rendering camera
-      renderObject rendering sdl camera id body_data $ method render_description
+      let position' = position body_data
+      let angle = getDegAngle body_data
+      let flip = getFlip' body_data
+      executeMethod rendering sdl camera id position' angle flip $ method render_description
       objects_info <- queryPRendering rendering info
       case (lookup id objects_info, info render_description) of
         (Just object_info, Just info_render) => with ST do
-          renderObjectInfoAll rendering sdl camera body_data info_render object_info
+          executeMethodInfoAll rendering sdl camera body_data info_render object_info
           renderLayer rendering sdl xs
         _ => renderLayer rendering sdl xs
-
-          -- case getScreenDimensions camera body_data render_description of
-          --   Nothing => lift $ log $ "couldn't get screen dimensions for " ++ id
-          --
-          --   -- HERE
-          --   -- the yd parameter for info changes, but it should be constant
-          --   -- probably add as a render parameter
-          --
-          --   Just screenDimensions => with ST do
 
 renderLayers : SDL m => Rendering m => GameIO m =>
                (rendering : Var) ->

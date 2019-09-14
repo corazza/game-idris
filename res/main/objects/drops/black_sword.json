@@ -1,5 +1,5 @@
 {
-  "name": "Demonic Bow",
+  "name": "Black Sword",
 
   "body": {
     "type": "dynamic",
@@ -19,7 +19,7 @@
     "behavior": {
       "ref": "main/behaviors/loot.json",
       "string_parameters": {
-        "loot": "main/items/demonic_bow.json"
+        "loot": "main/items/black_sword.json"
       }
     }
   },
@@ -27,7 +27,7 @@
   "render": {
     "method": {
       "type": "single",
-      "image": "main/images/demonic_weapons/demonic_bows/Bow 1 Animation/Bow-1.png",
+      "image": "main/images/black_sword.png",
       "dimensions": [0.7, 0.7]
     }
   }
