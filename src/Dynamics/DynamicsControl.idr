@@ -2,6 +2,7 @@ module Dynamics.DynamicsControl
 
 import Descriptions.ObjectDescription.ControlDescription
 import Commands
+import Dynamics.MoveDirection
 import Objects
 
 public export
@@ -18,21 +19,6 @@ export
 Show ControlParameters where
   show (MkControlParameters speed jump)
     = "{ speed: " ++ show speed ++ ", jump: " ++ show jump ++ " }"
-
-public export
-data MoveDirection = Leftward | Rightward
-%name MoveDirection direction
-
-export
-Eq MoveDirection where
-  Leftward == Leftward = True
-  Rightward == Rightward = True
-  _ == _ = False
-
-export
-Show MoveDirection where
-  show Leftward = "left"
-  show Rightward = "right"
 
 public export
 record ControlState where
@@ -83,6 +69,10 @@ stopMoving direction ctst
           x :: _ => record {facing=x} newCtst
 
 export
+face : (direction : MoveDirection) -> ControlState -> ControlState
+face direction = record { facing = direction }
+
+export
 moveSign : ControlState -> Double
 moveSign controlState = case moving controlState of
   [] => 0
@@ -110,6 +100,13 @@ stopMoveAction Left = stopMoving Leftward
 stopMoveAction Right = stopMoving Rightward
 stopMoveAction Up = stopJumping
 stopMoveAction Down = id
+
+export
+faceAction : Direction -> ControlState -> ControlState
+faceAction Left = face Leftward
+faceAction Right = face Rightward
+faceAction Up = id
+faceAction Down = id
 
 export
 startAttacking : ControlState -> ControlState

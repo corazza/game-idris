@@ -129,17 +129,20 @@ collisionConvert ids one two cstr = case (lookup (id one) ids, lookup (id two) i
       (MkCollisionForObject objectId_two (velocity two) (fixtureName two))
     _ => Nothing
 
+makeQueryResultFor : (initiator : ObjectId) ->
+                     (name : String) ->
+                     (target : ObjectId) ->
+                     DynamicsEvent
+makeQueryResultFor initiator name target = QueryResult initiator target name
+
 export
 box2DEventToDynamicsEvent : PDynamics -> Box2D.Event -> Maybe DynamicsEvent
 box2DEventToDynamicsEvent dynamics (CollisionStart one two)
   = collisionConvert (ids dynamics) one two CollisionStart
 box2DEventToDynamicsEvent dynamics (CollisionStop one two)
   = collisionConvert (ids dynamics) one two CollisionStop
-box2DEventToDynamicsEvent dynamics (QueryResult query_id body_id body)
-  = case (lookup query_id (ids dynamics), lookup body_id (ids dynamics)) of
-      (Just initiator, Just target) => pure $ Interact initiator target
-      (Nothing, Just target) => pure $ QueryResult query_id target
-      _ => Nothing
+box2DEventToDynamicsEvent dynamics (QueryResult initiator name found_id found_body)
+  = map (makeQueryResultFor initiator name) $ lookup found_id (ids dynamics)
 
 export
 jointDescToDef : JointDescription -> PDynamics -> Maybe RevoluteJointDefinition

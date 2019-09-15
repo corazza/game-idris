@@ -53,3 +53,7 @@ updateControllerInData f = record { controller $= map f }
 export
 hasController : RulesData -> Bool
 hasController = isJust . controller
+
+export
+toData : (q : BehaviorController -> a) -> (RulesData -> Maybe a)
+toData q = map q . controller

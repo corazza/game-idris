@@ -34,6 +34,7 @@ record BehaviorParameters where
   doubleParameters : Dict String Double
   stringlistParameters : Dict String (List String)
   stringParameters : Dict String String
+  logTransitions : Bool
 %name BehaviorParameters behavior_params
 
 export
@@ -44,6 +45,7 @@ Show BehaviorParameters where
     ++ ", doubleParameters: " ++ show (doubleParameters bp)
     ++ ", stringlistParameters: " ++ show (stringlistParameters bp)
     ++ ", stringParameters: " ++ show (stringParameters bp)
+    ++ ", logTransitions: " ++ show (logTransitions bp)
     ++ " }"
 
 allToInt : (String, JSON) -> Checked (String, Int)
@@ -80,8 +82,9 @@ ObjectCaster BehaviorParameters where
     doubleParameters <- getParameterType "double_parameters" allToDouble dict
     stringlistParameters <- getParameterType "stringlist_parameters" allToStringlist dict
     stringParameters <- getParameterType "string_parameters" allToString dict
-    pure $ MkBehaviorParameters
-      ref intParameters doubleParameters stringlistParameters stringParameters
+    logTransitions <- getBoolOrDefault False "logTransitions" dict
+    pure $ MkBehaviorParameters ref intParameters doubleParameters
+                stringlistParameters stringParameters logTransitions
 
 public export
 record RulesDescription where

@@ -20,8 +20,7 @@ public export
 data DynamicsEvent
   = CollisionStart CollisionForObject CollisionForObject
   | CollisionStop CollisionForObject CollisionForObject
-  | Interact ObjectId ObjectId
-  | QueryResult Int ObjectId
+  | QueryResult ObjectId ObjectId String -- initiator, target, name
 
 -- this exists only to introduce ordering to collision events (needed by scripts)
 public export

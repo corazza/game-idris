@@ -1,5 +1,5 @@
 {
-  "states": ["initial", "hold", "chase"],
+  "states": ["initial", "hold", "beforeChase", "chase"],
   "start": "initial",
 
   "initial": {
@@ -15,6 +15,15 @@
   "hold": {
     "onHit": {
       "transition": {
+        "state": "beforeChase"
+      }
+    }
+  },
+
+  "beforeChase": {
+    "onTime": {
+      "time": 0.1,
+      "transition": {
         "state": "chase",
         "action": {"type": "begin chase"}
       }
@@ -28,6 +37,12 @@
       "transition": {
         "state": "hold",
         "actions": [{"type": "end chase"}, {"type": "stop"}]
+      }
+    },
+
+    "onHit": {
+      "transition": {
+        "state": "chase"
       }
     }
   }

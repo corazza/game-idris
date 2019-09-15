@@ -17,6 +17,7 @@ import Objects
 import Commands
 import Dynamics.BodyData
 import Dynamics.DynamicsControl
+import Dynamics.MoveDirection
 import Dynamics.DynamicsEvent
 import Descriptions.ObjectDescription
 import Descriptions.AnimationDescription

@@ -4,6 +4,7 @@ import Physics.Box2D
 import Physics.Vector2D
 
 import Dynamics.DynamicsControl
+import Dynamics.MoveDirection
 import Objects
 import Commands
 import Descriptions.MapDescription
@@ -24,7 +25,8 @@ data DynamicsCommand
   | CreateJoint ObjectId JointDescription
   | Destroy ObjectId
   | UpdateControl ObjectId (ControlState -> ControlState)
-  | QueryFor ObjectId Double
+  | ApplyImpulse ObjectId Vector2D
+  | QueryFor ObjectId String Double
   | SetMaskBits ObjectId (List String)
   | UnsetMaskBits ObjectId (List String)
 
@@ -34,12 +36,14 @@ fromCommand (Start (Movement direction) id)
   = Just $ UpdateControl id (startMoveAction direction)
 fromCommand (Stop (Movement direction) id)
   = Just $ UpdateControl id (stopMoveAction direction)
+fromCommand (Stop (Face direction) id)
+  = Just $ UpdateControl id (faceAction direction)
 fromCommand (Start (Attack x) id) = Just $ UpdateControl id startAttacking
 fromCommand (Stop (Attack x) id) = Just $ UpdateControl id stopAttacking
 fromCommand (Start Walk id) = Just $ UpdateControl id startWalking
 fromCommand (Stop Walk id) = Just $ UpdateControl id stopWalking
 fromCommand (Start (Interact x) id) = Nothing
-fromCommand (Stop (Interact x) id) = Just $ QueryFor id x
+fromCommand (Stop (Interact x) id) = Just $ QueryFor id "interact" x
 fromCommand _ = Nothing
 
 export
@@ -47,7 +51,6 @@ filterControl : ObjectId -> List DynamicsCommand -> List DynamicsCommand
 filterControl id = filter notSame where
   notSame : DynamicsCommand -> Bool
   notSame (UpdateControl id' f) = id /= id'
-  notSame (QueryFor id' _) = id /= id'
   notSame _ = True
 
 export
@@ -55,7 +58,7 @@ Show DynamicsCommand where
   show (Create id bodyDef fixtures control effects impulse) = "create " ++ id
   show (Destroy id) = "destroy " ++ id
   show (UpdateControl id f) = "update control of " ++ id
-  show (QueryFor id x) = "query for " ++ id ++ ", " ++ show x
+  show (QueryFor id name x) = id ++ " querying " ++ show x ++ " (" ++ name ++ ")"
   show (CreateJoint id desc) = "create joint " ++ id
   show (SetMaskBits id bits) = "set mask bits " ++ show bits ++ " to " ++ id
   show (UnsetMaskBits id bits) = "unset mask bits " ++ show bits ++ " to " ++ id

@@ -1,5 +1,8 @@
 module Server.Rules.PRules
 
+import Data.AVL.Set
+
+import Data.AVL.SetRemove
 import Server.Rules.NumericProperties
 import Server.Rules.Behavior
 import Server.Rules.RulesData
@@ -23,14 +26,23 @@ record PRules where
   characters : Objects (CharacterId, Character)
   bodyData : Objects BodyData
   rulesOutput : List RulesOutput
+  loggingTransitions : Set ObjectId
 
 export
 emptyPRules : PreloadResults -> PRules
-emptyPRules preload = MkPRules preload empty empty empty empty
+emptyPRules preload = MkPRules preload empty empty empty empty empty
 
 export
 prulesSetBodyData : Objects BodyData -> PRules -> PRules
 prulesSetBodyData bodyData' = record { bodyData = bodyData' }
+
+export
+prulesSetLogTransitions : ObjectId -> PRules -> PRules
+prulesSetLogTransitions id = record { loggingTransitions $= insert id }
+
+export
+prulesUnsetLogTransitions : ObjectId -> PRules -> PRules
+prulesUnsetLogTransitions id = record { loggingTransitions $= remove id }
 
 export
 prulesAddObject : ObjectId ->
@@ -158,6 +170,11 @@ prulesUpdateController : ObjectId ->
                          PRules -> PRules
 prulesUpdateController id f = prulesUpdateObject id $ updateControllerInData f
 
+export
+prulesQueryController : ObjectId ->
+                        (q : BehaviorController -> a) ->
+                        PRules -> Maybe a
+prulesQueryController id q = join . prulesQueryObject id (toData q)
 
 commandToDataUpdate : Command -> BehaviorData -> BehaviorData
 commandToDataUpdate (Start (Movement Left) _) = record { direction = Just Leftward }

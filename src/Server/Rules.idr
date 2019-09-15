@@ -3,6 +3,7 @@ module Server.Rules
 import Control.ST
 import Control.ST.ImplicitCall
 import Physics.Box2D
+import Data.AVL.Set
 
 import Server.Rules.PRules
 import Server.Rules.NumericProperties
@@ -57,14 +58,11 @@ interface Rules (m : Type -> Type) where
 
   getRulesOutputs : (rules : Var) -> ST m (List RulesOutput) [rules ::: SRules]
 
-  runAbility : (rules : Var) ->
-               ObjectId ->
-               (at : Vector2D) ->
-               AbilityDescription ->
-               BodyData ->
-               ST m () [rules ::: SRules]
   runCommand : (rules : Var) -> Command -> ST m () [rules ::: SRules]
   runCommands : (rules : Var) -> List Command -> ST m () [rules ::: SRules]
+
+  setLogTransitions : (rules : Var) -> ObjectId -> ST m () [rules ::: SRules]
+  unsetLogTransitions : (rules : Var) -> ObjectId -> ST m () [rules ::: SRules]
 
   private
   queryCharacter : (rules : Var) ->
@@ -108,7 +106,11 @@ GameIO m => Rules m where
           Left e => lift $ log $ "couldn't get behavior description " ++ ref behavior_params
           Right behavior_desc =>
             let for_controller = Just (behavior_desc, behavior_params)
-                in updatePRules rules $ prulesAddObject id desc for_controller creator
+                in with ST do
+                  updatePRules rules $ prulesAddObject id desc for_controller creator
+                  case logTransitions behavior_params of
+                    False => pure ()
+                    True => setLogTransitions rules id
 
   addCharacter rules id character_id character =
     updatePRules rules $ prulesAddCharacter id character_id character
@@ -128,16 +130,6 @@ GameIO m => Rules m where
 
   removeObject rules id = updatePRules rules $ prulesRemoveObject id
 
-  runAbility rules id at (Throw ref impulse) body
-    = let thrower_position = position body
-          direction = normed (at - thrower_position)
-          from = thrower_position + (2 `scale` direction)
-          impulse' = impulse `scale` direction
-          angle' = angle direction - pi/2.0
-          creation = MkCreation
-            ref from (Just impulse') (Just id) (Just angle') Nothing Nothing
-          in updatePRules rules $ output (Create creation)
-
   runCommand rules (Start (Attack at) id) = runScript rules $ beginAttackScript id at
   runCommand rules (Stop (Attack at) id) = runScript rules $ endAttackScript id at
   runCommand rules (Equip ref id) = runScript rules $ equipScript id ref
@@ -147,20 +139,27 @@ GameIO m => Rules m where
   runCommands rules [] = pure ()
   runCommands rules (cmd::xs) = runCommand rules cmd >>= const (runCommands rules xs)
 
+  setLogTransitions rules id = updatePRules rules $ prulesSetLogTransitions id
+  unsetLogTransitions rules id = updatePRules rules $ prulesUnsetLogTransitions id
+
   runScript rules (Output rules_output)
     = updatePRules rules $ output rules_output
-  runScript rules (Transition id state scripts) = with ST do
+  runScript rules t@(Transition id state scripts) = with ST do
     updatePRules rules $ prulesUpdateController id $ transition !ticks state
     runUnitScripts rules scripts
+    logging <- queryPRules rules loggingTransitions
+    case contains id logging of
+      False => pure ()
+      True => lift $ log $ id ++ " transitioning to " ++ state
   runScript rules (UpdateBehaviorData id f)
     = updatePRules rules $ prulesUpdateController id $ updateData f
+  runScript rules (QueryBehaviorData id q)
+    = queryPRules rules $ prulesQueryController id $ queryData q
   runScript rules (GetItemDescription ref) = with ST do
     preload' <- queryPRules rules preload
     pure $ getItemDescription ref preload'
   runScript rules (GetAttack id) = queryPRules rules $ getAttack id
-  runScript rules (Ability id at desc) = with ST do
-    Just body <- queryPRules rules $ getBody id | pure ()
-    runAbility rules id at desc body
+  runScript rules (GetBody id) = queryPRules rules $ getBody id
   runScript rules (RulesClientCommand id cmd) = clientCommand rules id cmd
   runScript rules (GetStartTime id) = queryPRules rules $ getStartTime id
   runScript rules (GetDirection id) = queryPRules rules $ getDirection id

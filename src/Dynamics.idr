@@ -77,6 +77,7 @@ interface Dynamics (m : Type -> Type) where
   private
   query : (dynamics : Var) ->
           (object_id : ObjectId) ->
+          (name : String) ->
           (aabb : AABB) ->
           ST m () [dynamics ::: SDynamics]
 
@@ -147,11 +148,9 @@ Dynamics IO where
     Just body <- queryPDynamics dynamics $ getBody id | pure ()
     lift $ applyImpulse body impulse
 
-  query dynamics object_id aabb = with ST do
-    Just box2d_id <- queryPDynamics dynamics $ (map box2d_id . getBodyData object_id)
-            | pure ()
+  query dynamics object_id name aabb = with ST do
     world <- queryPDynamics dynamics PDynamics.world
-    lift $ queryAABB world (MkAABBQuery box2d_id aabb)
+    lift $ queryAABB world (MkAABBQuery object_id name aabb)
 
   updateControl dynamics id f = update dynamics $ pdynamicsUpdateControl id f
 
@@ -177,10 +176,11 @@ Dynamics IO where
           | pure ()
     updatePDynamics dynamics $ pdynamicsAddAnimationUpdate $
       MkAnimationUpdate id animationState
-  runCommand dynamics (QueryFor object_id span) = with ST do
+  runCommand dynamics (ApplyImpulse id impulse) = applyImpulse dynamics id impulse
+  runCommand dynamics (QueryFor object_id name span) = with ST do
     Just (x, y) <- queryPDynamics dynamics $ (map position . getBodyData object_id)
           | pure ()
-    query dynamics object_id (MkAABB (x-span, y-span) (x+span, y+span))
+    query dynamics object_id name (MkAABB (x-span, y-span) (x+span, y+span))
   runCommand dynamics (SetMaskBits id bits) = setunsetMaskBits dynamics True id bits
   runCommand dynamics (UnsetMaskBits id bits) = setunsetMaskBits dynamics False id bits
 

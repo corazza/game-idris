@@ -10,9 +10,12 @@ import Server.Rules.RulesData
 import Client.ClientCommands
 import Descriptions.ObjectDescription.RulesDescription
 import Descriptions.ItemDescription
+import Descriptions.MapDescription
 import Descriptions.AbilityDescription
 import Descriptions.ObjectDescription.RulesDescription.BehaviorDescription
 import Dynamics.DynamicsEvent
+import Dynamics.BodyData
+import Dynamics.MoveDirection
 import Commands
 import GameIO
 import Objects
@@ -25,11 +28,12 @@ data RuleScript : Type -> Type where
   Output : RulesOutput -> RuleScript ()
   Transition : (id : ObjectId) -> BehaviorState -> List (RuleScript ()) -> RuleScript ()
   UpdateBehaviorData : (id : ObjectId) -> (f : BehaviorData -> BehaviorData) -> RuleScript ()
-  Ability : (id : ObjectId) -> (at : Vector2D) -> (desc : AbilityDescription) -> RuleScript ()
+  QueryBehaviorData : (id : ObjectId) -> (q : BehaviorData -> a) -> RuleScript (Maybe a)
   RulesClientCommand : (id : ObjectId) -> ClientCommand -> RuleScript ()
 
   GetItemDescription : (ref : ContentReference) -> RuleScript (Checked ItemDescription)
   GetAttack : (id : ObjectId) -> RuleScript (Maybe ContentReference)
+  GetBody : (id : ObjectId) -> RuleScript (Maybe BodyData)
 
   GetStartTime : (id : ObjectId) -> RuleScript (Maybe Int) -- time since in this state
   GetDirection : (id : ObjectId) -> RuleScript (Maybe BehaviorDirection)
@@ -160,6 +164,7 @@ doHit : (attacker : ObjectId) ->
         UnitRuleScript
 doHit attacker target for = with RuleScript do
   doDamage target for
+  UpdateBehaviorData target $ setLastHit attacker
   hitScript target attacker for -- handler
 
 projectileDamage : CollisionData -> UnitRuleScript
@@ -205,7 +210,9 @@ runTimeAction id Stop = stopMovementScript id
 runTimeAction id ChangeDirection = changeDirectionScript id
 runTimeAction id ProjectileDamage = pure ()
 runTimeAction id Attack = pure ()
-runTimeAction id BeginChase = pure ()
+runTimeAction id BeginChase = with RuleScript do
+  Just (Just last_hit) <- QueryBehaviorData id lastHit | pure ()
+  beginChaseScript last_hit id
 runTimeAction id EndChase = endChaseScript id
 runTimeAction id BeginWalk = beginWalkScript id
 runTimeAction id EndWalk = endWalkScript id
@@ -266,6 +273,21 @@ interactScript initiator target = with RuleScript do
         Just x => let actions = map (runInteractAction x initiator target) actions
                       in Transition target state actions
 
+meleeScript : (initiator : ObjectId) -> (target : ObjectId) -> UnitRuleScript
+meleeScript initiator target = case !(GetAttack initiator) of
+  Nothing => pure ()
+  Just ref => with RuleScript do
+    Right attack_item <- GetItemDescription ref | Left e =>
+      Log ("couldn't get item description (attackScript), error:\n" ++ e)
+    case equip attack_item of
+      Just (MkEquipDescription Hands (Just (Melee range damage))) => with RuleScript do
+        Just initiator_position <- GetPosition initiator | pure ()
+        Just target_position <- GetPosition target | pure ()
+        let impulse_direction = normed (target_position - initiator_position)
+        doHit initiator target damage
+        Output $ ApplyImpulse target (damage `scale` impulse_direction)
+      _ => pure ()
+
 export
 dynamicsEventScript : (event : DynamicsEvent) -> UnitRuleScript
 dynamicsEventScript (CollisionStart one two) = with RuleScript do
@@ -273,10 +295,12 @@ dynamicsEventScript (CollisionStart one two) = with RuleScript do
   collisionScript (cdata First) (id one)
   collisionScript (cdata Second) (id two)
 dynamicsEventScript (CollisionStop x y) = pure ()
-dynamicsEventScript (QueryResult query_id object_id)
-  = Log $ "query with id " ++ show query_id ++ " positive for " ++ object_id
-dynamicsEventScript (Interact initiator target)
+dynamicsEventScript (QueryResult initiator target "interact")
   = interactScript initiator target
+dynamicsEventScript (QueryResult initiator target "melee")
+  = if initiator /= target then meleeScript initiator target else pure ()
+dynamicsEventScript (QueryResult initiator target name)
+  = Log $ initiator ++ " queried " ++ target ++ " (" ++ name ++ ")"
 
 export
 timeScript : (time : Int) -> (id : ObjectId) -> UnitRuleScript
@@ -294,6 +318,11 @@ timeScript time id = with RuleScript do
           let actions = map (runTimeAction id) actions
               in Transition id state actions
 
+chasePosition : (my_position : Vector2D) -> (target_position : Vector2D) -> Vector2D
+chasePosition my_position target_position = target_position + chaseOffset where
+  chaseOffset : Vector2D
+  chaseOffset = (if fst target_position - fst my_position > 0 then -1 else 1, 0)
+
 export -- get chase_id as second argument
 chaseScript : (id : ObjectId) -> UnitRuleScript
 chaseScript id = with RuleScript do
@@ -301,11 +330,19 @@ chaseScript id = with RuleScript do
   case chasing $ behavior_data controller of
     Nothing => pure ()
     Just chase_id => with RuleScript do
-      Just chase_position <- GetPosition chase_id | pure ()
+      Just target_position <- GetPosition chase_id | pure ()
       Just my_position <- GetPosition id | pure ()
-      if (fst my_position > fst chase_position)
-        then startMovementScript id Left
-        else startMovementScript id Right
+      let chase_position = chasePosition my_position target_position
+      let diff = fst chase_position - fst my_position
+      if abs diff < 0.5
+        then with RuleScript do
+          stopMovementScript id -- stop chase
+          if fst target_position - fst my_position > 0
+            then Output $ RuleCommand $ Stop (Face Right) id
+            else Output $ RuleCommand $ Stop (Face Left) id
+        else if diff > 0
+          then startMovementScript id Right
+          else startMovementScript id Left
 
 export
 garbageScript : (id : ObjectId) -> UnitRuleScript
@@ -323,6 +360,23 @@ mainScript time id = with AIScript do
   garbageScript id
 
 export
+abilityScript : (id : ObjectId) ->
+                (at : Vector2D) ->
+                (desc : AbilityDescription) ->
+                UnitRuleScript
+abilityScript id at (Throw ref impulse) = with RuleScript do
+  Just body <- GetBody id | pure ()
+  let thrower_position = position body
+  let direction = normed (at - thrower_position)
+  let from = thrower_position + (2 `scale` direction)
+  let impulse' = impulse `scale` direction
+  let angle' = angle direction - pi/2.0
+  let creation = MkCreation
+    ref from (Just impulse') (Just id) (Just angle') Nothing Nothing
+  Output $ Create creation
+abilityScript id at (Melee range damage) = Output $ RunQuery id "melee" range
+
+export
 beginAttackScript : (id : ObjectId) -> (at : Vector2D) -> UnitRuleScript
 beginAttackScript id at = case !(GetAttack id) of
   Nothing => pure ()
@@ -337,21 +391,8 @@ endAttackScript id at = case !(GetAttack id) of
     Right attack_item <- GetItemDescription ref | Left e =>
       Log ("couldn't get item description (attackScript), error:\n" ++ e)
     case equip attack_item of
-      Just (MkEquipDescription slot (Just ability)) => Ability id at ability
+      Just (MkEquipDescription slot (Just ability)) => abilityScript id at ability
       _ => pure ()
-
--- attackScript id at = case !(GetCharacter id) of
---   Just character => case attackItem character of
---     Nothing => pure ()
---     Just ref => with RuleScript do
---       Right attack_item <- GetItemDescription ref | Left e =>
---             Log ("couldn't get item description " ++ show (attackItem character) ++ " (attackScript)")
---       case equip attack_item of
---         Just (MkEquipDescription slot (Just ability)) => Ability id at ability
---         _ => pure ()
---   Nothing => with RuleScript do
---     Just attack <- GetAttack id | pure ()
---     Ability id at attack
 
 clearSlot : (equipper : ObjectId) -> EquipSlot -> UnitRuleScript
 clearSlot equipper slot = with RuleScript do

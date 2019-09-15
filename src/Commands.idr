@@ -20,6 +20,7 @@ data Action = Movement Direction
             | Attack Vector2D -- x, y of screen
             | Walk
             | Interact Double
+            | Face Direction
 
 export
 Show Action where
@@ -27,6 +28,7 @@ Show Action where
   show (Attack x) = "attack " ++ show x
   show Walk = "walk"
   show (Interact x) = "interact " ++ show x
+  show (Face x) = "face " ++ show x
 
 public export
 data Command = Start Action ObjectId
@@ -46,3 +48,4 @@ Show Command where
   show (Start x id) = id ++ " start " ++ show x
   show (Stop x id) = id ++ " stop " ++ show x
   show (Equip ref id) = id ++ " equip " ++ ref
+  show (Unequip ref id) = id ++ " unequip " ++ ref

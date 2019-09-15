@@ -29,7 +29,8 @@
     "main/animations/run-low.json",
     "main/animations/walk-large.json",
     "main/animations/walk-low.json",
-    "main/animations/cultist-walk.json"
+    "main/animations/cultist-walk.json",
+    "main/animations/cultist-resting.json"
   ],
 
   "maps": [

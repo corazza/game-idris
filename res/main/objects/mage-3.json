@@ -13,7 +13,7 @@
           "type": "box",
           "dimensions": [0.375, 0.75]
         },
-        "density": 5,
+        "density": 1,
         "friction": 0.3
       },
       {
@@ -22,7 +22,7 @@
           "radius": 0.375
         },
         "offset": [0, -0.75],
-        "density": 5,
+        "density": 1,
         "friction": 0.3
       },
       {
@@ -31,7 +31,7 @@
           "radius": 0.375
         },
         "offset": [0, 0.75],
-        "density": 5,
+        "density": 1,
         "friction": 0.3
       }
     ]

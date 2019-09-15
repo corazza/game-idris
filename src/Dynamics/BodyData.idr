@@ -4,8 +4,10 @@ import Physics.Box2D
 import Physics.Vector2D
 import Data.AVL.Set
 
+import Data.AVL.SetRemove
 import Objects
 import Dynamics.DynamicsControl
+import Dynamics.MoveDirection
 import Descriptions.ObjectDescription.BodyDescription
 
 public export
@@ -61,8 +63,7 @@ addTouching id = record { touching $= insert id }
 
 export
 removeTouching : (id : ObjectId) -> BodyData -> BodyData
-removeTouching id = let to_remove = insert id empty in
-  record { touching $= flip difference to_remove }
+removeTouching id = record { touching $= remove id }
 
 export
 addGrounding : ObjectId -> Double -> BodyData -> BodyData

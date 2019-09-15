@@ -81,8 +81,12 @@ updateData : (f : BehaviorData -> BehaviorData) -> BehaviorController -> Behavio
 updateData f = record { behavior_data $= f }
 
 export
+queryData : (q : BehaviorData -> a) -> BehaviorController -> a
+queryData q = q . behavior_data
+
+export
 direction : BehaviorController -> Maybe BehaviorDirection
-direction = direction . behavior_data
+direction = queryData direction
 
 export
 halted : BehaviorController -> Bool

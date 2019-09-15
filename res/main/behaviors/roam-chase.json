@@ -1,5 +1,5 @@
 {
-  "states": ["initial", "roam", "chase"],
+  "states": ["initial", "roam", "beforeChase", "chase"],
   "start": "initial",
 
   "initial": {
@@ -24,6 +24,16 @@
 
     "onHit": {
       "transition": {
+        "state": "beforeChase",
+        "action": {"type": "end walk"}
+      }
+    }
+  },
+
+  "beforeChase": {
+    "onTime": {
+      "time": 0.1,
+      "transition": {
         "state": "chase",
         "actions": [{"type": "begin chase"}, {"type": "end walk"}]
       }
@@ -37,6 +47,13 @@
       "transition": {
         "state": "roam",
         "actions": [{"type": "end chase"}, {"type": "stop"}, {"type": "begin walk"}]
+      }
+    },
+
+    "onHit": {
+      "transition": {
+        "state": "chase",
+        "action": {"type": "begin chase"}
       }
     }
   }

@@ -3,7 +3,12 @@
   "icon": "main/images/black_sword.png",
 
   "equip": {
-    "slot": "hands"
+    "slot": "hands",
+    "ability": {
+      "type": "melee",
+      "damage": 25,
+      "range": 1.2
+    }
   },
 
   "drop": "main/objects/drop/black_sword.json",

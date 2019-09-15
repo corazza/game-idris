@@ -243,6 +243,12 @@ export
       Just dyncom => updatePServer server $ addDynamicsCommand $ dyncom
 
   processRulesOutput server (Create creation) = do create server creation; pure ()
+  processRulesOutput server (RunQuery id name span)
+    = updatePServer server $ addDynamicsCommand $ QueryFor id name span
+  processRulesOutput server (ApplyImpulse id impulse)
+    = updatePServer server $ addDynamicsCommand $ ApplyImpulse id impulse
+  -- processRulesOutput server (SetFacing id direction)
+  --   = updatePServer server $ addDynamicsCommand $ SetFacing id direction
   processRulesOutput server (RuleCommand command) = processRulesCommand server command
   processRulesOutput server (Death id) = destroy server id
   processRulesOutput server (NumericPropertyCurrent object_id prop_id current)

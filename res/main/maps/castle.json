@@ -65,7 +65,7 @@
       "behavior": {
         "ref": "main/behaviors/hold-chase.json",
         "double_parameters": {
-          "chase_duration": 4
+          "chase_duration": 10
         }
       }
     },
@@ -93,7 +93,7 @@
 
     {
       "ref": "main/objects/drops/black_sword.json",
-      "position": [7, -5]
+      "position": [10, -5]
     }
   ],
 

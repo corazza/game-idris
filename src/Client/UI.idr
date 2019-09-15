@@ -111,6 +111,11 @@ interface UI (m : Type -> Type) where
                        (acc : List ClientCommand) ->
                        ST m (List ClientCommand) [ui ::: SUI]
 
+  getShownClick : (ui : Var) ->
+                  (x : Int) ->
+                  (y : Int) ->
+                  ST m (Maybe Click) [ui ::: SUI]
+
   processMouseEvent : (ui : Var) ->
                       (event : MouseEvent) ->
                       ST m (Either () MouseEvent) [ui ::: SUI]
@@ -196,12 +201,10 @@ export
   setRootSurface ui ref surface_desc = with ST do
     surface <- surfaceFromDesc ui surface_desc
     updateRoot ui ref $ puiSetRootSurface surface
-    -- updateRoot ui ref $ surfaceToRoot resetDimensions
 
   setRootChildren ui ref surface_descs = with ST do
     surfaces <- surfacesFromDescs ui surface_descs
     updateRoot ui ref $ surfaceToRoot $ setChildren surfaces
-    -- updateRoot ui ref $ surfaceToRoot resetDimensions
 
   logRoot ui ref = with ST do
     shown' <- queryPUI ui shown
@@ -251,15 +254,19 @@ export
     Left () => eatClientCommands' ui xs acc
     Right r => eatClientCommands' ui xs (append r acc)
 
-  processMouseEvent ui event@(ButtonUp x y) = with ST do
+  getShownClick ui x y = with ST do
     shown' <- queryPUI ui shown
     let roots = map snd $ toList shown'
-    case getClick (x, y) roots of
-      Nothing => pure $ Right event
-      Just click_string => with ST do
-        addClick ui click_string
-        pure $ Left () -- sdl event was consumed
-  processMouseEvent ui ev@(ButtonDown x y) = pure $ Right ev
+    pure $ getClick (x, y) roots
+
+  processMouseEvent ui event@(ButtonUp x y) = case !(getShownClick ui x y) of
+    Nothing => pure $ Right event
+    Just click => with ST do
+      addClick ui click
+      pure $ Left () -- sdl event was consumed
+  processMouseEvent ui ev@(ButtonDown x y) = case !(getShownClick ui x y) of
+    Nothing => pure $ Right ev
+    Just click => pure $ Left ()
   processMouseEvent ui ev@(Move x y) = pure $ Right ev
 
   addClick ui click = updatePUI ui $ puiAddClick click
