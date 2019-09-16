@@ -126,7 +126,11 @@ getStartTime id prules = getController id prules >>= pure . transitioned
 
 export
 getBody : ObjectId -> PRules -> Maybe BodyData
-getBody id prules = lookup id (bodyData prules)
+getBody id = lookup id . bodyData
+
+export
+prulesQueryBody : ObjectId -> (q : BodyData -> a) -> PRules -> Maybe a
+prulesQueryBody id q = map q . getBody id
 
 export
 getPosition : ObjectId -> PRules -> Maybe Vector2D

@@ -1,5 +1,7 @@
 module Descriptions.ItemDescription
 
+import Physics.Vector2D
+
 import GameIO
 import Exception
 import Objects
@@ -35,13 +37,15 @@ record EquipDescription where
   constructor MkEquipDescription
   slot : EquipSlot
   ability : Maybe AbilityDescription
+  offset : Vector2D
 
 ObjectCaster EquipDescription where
   objectCast dict = with Checked do
     slot <- getSlot dict
     ability <- the (Checked (Maybe AbilityDescription)) $
       getCastableMaybe "ability" dict
-    pure $ MkEquipDescription slot ability
+    offset <- getVectorOrDefault nullVector "offset" dict
+    pure $ MkEquipDescription slot ability offset
 
 public export
 record ItemDescription where
@@ -62,3 +66,9 @@ ObjectCaster ItemDescription where
     attackRender <- the (Checked (Maybe RenderMethod)) $
       getCastableMaybe "attackRender" dict
     pure $ MkItemDescription name (fromMaybe False unique) equip icon attackRender
+
+export
+item_offset : ItemDescription -> Vector2D
+item_offset desc = case equip desc of
+  Nothing => nullVector
+  Just x => offset x

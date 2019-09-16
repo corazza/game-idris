@@ -6,6 +6,7 @@ import Data.AVL.Set
 
 import Dynamics.DynamicsCommand
 import Dynamics.DynamicsControl
+import Descriptions.ObjectDescription.BodyFlags
 import Dynamics.DynamicsEvent
 import Dynamics.BodyData
 import GameIO
@@ -63,10 +64,11 @@ pdynamicsAddObject : (id : ObjectId) ->
                      (box2d : (Int, Body)) ->
                      (control : Maybe ObjectControl) ->
                      (effects : List PhysicsEffect) ->
+                     (flags : BodyFlags) ->
                      PDynamics -> PDynamics
-pdynamicsAddObject id position angle (box2d_id, body) control effects
+pdynamicsAddObject id position angle (box2d_id, body) control effects flags
   = let body_data = MkBodyData position angle nullVector 0 box2d_id body control
-                               empty empty effects
+                               empty empty effects flags
         in record { objects $= addObject id body_data, ids $= addId box2d_id id }
 
 export

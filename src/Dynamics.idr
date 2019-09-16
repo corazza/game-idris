@@ -8,6 +8,7 @@ import Physics.Vector2D
 import Dynamics.PDynamics
 import Dynamics.BodyData
 import Dynamics.Movement
+import Descriptions.ObjectDescription.BodyFlags
 import Dynamics.DynamicsCommand
 import Dynamics.DynamicsControl
 import Dynamics.DynamicsEvent
@@ -35,6 +36,7 @@ interface Dynamics (m : Type -> Type) where
             (fixtures : List FixtureDefinition) ->
             (control : Maybe ControlParameters) ->
             (effects : List PhysicsEffect) ->
+            (flags : BodyFlags) ->
             ST m () [dynamics ::: SDynamics]
 
   addJoint : (dynamics : Var) ->
@@ -122,15 +124,16 @@ Dynamics IO where
   queryPDynamics dynamics q = read dynamics >>= pure . q
   updatePDynamics dynamics f = update dynamics f
 
-  addBody dynamics id def fixtures control effects = case !(idExists dynamics id) of
-    True => pure ()
-    False => with ST do
-      box2d <- lift $ addBody' !(getWorld dynamics) def fixtures
-      let objectControl = map initialControl control
-      update dynamics $ pdynamicsAddObject
-        id (position def) (fromMaybe 0 $ angle def) box2d objectControl effects
-      mass <- lift $ getMass (snd box2d)
-      update dynamics $ setMass id mass
+  addBody dynamics id def fixtures control effects flags
+    = case !(idExists dynamics id) of
+        True => pure ()
+        False => with ST do
+          box2d <- lift $ addBody' !(getWorld dynamics) def fixtures
+          let objectControl = map initialControl control
+          update dynamics $ pdynamicsAddObject id (position def)
+            (fromMaybe 0 $ angle def) box2d objectControl effects flags
+          mass <- lift $ getMass (snd box2d)
+          update dynamics $ setMass id mass
 
   removeBody dynamics id = case getBody id !(read dynamics) of
     Nothing => pure ()
@@ -163,8 +166,8 @@ Dynamics IO where
         let f = if set then setFilterBit else unsetFilterBit
             in lift $ f body' Nothing bits_as_int 2
 
-  runCommand dynamics (Create id def fixtures control effects impulse) = with ST do
-    addBody dynamics id def fixtures control effects
+  runCommand dynamics (Create id def fixtures control effects impulse flags) = with ST do
+    addBody dynamics id def fixtures control effects $ fromMaybe defaultFlags flags
     case impulse of
       Nothing => pure ()
       Just x => applyImpulse dynamics id x

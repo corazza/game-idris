@@ -126,6 +126,15 @@ getVector name dict = with Checked do
   pure (x, y)
 
 export total
+getVectorOrDefault : (default : Vector2D) ->
+                     (name : String) ->
+                     (dict : JSONDict) ->
+                     Checked Vector2D
+getVectorOrDefault default name dict = case hasKey name dict of
+  True => getVector name dict
+  False => pure default
+
+export total
 getInt : (name : String) -> (dict : JSONDict) -> Checked Int
 getInt name dict = with Checked do
   JNumber x <- maybeToEither (keyError "int" name) (lookup name dict)

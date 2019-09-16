@@ -102,6 +102,7 @@ interface Client (m : Type -> Type) where
   addObject : (client : Var) ->
               (id : ObjectId) ->
               (ref : ContentReference) ->
+              (render : Maybe RenderDescription) ->
               ST m () [client ::: SClient Connected]
   private
   removeObject : (client : Var) ->
@@ -217,13 +218,13 @@ export
     endRendering rendering
     combine client [pclient, ui, sdl]
 
-  addObject client id ref = with ST do
+  addObject client id ref render = with ST do
     preload <- queryPClient client preload {s=Connected}
     case getObjectDescription ref preload of
       Left e => lift $ log $ "couldn't get object description, error:\n " ++ e
       Right object_description => with ST do
         [pclient, session_data, rendering, ui, sdl] <- split client
-        addObject rendering id object_description
+        addObject rendering id $ withRender render object_description
         combine client [pclient, session_data, rendering, ui, sdl]
 
   removeObject client id = with ST do
@@ -280,7 +281,7 @@ export
       Nothing => runClientCommands client xs acc
       Just cmd => runClientCommands client xs (append cmd acc)
 
-  runServerCommand client (Create id ref) = addObject client id ref
+  runServerCommand client (Create id ref render) = addObject client id ref render
   runServerCommand client (Destroy id) = removeObject client id
   runServerCommand client (Control cmd)
     = case getId cmd == !(querySessionData client characterId) of

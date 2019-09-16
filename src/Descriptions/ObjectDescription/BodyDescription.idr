@@ -7,6 +7,7 @@ import Physics.Vector2D
 import GameIO
 import Exception
 import Descriptions.BitsDescription
+import Descriptions.ObjectDescription.BodyFlags
 
 export
 ObjectCaster Shape where
@@ -123,6 +124,7 @@ record BodyDescription where
   groupIndex : Maybe Int
   categoryBits : Maybe Int
   maskBits : Maybe Int
+  flags : Maybe BodyFlags
 
 export
 Show BodyDescription where
@@ -149,5 +151,6 @@ ObjectCaster BodyDescription where
     let groupIndex = eitherToMaybe $ getInt "groupIndex" dict
     categoryBits <- getBitsMaybe "categoryBits" dict
     maskBits <- getBitsMaybe "maskBits" dict
-    pure $ MkBodyDescription
-      type fixedRotation bullet fixtures effects groupIndex categoryBits maskBits
+    flags <- the (Checked (Maybe BodyFlags)) $ getCastableMaybe "flags" dict
+    pure $ MkBodyDescription type fixedRotation bullet fixtures effects groupIndex
+                             categoryBits maskBits flags

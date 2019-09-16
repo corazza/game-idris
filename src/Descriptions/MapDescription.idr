@@ -5,6 +5,7 @@ import Physics.Box2D
 import Descriptions.ObjectDescription
 import Descriptions.AbilityDescription
 import Descriptions.ObjectDescription.BodyDescription
+import Descriptions.ObjectDescription.BodyFlags
 import Descriptions.ObjectDescription.RenderDescription
 import Descriptions.ObjectDescription.ControlDescription
 import Descriptions.ObjectDescription.RulesDescription
@@ -27,6 +28,7 @@ record Creation where
   angle : Maybe Double
   behavior : Maybe BehaviorParameters
   id : Maybe ObjectId
+  render : Maybe RenderDescription
 %name Creation creation
 
 export
@@ -45,7 +47,8 @@ ObjectCaster Creation where
     angle <- getCreationAngle dict
     behavior <- the (Checked (Maybe BehaviorParameters)) $ getCastableMaybe "behavior" dict
     id <- getStringMaybe "id" dict
-    pure $ MkCreation ref position Nothing Nothing angle behavior id
+    render <- the (Checked (Maybe RenderDescription)) $ getCastableMaybe "render" dict
+    pure $ MkCreation ref position Nothing Nothing angle behavior id render
 
 export
 creationBodyDescriptionToDefinition : Creation -> BodyDescription -> BodyDefinition
@@ -66,6 +69,7 @@ export
 forCharacter : Vector2D -> Character -> Creation
 forCharacter position character
   = MkCreation (ref character) position Nothing Nothing Nothing Nothing Nothing
+               Nothing
 
 public export
 data WallData = Repeat (Nat, Nat)
@@ -108,7 +112,7 @@ wallDescToObjectDesc wall_desc wall_data = (with Checked do
     getBodyDesc = with Checked do
       fixture <- getFixture
       pure $ MkBodyDescription
-        Static (Just True) (Just False) [fixture] empty Nothing Nothing Nothing
+        Static (Just True) (Just False) [fixture] empty Nothing Nothing Nothing Nothing
 
     getRenderMethod : Checked RenderMethod
     getRenderMethod = case render wall_desc of

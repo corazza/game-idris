@@ -160,6 +160,7 @@ GameIO m => Rules m where
     pure $ getItemDescription ref preload'
   runScript rules (GetAttack id) = queryPRules rules $ getAttack id
   runScript rules (GetBody id) = queryPRules rules $ getBody id
+  runScript rules (QueryBody id q) = queryPRules rules $ prulesQueryBody id q
   runScript rules (RulesClientCommand id cmd) = clientCommand rules id cmd
   runScript rules (GetStartTime id) = queryPRules rules $ getStartTime id
   runScript rules (GetDirection id) = queryPRules rules $ getDirection id

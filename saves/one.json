@@ -4,11 +4,11 @@
           "character": {
                "items": {
                     "equipment": {
-                         "hands": "main/items/demonic_bow.json"
+                         "hands": "main/items/black_sword.json"
                     },
                     "inventory": {
                          "main/items/black_sword.json": 34,
-                         "main/items/demonic_bow.json": 65
+                         "main/items/demonic_bow.json": 67
                     }
                },
                "map": "main/maps/castle.json",

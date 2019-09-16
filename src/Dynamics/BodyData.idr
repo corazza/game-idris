@@ -7,6 +7,7 @@ import Data.AVL.Set
 import Data.AVL.SetRemove
 import Objects
 import Dynamics.DynamicsControl
+import Descriptions.ObjectDescription.BodyFlags
 import Dynamics.MoveDirection
 import Descriptions.ObjectDescription.BodyDescription
 
@@ -23,6 +24,7 @@ record BodyData where
   touching : Set ObjectId
   grounding : List (ObjectId, Double)
   effects : List PhysicsEffect
+  flags : BodyFlags
 %name BodyData body_data
 
 export
@@ -37,6 +39,22 @@ controlState : BodyData -> Maybe ControlState
 controlState = map controlState . controls
 
 export
+controlParameters : BodyData -> Maybe ControlParameters
+controlParameters = map controlParameters . controls
+
+export
+shouldJump : BodyData -> Bool
+shouldJump body_data = case controlState body_data of
+  Nothing => False
+  Just x => jumping x && canJump x
+
+export
+jumpImpulse : BodyData -> Vector2D
+jumpImpulse body_data = case controlParameters body_data of
+  Nothing => nullVector
+  Just x => (0, jump x)
+
+export
 facing : BodyData -> Maybe MoveDirection
 facing = map facing . controlState
 
@@ -46,8 +64,11 @@ forceDirection body_data = case facing body_data of
   Nothing => Rightward
   Just x => x
 
--- TODO dynamics iterate should receive clock and update a BodyData field
--- movementLastChanged, which is read on render animation
+export
+sameDirection : Vector2D -> BodyData -> Bool
+sameDirection (x, y) body_data = case forceDirection body_data of
+  Leftward => x < 0
+  Rightward => x >= 0
 
 export
 animationState : BodyData -> String

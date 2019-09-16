@@ -5,6 +5,7 @@ import Physics.Vector2D
 
 import Dynamics.DynamicsControl
 import Dynamics.MoveDirection
+import Descriptions.ObjectDescription.BodyFlags
 import Objects
 import Commands
 import Descriptions.MapDescription
@@ -22,6 +23,7 @@ data DynamicsCommand
            (Maybe ControlParameters)
            (List PhysicsEffect)
            (Maybe Vector2D) -- impulse
+           (Maybe BodyFlags)
   | CreateJoint ObjectId JointDescription
   | Destroy ObjectId
   | UpdateControl ObjectId (ControlState -> ControlState)
@@ -55,7 +57,7 @@ filterControl id = filter notSame where
 
 export
 Show DynamicsCommand where
-  show (Create id bodyDef fixtures control effects impulse) = "create " ++ id
+  show (Create id bodyDef fixtures control effects impulse flags) = "create " ++ id
   show (Destroy id) = "destroy " ++ id
   show (UpdateControl id f) = "update control of " ++ id
   show (QueryFor id name x) = id ++ " querying " ++ show x ++ " (" ++ name ++ ")"
@@ -71,7 +73,7 @@ createWallCommand wall_creation object_description
         fixtures = fixtures body_description
         effects = effects body_description
         id = id wall_creation
-        in Create id bodyDef fixtures Nothing effects Nothing
+        in Create id bodyDef fixtures Nothing effects Nothing Nothing
 
 applyCatMaskIndex' : BodyDescription -> FixtureDefinition -> FixtureDefinition
 applyCatMaskIndex' body_desc fixture_def = record {
@@ -98,4 +100,4 @@ createObjectCommand creation object_description id
         effects = effects body_description
         control = map parametersFromDescription $ control object_description
         impulse  = impulse creation
-        in Create id bodyDef fixtures control effects impulse
+        in Create id bodyDef fixtures control effects impulse (flags body_description)

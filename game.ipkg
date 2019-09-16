@@ -39,6 +39,7 @@ modules = Data.AVL.DDict
         , Dynamics
         , Dynamics.DynamicsControl
         , Dynamics.BodyData
+        , Descriptions.ObjectDescription.BodyFlags
         , Dynamics.MoveDirection
         , Dynamics.DynamicsCommand
         , Dynamics.PDynamics

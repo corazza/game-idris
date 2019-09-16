@@ -8,6 +8,8 @@ import Exception
 import Descriptions.MapDescription
 import Descriptions.ItemDescription
 import Descriptions.SurfaceDescription
+import Descriptions.ObjectDescription
+import Descriptions.ObjectDescription.RenderDescription
 import Objects
 import Settings
 import Timeline
@@ -31,3 +33,8 @@ updateSettings f = record { settings $= f }
 export
 setCharacter : Character -> SessionData -> SessionData
 setCharacter character' = record { character = character' }
+
+export
+withRender : Maybe RenderDescription -> ObjectDescription -> ObjectDescription
+withRender Nothing = id
+withRender render'@(Just x) = record { render = render' }

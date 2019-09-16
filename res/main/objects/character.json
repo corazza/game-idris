@@ -14,8 +14,8 @@
           "type": "box",
           "dimensions": [0.5, 0.7]
         },
-        "density": 5,
-        "friction": 0.3
+        "density": 7,
+        "friction": 0.8
       },
       {
         "name": "feet",
@@ -24,8 +24,8 @@
           "dimensions": [0.5, 0.1]
         },
         "offset": [0, -0.7],
-        "density": 5,
-        "friction": 0.3
+        "density": 7,
+        "friction": 0.8
       }
     ]
   },
@@ -56,17 +56,32 @@
         "moving": {
           "animation": "main/animations/run-large.json",
           "dimensions": [0.8, 0.8],
-          "fps": 20
+          "fps": 20,
+          "equip": {
+            "head": [0, 0.8],
+            "hands": [0.4, 0],
+            "legs": [0, -0.4]
+          }
         },
         "resting": {
           "animation": "main/animations/rest-large.json",
           "dimensions": [0.35, 0.77],
-          "fps": 15
+          "fps": 15,
+          "equip": {
+            "head": [0, 0.8],
+            "hands": [0.4, 0],
+            "legs": [0, -0.4]
+          }
         },
         "walking": {
           "animation": "main/animations/walk-large.json",
           "dimensions": [0.4, 0.8],
-          "fps": 20
+          "fps": 20,
+          "equip": {
+            "head": [0, 0.8],
+            "hands": [0.4, 0],
+            "legs": [0, -0.4]
+          }
         }
       }
     },

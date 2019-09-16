@@ -25,16 +25,30 @@ sign : Double -> Double
 sign x = if x < 0 then -1
                   else if x == 0 then 0 else 1
 
+lowCutoff : Double
+lowCutoff = 0.01
+
+highCutoff : Double
+highCutoff = 5
+
 impulseVector : Double -> Vector2D -> Maybe Vector2D
 impulseVector mass = Just . scale mass
 
-airMovement : List (ObjectId, Double) ->
-              Double ->
+impulseVector' : Double -> Vector2D -> Maybe Vector2D
+impulseVector' mass vec
+  = let norm' = norm vec
+        in if norm' < lowCutoff
+              then Nothing
+              else if norm' > highCutoff
+                then let vec' = (highCutoff / norm') `scale` vec
+                         in impulseVector mass vec'
+                else impulseVector mass vec
+
+airMovement : Double ->
               Vector2D ->
               ObjectControl ->
               Maybe Vector2D
-airMovement grounding
-            mass
+airMovement mass
             (x, y)
             object_control@(MkObjectControl controlState controlParameters)
   = let airspeed_abs = airspeed object_control
@@ -44,27 +58,39 @@ airMovement grounding
           then Nothing
           else impulseVector mass (airspeed', 0)
 
-groundMovement : List (ObjectId, Double) ->
-                 Double ->
+applySigns : Double -> Double -> Vector2D -> Vector2D
+applySigns actual wanted (x, y) = actual * wanted `scale` (x, y)
+
+continueMovement : Double -> Vector2D -> ObjectControl -> Maybe Vector2D
+continueMovement mass
+                 velocity@(x, y)
+                 object_control@(MkObjectControl controlState controlParameters)
+  = let moveSign' = moveSign controlState
+        speed' = speed object_control
+        in if velocity == nullVector
+            then impulseVector' mass (speed' * moveSign', 0)
+            else if moveSign' /= 0.0
+              then impulseVector' mass (speed' * moveSign' - x, 0)
+              -- then let velocity'@(x', y') = speed' `scale` normed velocity
+              --          diff = velocity' - velocity
+              --          in impulseVector' mass $ applySigns (sign x) moveSign' diff
+              else impulseVector' mass $ 0.2 `scale` negate (fst velocity, 0)
+
+groundMovement : Double ->
                  Vector2D ->
                  ObjectControl ->
                  Maybe Vector2D
-groundMovement grounding
-               mass
-               (x, y)
+groundMovement mass
+               velocity@(x, y)
                object_control@(MkObjectControl controlState controlParameters)
   = if jumping controlState && canJump controlState
-      then let jumpSpeed = jump controlParameters -- * jumpAngleCorrection grounding
-               in impulseVector mass $ (0, jumpSpeed)
-      else let angle_correction = angleCorrection grounding
-               x' = speed object_control * moveSign controlState -- * angle_correction
-               x_correction = if abs (x' - x) < 0.01 then 0 else x' - x
-               in impulseVector mass (x_correction, 0)
+      then impulseVector' mass (0, jump controlParameters)
+      else continueMovement mass velocity object_control
+
 
 export
 movementImpulse : BodyData -> Maybe Vector2D
 movementImpulse bodyData = case controls bodyData of
   Nothing => Nothing
-  Just object_control@(MkObjectControl controlState controlParameters) =>
-    let move_f = if onGround bodyData then groundMovement else airMovement
-        in move_f (grounding bodyData) (mass bodyData) (velocity bodyData) object_control
+  Just object_control => (if onGround bodyData then groundMovement else airMovement)
+      (mass bodyData) (velocity bodyData) object_control

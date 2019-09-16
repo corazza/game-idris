@@ -18,9 +18,10 @@ import Objects
 import JSONCache
 import Exception
 import Descriptions.MapDescription
-import Descriptions.ObjectDescription
 import Descriptions.JointDescription
+import Descriptions.ObjectDescription
 import Descriptions.ObjectDescription.RulesDescription
+import Descriptions.ObjectDescription.RenderDescription
 import Settings
 import Exception
 import Timeline
@@ -334,7 +335,7 @@ export
   createObject server creation object_description = with ST do
     id <- decideId server creation
     updatePServer server $ addDynamicsCommand $ createObjectCommand creation object_description id
-    updatePServer server $ addInSessionCommand $ Create id (ref creation)
+    updatePServer server $ addInSessionCommand $ Create id (ref creation) (render creation)
     addRules server id object_description creation
     pure id
 

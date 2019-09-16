@@ -10,8 +10,7 @@
     "main/objects/yellow_marker.json",
     "main/objects/metal_ledge.json",
     "main/objects/static_joint.json",
-    "main/objects/drops/demonic_bow.json",
-    "main/objects/drops/black_sword.json"
+    "main/objects/drop.json"
   ],
 
   "walls": [

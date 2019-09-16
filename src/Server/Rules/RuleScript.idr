@@ -9,10 +9,12 @@ import Server.Rules.NumericProperties
 import Server.Rules.RulesData
 import Client.ClientCommands
 import Descriptions.ObjectDescription.RulesDescription
+import Descriptions.ObjectDescription.RenderDescription
+import Descriptions.ObjectDescription.BodyFlags
+import Descriptions.ObjectDescription.RulesDescription.BehaviorDescription
 import Descriptions.ItemDescription
 import Descriptions.MapDescription
 import Descriptions.AbilityDescription
-import Descriptions.ObjectDescription.RulesDescription.BehaviorDescription
 import Dynamics.DynamicsEvent
 import Dynamics.BodyData
 import Dynamics.MoveDirection
@@ -34,6 +36,7 @@ data RuleScript : Type -> Type where
   GetItemDescription : (ref : ContentReference) -> RuleScript (Checked ItemDescription)
   GetAttack : (id : ObjectId) -> RuleScript (Maybe ContentReference)
   GetBody : (id : ObjectId) -> RuleScript (Maybe BodyData)
+  QueryBody : (id : ObjectId) -> (q : BodyData -> a) -> RuleScript (Maybe a)
 
   GetStartTime : (id : ObjectId) -> RuleScript (Maybe Int) -- time since in this state
   GetDirection : (id : ObjectId) -> RuleScript (Maybe BehaviorDirection)
@@ -279,13 +282,18 @@ meleeScript initiator target = case !(GetAttack initiator) of
   Just ref => with RuleScript do
     Right attack_item <- GetItemDescription ref | Left e =>
       Log ("couldn't get item description (attackScript), error:\n" ++ e)
-    case equip attack_item of
-      Just (MkEquipDescription Hands (Just (Melee range damage))) => with RuleScript do
-        Just initiator_position <- GetPosition initiator | pure ()
-        Just target_position <- GetPosition target | pure ()
-        let impulse_direction = normed (target_position - initiator_position)
-        doHit initiator target damage
-        Output $ ApplyImpulse target (damage `scale` impulse_direction)
+    case !(QueryBody target (drop . flags)) of
+      Just False => case equip attack_item of
+        Just (MkEquipDescription Hands (Just (Melee range damage)) _) => with RuleScript do
+          Just initiator_position <- GetPosition initiator | pure ()
+          Just target_position <- GetPosition target | pure ()
+          let impulse_direction = normed (target_position - initiator_position)
+          case !(QueryBody initiator (sameDirection impulse_direction)) of
+            Just True => with RuleScript do
+              doHit initiator target damage
+              Output $ ApplyImpulse target (damage `scale` impulse_direction)
+            _ => pure ()
+        _ => pure ()
       _ => pure ()
 
 export
@@ -318,10 +326,8 @@ timeScript time id = with RuleScript do
           let actions = map (runTimeAction id) actions
               in Transition id state actions
 
-chasePosition : (my_position : Vector2D) -> (target_position : Vector2D) -> Vector2D
-chasePosition my_position target_position = target_position + chaseOffset where
-  chaseOffset : Vector2D
-  chaseOffset = (if fst target_position - fst my_position > 0 then -1 else 1, 0)
+chaseOffsetLength : Double
+chaseOffsetLength = 2.5
 
 export -- get chase_id as second argument
 chaseScript : (id : ObjectId) -> UnitRuleScript
@@ -332,14 +338,9 @@ chaseScript id = with RuleScript do
     Just chase_id => with RuleScript do
       Just target_position <- GetPosition chase_id | pure ()
       Just my_position <- GetPosition id | pure ()
-      let chase_position = chasePosition my_position target_position
-      let diff = fst chase_position - fst my_position
-      if abs diff < 0.5
-        then with RuleScript do
-          stopMovementScript id -- stop chase
-          if fst target_position - fst my_position > 0
-            then Output $ RuleCommand $ Stop (Face Right) id
-            else Output $ RuleCommand $ Stop (Face Left) id
+      let diff = fst target_position - fst my_position
+      if abs diff < chaseOffsetLength
+        then stopMovementScript id -- stop chase
         else if diff > 0
           then startMovementScript id Right
           else startMovementScript id Left
@@ -359,6 +360,25 @@ mainScript time id = with AIScript do
   chaseScript id
   garbageScript id
 
+correctFlip : (facing : MoveDirection) -> (from : Vector2D) -> (at : Vector2D) -> Vector2D
+correctFlip facing from@(fx, fy) at@(ax, ay) = faceCorrection $ normed (at - from) where
+  faceCorrection : Vector2D -> Vector2D
+  faceCorrection (x, y) = ((case facing of
+    Leftward => if ax - fx > 0 then -x else x
+    Rightward => if ax - fx < 0 then -x else x), y)
+
+throwImpulseAngleFrom : (thrower : BodyData) ->
+                        (at : Vector2D) ->
+                        (strength : Double) ->
+                        (Vector2D, Double, Vector2D)
+throwImpulseAngleFrom thrower at strength =
+  let thrower_position = position thrower
+      direction = correctFlip (forceDirection thrower) thrower_position at
+      from = thrower_position + (2 `scale` direction)
+      impulse = strength `scale` direction
+      angle' = angle direction - pi/2.0
+      in (impulse, angle', from)
+
 export
 abilityScript : (id : ObjectId) ->
                 (at : Vector2D) ->
@@ -366,13 +386,9 @@ abilityScript : (id : ObjectId) ->
                 UnitRuleScript
 abilityScript id at (Throw ref impulse) = with RuleScript do
   Just body <- GetBody id | pure ()
-  let thrower_position = position body
-  let direction = normed (at - thrower_position)
-  let from = thrower_position + (2 `scale` direction)
-  let impulse' = impulse `scale` direction
-  let angle' = angle direction - pi/2.0
-  let creation = MkCreation
-    ref from (Just impulse') (Just id) (Just angle') Nothing Nothing
+  let (impulse', angle, from) = throwImpulseAngleFrom body at impulse
+  let creation = MkCreation ref from (Just impulse') (Just id) (Just angle)
+                            Nothing Nothing Nothing
   Output $ Create creation
 abilityScript id at (Melee range damage) = Output $ RunQuery id "melee" range
 
@@ -391,7 +407,7 @@ endAttackScript id at = case !(GetAttack id) of
     Right attack_item <- GetItemDescription ref | Left e =>
       Log ("couldn't get item description (attackScript), error:\n" ++ e)
     case equip attack_item of
-      Just (MkEquipDescription slot (Just ability)) => abilityScript id at ability
+      Just (MkEquipDescription slot (Just ability) _) => abilityScript id at ability
       _ => pure ()
 
 clearSlot : (equipper : ObjectId) -> EquipSlot -> UnitRuleScript

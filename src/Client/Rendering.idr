@@ -283,6 +283,10 @@ executeMethodInfoAll rendering sdl camera body_data info_render object_info
       Just dict => let properties = toList dict in
           renderNumericProperties rendering sdl camera body_data info_render properties
 
+flipOffset : Int -> Vector2D -> Vector2D
+flipOffset 2 (x, y) = (-x, y)
+flipOffset _ (x, y) = (x, y)
+
 mutual
   renderEquipment : SDL m => Rendering m => GameIO m =>
                     (rendering : Var) ->
@@ -290,20 +294,25 @@ mutual
                     (camera : Camera) ->
                     (eq_id : ObjectId) ->
                     (position : Vector2D) ->
+                    (offset : Vector2D) ->
                     (angle : Double) ->
                     (flip : Int) ->
                     (carry_dims : Vector2D) ->
                     (ref : ContentReference) ->
                     ST m () [rendering ::: SRendering {m}, sdl ::: SSDL {m}]
-  renderEquipment rendering sdl camera eq_id position angle flip carry_dims ref = with ST do
-    preload <- queryPRendering rendering preload
-    case getItemDescription ref preload of
-      Left e => lift $ log $
-        "couldn't get item description for " ++ ref ++ " (executeMethod)"
-      Right item_desc => case attackRender item_desc of
-        Nothing => pure ()
-        Just method =>
-          executeMethod rendering sdl camera eq_id position angle flip method
+  renderEquipment rendering sdl camera eq_id position offset angle flip carry_dims ref
+    = with ST do
+        preload <- queryPRendering rendering preload
+        case getItemDescription ref preload of
+          Left e => lift $ log $
+            "couldn't get item description for " ++ ref ++ " (executeMethod)"
+          Right item_desc => case attackRender item_desc of
+            Nothing => pure ()
+            Just method =>
+              let offset' = flipOffset flip (offset - item_offset item_desc)
+                  position' = position + offset'
+                  in executeMethod
+                    rendering sdl camera eq_id position' angle flip method
 
   executeMethod : SDL m => Rendering m => GameIO m =>
                  (rendering : Var) ->
@@ -345,16 +354,37 @@ mutual
                     dst = getRect camera position dimensions'
                     sheet = sheet animation_description
                     flip = correctFacing (facingRight animation_description) flip
-                    in with ST do
-                      drawCenter sdl sheet src dst angle flip
-                      case attackShowing of
-                        Nothing => pure ()
-                        Just ref => with ST do
-                          let eq_id = id ++ "_equipment"
-                          updatePRendering rendering $
-                            addInitialAnimationState eq_id !ticks
-                          renderEquipment
-                            rendering sdl camera eq_id position 0 flip dimensions' ref
+                    in drawCenter sdl sheet src dst angle flip
+
+renderEquipment' : SDL m => Rendering m => GameIO m =>
+                   (rendering : Var) ->
+                   (sdl : Var) ->
+                   (camera : Camera) ->
+                   (id : ObjectId) ->
+                   (position : Vector2D) ->
+                   (angle : Double) ->
+                   (flip : Int) ->
+                   (desc : RenderDescription) ->
+                   ST m () [rendering ::: SRendering {m}, sdl ::: SSDL {m}]
+renderEquipment' rendering sdl camera id position angle flip desc
+  = case method desc of
+      Animated state_dict =>
+        case !(queryPRendering rendering (getAnimationState id)) of
+          Nothing => pure ()
+          Just (MkAnimationState name started attackShowing) =>
+            case lookup name state_dict of
+              Nothing => pure ()
+              Just aparams => with ST do
+                case attackShowing of
+                  Nothing => pure ()
+                  Just ref => with ST do
+                    let eq_id = id ++ "_equipment"
+                    updatePRendering rendering $
+                      addInitialAnimationState eq_id !ticks
+                    renderEquipment rendering sdl camera eq_id position
+                                    (getHandsOffset aparams) 0 flip
+                                    (dimensions aparams) ref
+      _ => pure ()
 
 renderLayer : SDL m => Rendering m => GameIO m =>
               (rendering : Var) ->
@@ -374,6 +404,7 @@ renderLayer rendering sdl ((id, render_description)::xs) = with ST do
       let angle = getDegAngle body_data
       let flip = getFlip' body_data
       executeMethod rendering sdl camera id position' angle flip $ method render_description
+      renderEquipment' rendering sdl camera id position' angle flip render_description
       objects_info <- queryPRendering rendering info
       case (lookup id objects_info, info render_description) of
         (Just object_info, Just info_render) => with ST do

@@ -16,7 +16,7 @@
         "dimensions": [0.5, 1]
       },
       "density": 1,
-      "friction": 0.3
+      "friction": 0.7
       },
       {
         "shape": {
@@ -25,7 +25,7 @@
         },
         "offset": [0, -1],
         "density": 1,
-        "friction": 0.3
+        "friction": 0.7
       },
       {
         "shape": {
@@ -34,7 +34,7 @@
         },
         "offset": [0, 1],
         "density": 1,
-        "friction": 0.3
+        "friction": 0.7
       }
     ]
   },
@@ -62,7 +62,7 @@
   },
 
   "control": {
-    "speed": 2,
+    "speed": 5,
     "jump": 6
   },
 

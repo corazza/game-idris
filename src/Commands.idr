@@ -15,6 +15,14 @@ Show Direction where
   show Up = "up"
   show Down = "down"
 
+export
+faceDirection : (my_position : Vector2D) ->
+                (target_position : Vector2D) ->
+                Direction
+faceDirection (my_x, _) (target_x, _) = case my_x > target_x of
+  False => Right
+  True => Left
+
 public export
 data Action = Movement Direction
             | Attack Vector2D -- x, y of screen

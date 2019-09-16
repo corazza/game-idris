@@ -7,16 +7,35 @@ import GameIO
 import Exception
 
 public export
+record EquipmentRender where
+  constructor MkEquipmentRender
+  head : Vector2D
+  hands : Vector2D
+  legs : Vector2D
+
+ObjectCaster EquipmentRender where
+  objectCast dict = with Checked do
+    head <- getVector "head" dict
+    hands <- getVector "hands" dict
+    legs <- getVector "legs" dict
+    pure $ MkEquipmentRender head hands legs
+
+public export
 record AnimationParameters where
   constructor MkAnimationParameters
   ref : ContentReference
   dimensions : Vector2D
   fps : Double
+  equipment : Maybe EquipmentRender
 %name AnimationParameters animation_parameters
 
 export
+getHandsOffset : AnimationParameters -> Vector2D
+getHandsOffset = fromMaybe nullVector . map hands . equipment
+
+export
 Show AnimationParameters where
-  show (MkAnimationParameters ref dimensions fps)
+  show (MkAnimationParameters ref dimensions fps equip)
     =  "{ ref: " ++ show ref
     ++ ", dimensions: " ++ show dimensions
     ++ ", fps: " ++ show fps
@@ -27,8 +46,9 @@ ObjectCaster AnimationParameters where
   objectCast dict = with Checked do
     animation <- getString "animation" dict
     dimensions <- getVector "dimensions" dict
-    speed <- getDouble "fps" dict
-    pure $ MkAnimationParameters animation dimensions speed
+    fps <- getDouble "fps" dict
+    equip <- the (Checked (Maybe EquipmentRender)) $ getCastableMaybe "equip" dict
+    pure $ MkAnimationParameters animation dimensions fps equip
 
 public export
 AnimationParametersDict : Type

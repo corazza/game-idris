@@ -2,7 +2,7 @@
   "name": "Wall",
 
   "fixtureParameters": {
-    "friction": 0.3
+    "friction": 0.5
   },
 
   "render": {

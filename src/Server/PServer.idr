@@ -6,6 +6,8 @@ import Client.ClientCommands
 import Dynamics.BodyData
 import Dynamics.DynamicsCommand
 import Descriptions.MapDescription
+import Descriptions.ObjectDescription
+import Descriptions.ObjectDescription.RenderDescription
 import GameIO
 import Objects
 import Commands
@@ -28,9 +30,10 @@ mapDescriptionToMapData desc = MkMapData (name desc) (dimensions desc) (backgrou
 -- which means that a separate client dynamics system will need an additional
 -- BodyData parameter in Create
 
+-- the RenderDescription in Create can be serialized later
 public export
 data InSession
-  = Create ObjectId ContentReference -- client gets other parameters from dynamics
+  = Create ObjectId ContentReference (Maybe RenderDescription) -- client gets other parameters from dynamics
   | Destroy ObjectId
   | Control Command
   | UpdateNumericProperty ObjectId NumericPropertyId Double
@@ -38,7 +41,7 @@ data InSession
 
 export
 Show InSession where
-  show (Create id ref) = "create " ++ id ++ " " ++ ref
+  show (Create id ref render) = "create " ++ id ++ " " ++ ref
   show (Destroy id) = "destroy " ++ id
   show (Control cmd) = "control " ++ show cmd
   show (UpdateNumericProperty object_id prop_id current) = "info update"
