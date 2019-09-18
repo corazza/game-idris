@@ -14,7 +14,6 @@ import Descriptions.ObjectDescription
 import Descriptions.ObjectDescription.RulesDescription.BehaviorDescription
 import Descriptions.MapDescription
 import Descriptions.ItemDescription
-import Descriptions.WallDescription
 import Descriptions.AnimationDescription
 import Descriptions.NumericPropertyRender
 import Descriptions.SurfaceDescription
@@ -24,7 +23,6 @@ public export
 record Preload where
   constructor MkPreload
   objects : List ContentReference
-  walls : List ContentReference
   animations : List ContentReference
   maps : List ContentReference
   behaviors : List ContentReference
@@ -35,9 +33,8 @@ record Preload where
 
 export
 Show Preload where
-  show (MkPreload objects walls animations maps behaviors items ui fonts)
+  show (MkPreload objects animations maps behaviors items ui fonts)
     =  "{ objects: " ++ show objects
-    ++ ", walls: " ++ show walls
     ++ ", animations: " ++ show animations
     ++ ", maps: " ++ show maps
     ++ ", behaviors: " ++ show behaviors
@@ -50,14 +47,13 @@ export
 ObjectCaster Preload where
   objectCast dict = with Checked do
     objects <- getStrings "objects" dict
-    walls <- getStrings "walls" dict
     animations <- getStrings "animations" dict
     maps <- getStrings "maps" dict
     behaviors <- getStrings "behaviors" dict
     items <- getStrings "items" dict
     ui <- getStrings "ui" dict
     fonts <- getStrings "fonts" dict
-    pure $ MkPreload objects walls animations maps behaviors items ui fonts
+    pure $ MkPreload objects animations maps behaviors items ui fonts
 
 public export
 CacheType : Type -> Type
@@ -67,7 +63,6 @@ public export
 record PreloadResults where
   constructor MkPreloadResults
   objects : CacheType ObjectDescription
-  walls : CacheType WallDescription
   animations : CacheType AnimationDescription
   maps : CacheType MapDescription
   behaviors : CacheType BehaviorDescription
@@ -86,13 +81,6 @@ getObjectDescription : (ref : ContentReference) ->
                        Checked ObjectDescription
 getObjectDescription ref
   = maybeToEither (lookupError "object description" ref) . lookup ref . objects
-
-export
-getWallDescription : (ref : ContentReference) ->
-                     (preload : PreloadResults) ->
-                     Checked WallDescription
-getWallDescription ref
-  = maybeToEither (lookupError "wall description" ref) . lookup ref . walls
 
 export
 getItemDescription : (ref : ContentReference) ->
@@ -144,32 +132,35 @@ getNumPropRender id preload
   = let error = "couldn't find numeric property render description with id " ++ id
         in maybeToEither error $ lookup id $ numPropRender preload
 
-wallCreationToDescPair : PreloadResults -> WallCreation -> Checked (WallCreation, WallDescription)
-wallCreationToDescPair preload wall_creation
-  = map (MkPair wall_creation) $ getWallDescription (ref wall_creation) preload
-
-getWallsFromMap : PreloadResults -> MapDescription -> Checked (List (WallCreation, WallDescription))
-getWallsFromMap preload desc = catResults $ map (wallCreationToDescPair preload) (walls desc)
-
-wallPairToObjectPair : PreloadResults ->
-                       (WallCreation, WallDescription) ->
-                       Checked (WallCreation, ObjectDescription)
-wallPairToObjectPair preload (wall_creation, wall_description)
-  = (wallDescToObjectDesc wall_description (wall_data wall_creation)) >>=
-        pure . MkPair wall_creation
-
-export
-getWallsAsObjects : PreloadResults -> MapDescription -> Checked (List (WallCreation, ObjectDescription))
-getWallsAsObjects preload desc = getWallsFromMap preload desc >>=
-  catResults . map (wallPairToObjectPair preload)
-
 creationToDescPair : PreloadResults -> Creation -> Checked (Creation, ObjectDescription)
 creationToDescPair preload creation
   = map (MkPair creation) $ getObjectDescription (ref creation) preload
 
+creationToDescPair' : PreloadResults ->
+                      StaticCreation ->
+                      Checked (StaticCreation, ObjectDescription)
+creationToDescPair' preload creation'
+  = map (MkPair creation') $ getObjectDescription (ref (creation creation')) preload
+
+getFromMap : (getter : MapDescription -> List Creation) ->
+             PreloadResults ->
+             MapDescription ->
+             Checked (List (Creation, ObjectDescription))
+getFromMap getter preload desc
+  = catResults $ map (creationToDescPair preload) $ getter desc
+
 export
-getObjectsFromMap : PreloadResults -> MapDescription -> Checked (List (Creation, ObjectDescription))
-getObjectsFromMap preload desc = catResults $ map (creationToDescPair preload) $ creations desc
+getObjectsFromMap : PreloadResults ->
+                    MapDescription ->
+                    Checked (List (Creation, ObjectDescription))
+getObjectsFromMap = getFromMap creations
+
+export
+getStaticFromMap : PreloadResults ->
+                   MapDescription ->
+                   Checked (List (StaticCreation, ObjectDescription))
+getStaticFromMap preload desc
+  = catResults $ map (creationToDescPair' preload) $ static desc
 
 public export
 interface JSONCache (m : Type -> Type) where
@@ -223,7 +214,6 @@ export
 preloadResults : GameIO m => (preload_info : Preload) -> ST m (Checked PreloadResults) []
 preloadResults preload_info = with ST do
   objects_dict <- preloadDict {r=ObjectDescription} (objects preload_info)
-  walls_dict <- preloadDict {r=WallDescription} (walls preload_info)
   animations_dict <- preloadDict {r=AnimationDescription} (animations preload_info)
   maps_dict <- preloadDict {r=MapDescription} (maps preload_info)
   behaviors_dict <- preloadDict {r=BehaviorDescription} (behaviors preload_info)
@@ -233,5 +223,5 @@ preloadResults preload_info = with ST do
   Right numPropRender <- preloadNumProp
         | Left e => pure (fail e)
   pure $ Right $ MkPreloadResults
-    objects_dict walls_dict animations_dict maps_dict behaviors_dict items_dict
+    objects_dict animations_dict maps_dict behaviors_dict items_dict
     ui_dict fonts_dict numPropRender

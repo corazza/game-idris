@@ -8,6 +8,7 @@ import Dynamics.MoveDirection
 import Descriptions.ObjectDescription.BodyFlags
 import Objects
 import Commands
+import Exception
 import Descriptions.MapDescription
 import Descriptions.JointDescription
 import Descriptions.ObjectDescription
@@ -66,16 +67,6 @@ Show DynamicsCommand where
   show (SetMaskBits id bits) = "set mask bits " ++ show bits ++ " to " ++ id
   show (UnsetMaskBits id bits) = "unset mask bits " ++ show bits ++ " to " ++ id
 
-export
-createWallCommand : WallCreation -> ObjectDescription -> DynamicsCommand
-createWallCommand wall_creation object_description
-  = let body_description = body object_description
-        bodyDef = wallCreationBodyDescriptionToCreation wall_creation body_description
-        fixtures = fixtures body_description
-        effects = effects body_description
-        id = id wall_creation
-        in Create id bodyDef fixtures Nothing effects Nothing Nothing
-
 applyCatMaskIndex' : BodyDescription -> FixtureDefinition -> FixtureDefinition
 applyCatMaskIndex' body_desc fixture_def = record {
     categoryBits = fixturePrecedence (categoryBits body_desc) (categoryBits fixture_def),
@@ -92,13 +83,23 @@ applyCatMaskIndex' body_desc fixture_def = record {
 applyCatMaskIndex : BodyDescription -> List FixtureDefinition -> List FixtureDefinition
 applyCatMaskIndex desc = map $ applyCatMaskIndex' desc
 
+bodyDescFail : String
+bodyDescFail = "either creation or object description must have body description, but not both"
+
+getBodyDescription : Creation -> ObjectDescription -> Checked BodyDescription
+getBodyDescription creation object_description
+  = case (body object_description, body creation) of
+      (Just body_desc, Nothing) => pure body_desc
+      (Nothing, Just body_desc) => pure body_desc
+      _ => fail bodyDescFail
+
 export
-createObjectCommand : Creation -> ObjectDescription -> ObjectId -> DynamicsCommand
-createObjectCommand creation object_description id
-  = let body_description = body object_description
-        bodyDef = creationBodyDescriptionToDefinition creation body_description
-        fixtures = applyCatMaskIndex body_description (fixtures body_description)
-        effects = effects body_description
-        control = map parametersFromDescription $ control object_description
-        impulse  = impulse creation
-        in Create id bodyDef fixtures control effects impulse (flags body_description)
+createObjectCommand : Creation -> ObjectDescription -> ObjectId -> Checked DynamicsCommand
+createObjectCommand creation object_description id = with Checked do
+  body_description <- getBodyDescription creation object_description
+  let bodyDef = creationBodyDescriptionToDefinition creation body_description
+  let fixtures = applyCatMaskIndex body_description (fixtures body_description)
+  let effects = effects body_description
+  let control = map parametersFromDescription $ control object_description
+  let impulse  = impulse creation
+  pure $ Create id bodyDef fixtures control effects impulse (flags body_description)

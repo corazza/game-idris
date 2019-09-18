@@ -8,12 +8,22 @@
     "dimensions": [60, 13.4]
   },
 
-  "walls": [
+  "static": [
     {
       "id": "map_likert_invisible_wall",
       "ref": "main/walls/invisible_wall.json",
       "position": [-3, -4],
-      "dimensions": [50, 0.5]
+      "body": {
+          "type": "static",
+          "categoryBits": ["wall"],
+          "fixture": {
+            "shape": {
+              "type": "box",
+              "dimensions": [50, 0.5]
+            },
+            "friction": 0.5
+          }
+      }
     }
   ],
 

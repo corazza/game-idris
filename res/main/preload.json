@@ -1,5 +1,7 @@
 {
   "objects": [
+    "main/objects/drop.json",
+    "main/objects/invisible_wall.json",
     "main/objects/character.json",
     "main/objects/wooden_arrow.json",
     "main/objects/wooden_crate.json",
@@ -9,13 +11,7 @@
     "main/objects/cultist.json",
     "main/objects/yellow_marker.json",
     "main/objects/metal_ledge.json",
-    "main/objects/static_joint.json",
-    "main/objects/drop.json"
-  ],
-
-  "walls": [
-    "main/walls/invisible_wall.json",
-    "main/walls/marble_ground.json"
+    "main/objects/static_joint.json"
   ],
 
   "animations": [

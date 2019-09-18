@@ -9,7 +9,6 @@ import Descriptions.ObjectDescription.BodyFlags
 import Descriptions.ObjectDescription.RenderDescription
 import Descriptions.ObjectDescription.ControlDescription
 import Descriptions.ObjectDescription.RulesDescription
-import Descriptions.WallDescription
 import Descriptions.JointDescription
 import Descriptions.Color
 import GameIO
@@ -29,11 +28,18 @@ record Creation where
   behavior : Maybe BehaviorParameters
   id : Maybe ObjectId
   render : Maybe RenderDescription
+  body : Maybe BodyDescription
 %name Creation creation
 
 export
 Show Creation where
   show creation = ref creation ++ " at " ++ show (position creation)
+
+makeCreationStatic : Creation -> Creation
+makeCreationStatic = record { body $= map makeStatic }
+
+setId : ObjectId -> Creation -> Creation
+setId id' = record { id = Just id' }
 
 getCreationAngle : JSONDict -> Checked (Maybe Double)
 getCreationAngle dict = case hasKey "angle" dict of
@@ -48,7 +54,8 @@ ObjectCaster Creation where
     behavior <- the (Checked (Maybe BehaviorParameters)) $ getCastableMaybe "behavior" dict
     id <- getStringMaybe "id" dict
     render <- the (Checked (Maybe RenderDescription)) $ getCastableMaybe "render" dict
-    pure $ MkCreation ref position Nothing Nothing angle behavior id render
+    body <- the (Checked (Maybe BodyDescription)) $ getCastableMaybe "body" dict
+    pure $ MkCreation ref position Nothing Nothing angle behavior id render body
 
 export
 creationBodyDescriptionToDefinition : Creation -> BodyDescription -> BodyDefinition
@@ -72,92 +79,7 @@ export
 forCharacter : Vector2D -> Character -> Creation
 forCharacter position character
   = MkCreation (ref character) position Nothing Nothing Nothing Nothing Nothing
-               Nothing
-
-public export
-data WallData = Repeat (Nat, Nat)
-              | Dimensions Vector2D
-%name WallData wall_data
-
-export
-Show WallData where
-  show (Repeat nxny) = "repeat " ++ show nxny
-  show (Dimensions xy) = "dimensions " ++ show xy
-
-getWallData : JSONDict -> Checked WallData
-getWallData dict = case (hasKey "dimensions" dict, hasKey "repeat" dict) of
-  (True, False) => getVector "dimensions" dict >>= pure . Dimensions
-  (False, True) => getNatPair "repeat" dict >>= pure . Repeat
-  (False, False) => fail "either \"dimensions\" or \"repeat\" fields have to be present"
-  (True, False) => fail "\"dimensions\" and \"repeat\" fields can't both be present"
-
-export
-wallDescToObjectDesc : WallDescription -> WallData -> Checked ObjectDescription
-wallDescToObjectDesc wall_desc wall_data = (with Checked do
-  bodyDesc <- getBodyDesc
-  method <- getRenderMethod
-  let renderDesc = Just $ MkRenderDescription method Nothing Nothing
-  pure $ MkObjectDescription (name wall_desc) bodyDesc renderDesc Nothing Nothing) where
-    getShape : Checked Shape
-    getShape = case wall_data of
-      Repeat (nx, ny) => case render wall_desc of
-        InvisibleWall => fail "InvisibleWall can't have repeat parameter"
-        TiledWall ref (x, y) => pure $ Box (cast nx * x, cast ny * y)
-        ColoredWall color => fail "ColoredWall can't have repeat parameter"
-      Dimensions xy => pure $ Box xy
-
-    getFixture : Checked FixtureDefinition
-    getFixture = with Checked do
-      shape <- getShape
-      pure $ fixtureFromParametersShape (fixture_parameters wall_desc) shape
-
-    getBodyDesc : Checked BodyDescription
-    getBodyDesc = with Checked do
-      fixture <- getFixture
-      pure $ MkBodyDescription
-        Static (Just True) (Just False) [fixture] empty Nothing Nothing Nothing Nothing
-
-    getRenderMethod : Checked RenderMethod
-    getRenderMethod = case render wall_desc of
-      InvisibleWall => pure Invisible
-      TiledWall ref tileDims => case wall_data of
-        Repeat nxny => pure $ Tiled ref tileDims nxny
-        Dimensions x => fail "TiledWall can't have dimensions parameter"
-      ColoredWall color => fail "colored walls not implemented"
-
-public export -- loaded both by server and client
-record WallCreation where
-  constructor MkWallCreation
-  id : String
-  ref : ContentReference -- points to a wall description
-  position : Vector2D
-  angle : Maybe Double
-  wall_data : WallData
-%name WallCreation wall_creation
-
-export
-Show WallCreation where
-  show (MkWallCreation id ref position angle wall_data)
-    =  "{ id: " ++ id
-    ++ ", ref: " ++ ref
-    ++ ", position: " ++ show position
-    ++ ", angle: " ++ show angle
-    ++ ", wall_data: " ++ show wall_data
-    ++ " }"
-
-ObjectCaster WallCreation where
-  objectCast dict = with Checked do
-    id <- getString "id" dict
-    ref <- getString "ref" dict
-    position <- getVector "position" dict
-    angle <- getDoubleMaybe "angle" dict
-    wall_data <- getWallData dict
-    pure $ MkWallCreation id ref position angle wall_data
-
-export
-wallCreationBodyDescriptionToCreation : WallCreation -> BodyDescription -> BodyDefinition
-wallCreationBodyDescriptionToCreation creation desc = MkBodyDefinition
-  Static (position creation) (angle creation) (Just True) (Just False)
+               Nothing Nothing
 
 public export
 record Background where
@@ -176,25 +98,44 @@ ObjectCaster Background where
     pure $ MkBackground image dimensions
 
 public export
+record StaticCreation where
+  constructor MkStaticCreation
+  id : String
+  creation : Creation
+
+ObjectCaster StaticCreation where
+  objectCast dict = with Checked do
+    id <- getString "id" dict
+    creation <- the (Checked Creation) $ objectCast dict
+    pure $ MkStaticCreation id creation
+
+export
+processStaticCreations : List (StaticCreation, ObjectDescription) ->
+                         List (Creation, ObjectDescription)
+processStaticCreations = map processPair where
+  processPair : (StaticCreation, ObjectDescription) -> (Creation, ObjectDescription)
+  processPair (MkStaticCreation id creation, desc)
+    = (((setId id) . makeCreationStatic) creation, makeObjectDescStatic desc)
+
+public export
 record MapDescription where
   constructor MkMapDescription
   name : String
   dimensions : Vector2D
   spawn : Vector2D
   background : Background
-  walls : List WallCreation
   creations : List Creation
+  static : List StaticCreation
   joints : List JointDescription
   music : Maybe ContentReference
 
 export
 Show MapDescription where
-  show (MkMapDescription name dimensions spawn background walls creations joints music)
+  show (MkMapDescription name dimensions spawn background creations static joints music)
     =  "{ name: " ++ name
     ++ ", dimensions: " ++ show dimensions
     ++ ", spawn: " ++ show spawn
     ++ ", background: " ++ show background
-    ++ ", walls: " ++ show walls
     ++ ", creations: " ++ show creations
     ++ ", music: " ++ show music
     ++ " }"
@@ -206,11 +147,11 @@ ObjectCaster MapDescription where
     dimensions <- getVector "dimensions" dict
     spawn <- getVector "spawn" dict
     background <- the (Checked Background) $ getCastable "background" dict
-    wallsJSON <- getArray "walls" dict
     creationsJSON <- getArray "creations" dict
+    staticJSON <- getArray "static" dict
     jointsJSON <- getArray "joints" dict -- TODO maybe
-    walls <- catResults $ the (List (Checked WallCreation)) $ map cast wallsJSON
     creations <- catResults $ the (List (Checked Creation)) $ map cast creationsJSON
+    static <- catResults $ the (List (Checked StaticCreation)) $ map cast staticJSON
     joints <- catResults $ the (List (Checked JointDescription)) $ map cast jointsJSON
     music <- getStringMaybe "music" dict
-    pure $ MkMapDescription name dimensions spawn background walls creations joints music
+    pure $ MkMapDescription name dimensions spawn background creations static joints music

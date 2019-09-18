@@ -14,7 +14,7 @@ ObjectCaster Shape where
   objectCast dict = case lookup "type" dict of
     Just (JString "circle") => getDouble "radius" dict >>= pure . Circle
     Just (JString "box") => getVector "dimensions" dict >>= pure . Box
-    Just (JString "polygon") => ?shapeDescriptorPolygon
+    Just (JString "polygon") => getVectorArray "vertices" dict >>= pure . Polygon
     _ => fail "shape type must be of \"circle\"|\"box\"|\"polygon\""
 
 public export
@@ -138,6 +138,14 @@ Show BodyDescription where
     ++ ", category bits: " ++ show (categoryBits bd)
     ++ ", mask bits: " ++ show (maskBits bd)
     ++ " }"
+
+export
+makeStatic : BodyDescription -> BodyDescription
+makeStatic = record {
+  bullet = Just False,
+  type = Static,
+  fixedRotation = Just True
+}
 
 export
 ObjectCaster BodyDescription where

@@ -10,6 +10,7 @@ import Dynamics.MoveDirection
 import Descriptions.AbilityDescription
 import Descriptions.ObjectDescription.RulesDescription
 import Descriptions.ObjectDescription.RenderDescription
+import Descriptions.ObjectDescription.BodyDescription
 import Descriptions.MapDescription
 import Objects
 
@@ -35,6 +36,6 @@ abilityEffectScript id at (Throw ref impulse) = with RuleScript do
   Just body <- GetBody id | pure ()
   let (impulse', angle, from) = throwImpulseAngleFrom body at impulse
   let creation = MkCreation ref from (Just impulse') (Just id) (Just angle)
-                            Nothing Nothing Nothing
+                            Nothing Nothing Nothing Nothing
   Output $ Create creation
 abilityEffectScript id at (Melee range damage) = Output $ RunQuery id "melee" range

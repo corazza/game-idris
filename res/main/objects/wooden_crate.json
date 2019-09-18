@@ -8,7 +8,8 @@
       "categoryBits": ["inanimate"],
       "fixture": {
         "shape": {
-          "type": "box",
+          "type": "polygon",
+          "vertices": [[-0.5, -0.5], [-0.5, 0.5], [0.5, 0.5], [0.5, -0.5]],
           "dimensions": [0.5, 0.5]
         },
         "density": 3,

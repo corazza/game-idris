@@ -88,17 +88,14 @@ interface Server (m : Type -> Type) where
   getAndProcessRulesOutputs : (server : Var) -> ST m () [server ::: SServer]
 
   private
-  loadWalls : (server : Var) ->
-              MapDescription ->
-              ST m (Checked (List (WallCreation, ObjectDescription))) [server ::: SServer]
+  loadStatic : (server : Var) ->
+               MapDescription ->
+               ST m (Checked (List (StaticCreation, ObjectDescription))) [server ::: SServer]
+
   private
   loadObjects : (server : Var) ->
                 MapDescription ->
                 ST m (Checked (List (Creation, ObjectDescription))) [server ::: SServer]
-  private
-  addWall : (server : Var) -> WallCreation -> ObjectDescription -> ST m () [server ::: SServer]
-  private
-  addWalls : (server : Var) -> List (WallCreation, ObjectDescription) -> ST m () [server ::: SServer]
   private
   newId : (server : Var) -> ST m ObjectId [server ::: SServer]
   private
@@ -114,7 +111,10 @@ interface Server (m : Type -> Type) where
   private -- TODO URGENT unify!!!
   create : (server : Var) -> Creation -> ST m (Checked ObjectId) [server ::: SServer]
   private
-  createObject : (server : Var) -> Creation -> ObjectDescription -> ST m ObjectId [server ::: SServer]
+  createObject : (server : Var) ->
+                 Creation ->
+                 ObjectDescription ->
+                 ST m (Checked ObjectId) [server ::: SServer]
   private
   createObjects : (server : Var) -> List (Creation, ObjectDescription) -> ST m () [server ::: SServer]
   private
@@ -219,10 +219,12 @@ export
           Left e => pure $ loginFail character_id e
           Right character_object => with ST do
             spawn <- queryPServer server (spawn . mapData)
-            id <- createObject server (forCharacter spawn character) character_object
-            updatePServer server $ addLoggedIn character_id id
-            rulesAddCharacter server id character_id character
-            pure $ loginSuccess id
+            case !(createObject server (forCharacter spawn character) character_object) of
+              Left e => pure $ loginFail character_id e
+              Right id => with ST do
+                updatePServer server $ addLoggedIn character_id id
+                rulesAddCharacter server id character_id character
+                pure $ loginSuccess id
 
   updateBodyData server bodyData = with ST do
     updatePServer server $ pserverSetBodyData bodyData
@@ -285,20 +287,11 @@ export
     combine server [pserver, rules]
     processRulesOutputs server rules_output
 
-  loadWalls server map_description
-    = queryPServer server preload >>= pure . flip getWallsAsObjects map_description
+  loadStatic server map_description
+    = queryPServer server preload >>= pure . flip getStaticFromMap map_description
 
   loadObjects server map_description
     = queryPServer server preload >>= pure . flip getObjectsFromMap map_description
-
-  addWall server wall_creation object_description
-    = updatePServer server
-    $ addDynamicsCommand
-    $ createWallCommand wall_creation object_description
-
-  addWalls server [] = pure ()
-  addWalls server ((creation, desc)::xs) = addWall server creation desc >>=
-    const (addWalls server xs)
 
   newId server = with ST do
     id_num <- queryPServer server idCounter
@@ -325,7 +318,7 @@ export
         lift $ log $ "can't create " ++ ref creation ++ ", error:\n" ++ e
         pure $ fail e
       Right object_description =>
-        createObject server creation object_description >>= pure . Right
+        createObject server creation object_description
 
   decideId server creation = case Creation.id creation of
     Nothing => newId server
@@ -337,10 +330,13 @@ export
 
   createObject server creation object_description = with ST do
     id <- decideId server creation
-    updatePServer server $ addDynamicsCommand $ createObjectCommand creation object_description id
-    updatePServer server $ addInSessionCommand $ Create id (ref creation) (render creation)
-    addRules server id object_description creation
-    pure id
+    case createObjectCommand creation object_description id of
+      Left e => pure $ fail $ e ++ " (createObject server)"
+      Right command => with ST do
+        updatePServer server $ addDynamicsCommand command
+        updatePServer server $ addInSessionCommand $ Create id (ref creation) (render creation)
+        addRules server id object_description creation
+        pure $ Right id
 
   createObjects server [] = pure ()
   createObjects server ((creation, desc)::xs) = createObject server creation desc >>=
@@ -354,13 +350,11 @@ export
     = createJoint server desc >>= const (createJoints server xs)
 
   loadMap server map_description = with ST do
-    Right walls <- loadWalls server map_description | Left e => with ST do
-      lift $ log $ "server couldn't get walls, error:"
-      lift $ log e
+    Right static <- loadStatic server map_description | Left e => with ST do
+      lift $ log $ "server couldn't get static, error:\n" ++ e
     Right objects <- loadObjects server map_description | Left e => with ST do
-      lift $ log $ "couldn't get objects, error:"
-      lift $ log e
-    addWalls server walls
+      lift $ log $ "couldn't get objects, error:\n" ++ e
+    createObjects server $ processStaticCreations static
     createObjects server objects
     createJoints server (joints map_description)
 

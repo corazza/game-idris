@@ -211,6 +211,16 @@ getArray key dict = case lookup key dict of
   Just (JArray xs) => pure xs
   _ => fail $ "not an array (" ++ key ++ ")"
 
+pairToVector : JSON -> Checked Vector2D
+pairToVector (JArray [JNumber x, JNumber y]) = pure $ (x, y)
+pairToVector _ = fail "not an array of two numbers (pairToVector)"
+
+export
+getVectorArray : String -> JSONDict -> Checked (List Vector2D)
+getVectorArray key dict = with Checked do
+  array <- getArray key dict
+  catResults $ map pairToVector array
+
 export
 getStrings : String -> JSONDict -> Checked (List String)
 getStrings key dict = (case lookup key dict of

@@ -11,7 +11,7 @@ public export
 record ObjectDescription where
   constructor MkObjectDescription
   name : String
-  body : BodyDescription
+  body : Maybe BodyDescription
   render : Maybe RenderDescription
   control : Maybe ControlDescription
   rules : Maybe RulesDescription
@@ -31,8 +31,12 @@ export
 ObjectCaster ObjectDescription where
   objectCast dict = with Checked do
     name <- getString "name" dict
-    body <- the (Checked BodyDescription) $ getCastable "body" dict
+    body <- the (Checked (Maybe BodyDescription)) $ getCastableMaybe "body" dict
     render <- the (Checked (Maybe RenderDescription)) $ getCastableMaybe "render" dict
     control <- the (Checked (Maybe ControlDescription)) $ getCastableMaybe "control" dict
     rules <- the (Checked (Maybe RulesDescription)) $ getCastableMaybe "rules" dict
     pure $ MkObjectDescription name body render control rules
+
+export
+makeObjectDescStatic : ObjectDescription -> ObjectDescription
+makeObjectDescStatic = record { body $= map makeStatic }

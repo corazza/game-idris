@@ -75,7 +75,6 @@ interface UI (m : Type -> Type) where
                     ST m () [ui ::: SUI]
 
   logRoot : (ui : Var) -> (ref : ContentReference) -> ST m () [ui ::: SUI]
-  logSurface : (ui : Var) -> (ref : SurfaceReference) -> ST m () [ui ::: SUI]
 
   updateSurface : (ui : Var) ->
                   (ref : SurfaceReference) ->
@@ -213,8 +212,6 @@ export
       (Just root, Nothing) => lift $ log $ show root
       (Nothing, Just root) => lift $ log $ show root
       _ => pure ()
-
-  logSurface ui (MkSurfaceReference x xs) = ?sdkfkds_1
 
   setSurfaceChildren ui ref surface_descs = with ST do
     surfaces <- surfacesFromDescs ui surface_descs

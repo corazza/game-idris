@@ -35,15 +35,15 @@ export
 Show ControlState where
   show (MkControlState moving facing jumping canJump walking attacking)
     = "(moving: " ++ show moving ++ ", " ++
-      "facing: " ++ show facing ++ ", " ++
-      "jumping: " ++ show jumping ++ ", " ++
-      "walking: " ++ show walking ++ ", " ++
-      "attacking: " ++ show attacking
+       "facing: " ++ show facing ++ ", " ++
+       "jumping: " ++ show jumping ++ ", " ++
+       "walking: " ++ show walking ++ ", " ++
+       "attacking: " ++ show attacking
 
 export
 initialControlStateFacing : (facing : MoveDirection) -> ControlState
 initialControlStateFacing facing
-  = MkControlState empty facing False False False False
+  = MkControlState empty facing False True False False
 
 export
 startWalking : ControlState -> ControlState

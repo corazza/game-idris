@@ -22,7 +22,6 @@ modules = Data.AVL.DDict
         , Descriptions.Color
         , Descriptions.MapDescription
         , Descriptions.BitsDescription
-        , Descriptions.WallDescription
         , Descriptions.AnimationDescription
         , Descriptions.NumericPropertyRender
         , Descriptions.ObjectDescription
