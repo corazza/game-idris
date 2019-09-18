@@ -80,6 +80,10 @@ moveSign controlState = case moving controlState of
   Rightward :: _ => 1
 
 export
+facingFromMove : ControlState -> Maybe MoveDirection
+facingFromMove = head' . moving
+
+export
 startJumping : ControlState -> ControlState
 startJumping = record { jumping = True }
 

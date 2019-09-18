@@ -506,6 +506,14 @@ correctFacing id (at_x, at_y) = with RuleScript do
       False => pure ()
       True => stopAndFace id Leftward
 
+correctFacingMove : (id : ObjectId) -> (at : Vector2D) -> UnitRuleScript
+correctFacingMove id at = with RuleScript do
+  Just (attacker_x, attacker_y) <- GetPosition id | pure ()
+  Just facing <- QueryBody id facingFromMove | pure ()
+  case facing of
+    Nothing => correctFacing id at
+    Just x => Output $ SetFacing id x
+
 getAttack : (id : ObjectId) -> RuleScript (Maybe ContentReference, Maybe AbilityDescription)
 getAttack id =  case !(GetAttack id) of
   Nothing => pure (Nothing, Nothing)
@@ -534,7 +542,7 @@ beginAttackScript id at = with RuleScript do
 export
 endAttackScript : (id : ObjectId) -> (at : Vector2D) -> UnitRuleScript
 endAttackScript id at = with RuleScript do
-  correctFacing id at
+  correctFacingMove id at
   case !(getAttack id) of
     (Just ref, Just ability) => with RuleScript do
       Output $ UnsetAttackShowing id

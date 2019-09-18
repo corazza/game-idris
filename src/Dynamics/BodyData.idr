@@ -65,6 +65,10 @@ forceDirection body_data = case facing body_data of
   Just x => x
 
 export
+facingFromMove : BodyData -> Maybe MoveDirection
+facingFromMove = join . map facingFromMove . controlState
+
+export
 sameDirection : Vector2D -> BodyData -> Bool
 sameDirection (x, y) body_data = case forceDirection body_data of
   Leftward => x < 0
