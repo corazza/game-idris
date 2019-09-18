@@ -53,6 +53,15 @@ modules = Data.AVL.DDict
         , Server.Rules.Behavior
         , Server.Rules.PRules
         , Server.Rules.NumericProperties
+        , Server.Rules.RuleScript
+        , Server.Rules.Scripts
+        , Server.Rules.Scripts.Basics
+        , Server.Rules.Scripts.AbilityScripts
+        , Server.Rules.Scripts.AttackScripts
+        , Server.Rules.Scripts.BehaviorScripts
+        , Server.Rules.Scripts.Damage
+        , Server.Rules.Scripts.ItemsScripts
+        , Server.Rules.Scripts.MovementScripts
         , Client
         , Client.PClient
         , Client.SDL

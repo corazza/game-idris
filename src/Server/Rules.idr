@@ -9,6 +9,10 @@ import Server.Rules.PRules
 import Server.Rules.NumericProperties
 import Server.Rules.RulesOutput
 import Server.Rules.RuleScript
+import Server.Rules.Scripts
+import Server.Rules.Scripts.BehaviorScripts
+import Server.Rules.Scripts.AttackScripts
+import Server.Rules.Scripts.ItemsScripts
 import Server.Rules.RulesData
 import Server.Rules.Behavior
 import Client.ClientCommands
