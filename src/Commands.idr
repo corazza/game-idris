@@ -4,9 +4,18 @@ import public Physics.Vector2D
 
 import Objects
 import GameIO
+import Dynamics.MoveDirection
 
 public export
 data Direction = Left | Right | Up | Down
+
+export
+Eq Direction where
+  Left == Left = True
+  Right == Right = True
+  Up == Up = True
+  Down == Down = True
+  _ == _ = False
 
 export
 Show Direction where
@@ -22,6 +31,11 @@ faceDirection : (my_position : Vector2D) ->
 faceDirection (my_x, _) (target_x, _) = case my_x > target_x of
   False => Right
   True => Left
+
+sameDirection : MoveDirection -> Direction -> Bool
+sameDirection Leftward Left = True
+sameDirection Rightward Right = True
+sameDirection _ _ = False
 
 public export
 data Action = Movement Direction
@@ -57,3 +71,12 @@ Show Command where
   show (Stop x id) = id ++ " stop " ++ show x
   show (Equip ref id) = id ++ " equip " ++ ref
   show (Unequip ref id) = id ++ " unequip " ++ ref
+
+export
+filterMovement : Maybe Direction -> List Command -> List Command
+filterMovement Nothing = id
+filterMovement (Just current) = filter (differentDirection current) where
+  differentDirection : Direction -> Command -> Bool
+  differentDirection direction (Start (Movement direction') id)
+    = direction /= direction'
+  differentDirection _ _ = True

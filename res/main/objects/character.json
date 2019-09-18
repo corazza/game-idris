@@ -40,12 +40,6 @@
       "health": {
         "full": 100
       }
-    },
-
-    "attack": {
-      "type": "throw",
-      "ref": "main/objects/wooden_arrow.json",
-      "impulse": 8
     }
   },
 

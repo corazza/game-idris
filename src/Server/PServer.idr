@@ -38,6 +38,7 @@ data InSession
   | Control Command
   | UpdateNumericProperty ObjectId NumericPropertyId Double
   | SetAttackShowing ObjectId ContentReference | UnsetAttackShowing ObjectId
+  | PlaySound ContentReference
 
 export
 Show InSession where

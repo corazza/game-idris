@@ -28,6 +28,7 @@ data DynamicsCommand
   | Destroy ObjectId
   | UpdateControl ObjectId (ControlState -> ControlState)
   | ApplyImpulse ObjectId Vector2D
+  | SetFacing ObjectId MoveDirection
   | QueryFor ObjectId String Double
   | SetMaskBits ObjectId (List String)
   | UnsetMaskBits ObjectId (List String)

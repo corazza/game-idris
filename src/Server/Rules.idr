@@ -198,8 +198,8 @@ GameIO m => Rules m where
 
   getRulesOutputs rules = with ST do
     let mainScript' = mainScript !ticks
-    controllers <- queryPRules rules controllerIds
-    runUnitScripts rules $ map mainScript' $ controllers
+    object_ids <- queryPRules rules objectIds
+    runUnitScripts rules $ map mainScript' $ object_ids
     output <- queryPRules rules rulesOutput
     update rules flushRulesOutput
     pure output

@@ -5,9 +5,12 @@
   "equip": {
     "slot": "hands",
     "ability": {
-      "type": "throw",
-      "ref": "main/objects/wooden_arrow.json",
-      "impulse": 8
+      "effect": {
+        "type": "throw",
+        "ref": "main/objects/wooden_arrow.json",
+        "impulse": 8
+      },
+      "postSound": "main/sounds/bow/short.wav"
     }
   },
 

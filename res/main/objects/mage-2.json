@@ -46,12 +46,6 @@
       }
     },
 
-    "attack": {
-      "type": "throw",
-      "ref": "main/objects/wooden_arrow.json",
-      "impulse": 8
-    },
-
     "behavior": {
       "ref": "main/behaviors/roam-chase.json",
       "double_parameters": {

@@ -117,6 +117,10 @@ controllerIds : PRules -> List ObjectId
 controllerIds prules = map fst $ filter (hasController . snd) $ toList $ objects prules
 
 export
+objectIds : PRules -> List ObjectId
+objectIds = getIds . objects
+
+export
 getDirection : ObjectId -> PRules -> Maybe BehaviorDirection
 getDirection id prules = getController id prules >>= direction . behavior_data
 

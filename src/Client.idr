@@ -17,6 +17,7 @@ import Client.ClientCommands
 import Server.PServer
 import Dynamics.BodyData
 import Dynamics.DynamicsEvent
+import Dynamics.MoveDirection
 import Descriptions.MapDescription
 import Descriptions.ObjectDescription
 import Descriptions.SurfaceDescription
@@ -84,9 +85,18 @@ interface Client (m : Type -> Type) where
                      ST m () [client ::: SClient Connected]
 
   private
-  runCommand : (client : Var) -> (command : Command) -> ST m () [client ::: SClient Connected]
+  runCommand : (client : Var) ->
+               (command : Command) ->
+               ST m () [client ::: SClient Connected]
   private
-  runCommands : (client : Var) -> (commands : List Command) -> ST m () [client ::: SClient Connected]
+  runCommands : (client : Var) ->
+                (commands : List Command) ->
+                ST m () [client ::: SClient Connected]
+
+  private
+  setNewFacing : (client : Var) ->
+                 (commands : List Command) ->
+                 ST m () [client ::: SClient Connected]
 
   private
   runClientCommand : (client : Var) ->
@@ -97,6 +107,11 @@ interface Client (m : Type -> Type) where
                       (clientCommands : List ClientCommand) ->
                       (acc : List Command) ->
                       ST m (List Command) [client ::: SClient Connected]
+
+  private
+  playMapMusic : (client : Var) ->
+                 (map_description : MapDescription) ->
+                 ST m () [client ::: SClient Connected]
 
   private
   addObject : (client : Var) ->
@@ -111,9 +126,6 @@ interface Client (m : Type -> Type) where
 
   private
   refreshSettings : (client : Var) -> ST m () [client ::: SClient Connected]
-
-  -- private
-  -- addUICommand : (client : Var) -> ST m ()
 
   private
   feedUI : (client : Var) ->
@@ -150,7 +162,7 @@ export
                                  SSDL {m}]
 
   startClient settings preload = with ST do
-    pclient <- new $ MkPClient preload settings
+    pclient <- new $ MkPClient preload settings Nothing
     sdl <- startSDL (resolutionX settings) (resolutionY settings) preload
     ui <- startUI preload
     client <- new ()
@@ -197,6 +209,13 @@ export
     update session_data f
     combine client [pclient, session_data, rendering, ui, sdl]
 
+  playMapMusic client map_description = case music map_description of
+    Nothing => pure ()
+    Just ref => with ST do
+      [pclient, session_data, rendering, ui, sdl] <- split client
+      playMusic sdl ref
+      combine client [pclient, session_data, rendering, ui, sdl]
+
   connect client map_ref characterId character = with ST do
     preload <- queryPClient client preload {s=Disconnected}
     case getMapDescription map_ref preload of
@@ -210,6 +229,7 @@ export
         [pclient, ui, sdl] <- split client
         session_data <- new $ MkSessionData characterId character
         combine client [pclient, session_data, rendering, ui, sdl]
+        playMapMusic client map_description
         pure $ Right ()
 
   disconnect client = with ST do
@@ -240,6 +260,15 @@ export
   runCommands client [] = pure ()
   runCommands client (cmd::xs)
     = runCommand client cmd >>= const (runCommands client xs)
+
+  setNewFacing client [] = pure ()
+  setNewFacing client ((Start (Movement direction) id)::xs) = with ST do
+    updatePClient client (setLastFacing $ Just direction) {s=Connected}
+    setNewFacing client xs
+  setNewFacing client ((Stop (Movement direction) id)::xs) = with ST do
+    updatePClient client (setLastFacing Nothing) {s=Connected}
+    setNewFacing client xs
+  setNewFacing client (cmd::xs) = setNewFacing client xs
 
   characterAttack client cstr x y = with ST do
     [pclient, session_data, rendering, ui, sdl] <- split client
@@ -293,7 +322,10 @@ export
     = updatePRendering client $ prenderingSetAttackShowing id ref
   runServerCommand client (UnsetAttackShowing id)
     = updatePRendering client $ prenderingUnsetAttackShowing id
-
+  runServerCommand client (PlaySound ref) = with ST do
+    [pclient, session_data, rendering, ui, sdl] <- split client
+    playWav sdl ref
+    combine client [pclient, session_data, rendering, ui, sdl]
   runServerCommands client [] = pure ()
   runServerCommands client (cmd::xs)
     = runServerCommand client cmd >>= const (runServerCommands client xs)
@@ -310,15 +342,18 @@ export
     combine client [pclient, session_data, rendering, ui, sdl]
     characterId <- querySessionData client characterId
     case processEvents characterId camera sdl_events of
-      Left _ => pure $ Left ()
       Right (clientCommands, commands) => with ST do
         clientCommands' <- feedUI client clientCommands
         fromClient <- runClientCommands client clientCommands' []
         clicks <- getClicks client
         clickCommands <- processClicks client clicks []
-        let newCommands = clickCommands ++ fromClient ++ commands
+        movement <- queryPClient client lastFacing {s=Connected}
+        let filtered = filterMovement movement commands
+        let newCommands = clickCommands ++ fromClient ++ filtered
         runCommands client newCommands
+        setNewFacing client filtered
         pure $ Right newCommands
+      _ => pure $ Left ()
 
   applyAnimationUpdates client xs = with ST do
     [pclient, session_data, rendering, ui, sdl] <- split client

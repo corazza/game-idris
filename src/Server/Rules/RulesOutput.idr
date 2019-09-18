@@ -24,6 +24,7 @@ data RulesOutput
   | SetMaskBits ObjectId (List String)
   | UnsetMaskBits ObjectId (List String)
   | SetAttackShowing ObjectId ContentReference | UnsetAttackShowing ObjectId
+  | PlaySound ContentReference
 
 export
 Show RulesOutput where

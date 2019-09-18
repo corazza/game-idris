@@ -27,6 +27,27 @@ StatsDict : Type
 StatsDict = Dict StatId Double
 
 public export
+data RulesType = Animate | Inanimate
+
+rulesTypePicker : Dict String RulesType
+rulesTypePicker = fromList [
+  ("animate", Animate),
+  ("inanimate", Inanimate)
+]
+
+getRulesType : JSONDict -> Checked RulesType
+getRulesType dict = case hasKey "rulesType" dict of
+  False => pure Inanimate
+  True => getString "rulesType" dict >>= flip (pick "rulesType") rulesTypePicker
+
+getRulesTypeMaybe : JSONDict -> Checked (Maybe RulesType)
+getRulesTypeMaybe dict = with Checked do
+  type <- getStringMaybe "rulesType" dict
+  case type of
+    Nothing => pure Nothing
+    Just str => pick "rulesType" str rulesTypePicker >>= pure . Just
+
+public export
 record BehaviorParameters where
   constructor MkBehaviorParameters
   ref : ContentReference
@@ -35,6 +56,7 @@ record BehaviorParameters where
   stringlistParameters : Dict String (List String)
   stringParameters : Dict String String
   logTransitions : Bool
+  rulesType : Maybe RulesType
 %name BehaviorParameters behavior_params
 
 export
@@ -83,8 +105,9 @@ ObjectCaster BehaviorParameters where
     stringlistParameters <- getParameterType "stringlist_parameters" allToStringlist dict
     stringParameters <- getParameterType "string_parameters" allToString dict
     logTransitions <- getBoolOrDefault False "logTransitions" dict
+    rulesType <- getRulesTypeMaybe dict
     pure $ MkBehaviorParameters ref intParameters doubleParameters
-                stringlistParameters stringParameters logTransitions
+                stringlistParameters stringParameters logTransitions rulesType
 
 public export
 record RulesDescription where
@@ -94,6 +117,7 @@ record RulesDescription where
   attack : Maybe AbilityDescription
   behavior : Maybe BehaviorParameters
   items : Maybe Items
+  rulesType : RulesType
 
 toProperty : (String, JSON) -> Checked (String, NumericPropertyDescription)
 toProperty (name, json) = with Checked do
@@ -129,4 +153,5 @@ ObjectCaster RulesDescription where
     attack <- the (Checked (Maybe AbilityDescription)) $ getCastableMaybe "attack" dict
     behavior <- the (Checked (Maybe BehaviorParameters)) $ getCastableMaybe "behavior" dict
     items <- the (Checked (Maybe Items)) $ getCastableMaybe "items" dict
-    pure $ MkRulesDescription numericProperties stats attack behavior items
+    rulesType <- getRulesType dict
+    pure $ MkRulesDescription numericProperties stats attack behavior items rulesType

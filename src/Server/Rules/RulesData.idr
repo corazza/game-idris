@@ -17,10 +17,16 @@ record RulesData where
   creator : Maybe ObjectId
   controller : Maybe BehaviorController
   items : Maybe Items
+  meleeSound : Maybe ContentReference
+  rulesType : RulesType
 
 export
 setItems : Items -> RulesData -> RulesData
 setItems items' = record { items = Just items' }
+
+export
+setMeleeSound : Maybe ContentReference -> RulesData -> RulesData
+setMeleeSound ref = record { meleeSound = ref }
 
 export
 makeData : (desc : RulesDescription) ->
@@ -29,7 +35,11 @@ makeData : (desc : RulesDescription) ->
            RulesData
 makeData desc controller creator = MkRulesData
   (numPropDictFromDescription desc) (stats desc) creator controller
-  (items desc)
+  (items desc) Nothing rulesType' where
+    rulesType' : RulesType
+    rulesType' = case map rulesType (behavior desc) of
+      Just (Just x) => x
+      _ => rulesType desc
 
 export
 updateNumPropInData : NumericPropertyId ->
@@ -57,3 +67,7 @@ hasController = isJust . controller
 export
 toData : (q : BehaviorController -> a) -> (RulesData -> Maybe a)
 toData q = map q . controller
+
+export
+dataGetStringParameter : (name : String) -> RulesData -> Maybe String
+dataGetStringParameter name = join . map (getStringParameter name) . controller

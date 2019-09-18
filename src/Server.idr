@@ -12,6 +12,7 @@ import Client.ClientCommands
 import Dynamics.BodyData
 import Dynamics.DynamicsEvent
 import Dynamics.DynamicsCommand
+import Dynamics.MoveDirection
 import Commands
 import GameIO
 import Objects
@@ -248,8 +249,8 @@ export
     = updatePServer server $ addDynamicsCommand $ QueryFor id name span
   processRulesOutput server (ApplyImpulse id impulse)
     = updatePServer server $ addDynamicsCommand $ ApplyImpulse id impulse
-  -- processRulesOutput server (SetFacing id direction)
-  --   = updatePServer server $ addDynamicsCommand $ SetFacing id direction
+  processRulesOutput server (SetFacing id direction)
+    = updatePServer server $ addDynamicsCommand $ SetFacing id direction
   processRulesOutput server (RuleCommand command) = processRulesCommand server command
   processRulesOutput server (Death id) = destroy server id
   processRulesOutput server (NumericPropertyCurrent object_id prop_id current)
@@ -268,6 +269,8 @@ export
     = updatePServer server $ addInSessionCommand $ SetAttackShowing object_id ref
   processRulesOutput server (UnsetAttackShowing object_id)
     = updatePServer server $ addInSessionCommand $ UnsetAttackShowing object_id
+  processRulesOutput server (PlaySound ref)
+    = updatePServer server $ addInSessionCommand $ PlaySound ref
   processRulesOutput server cmd =
     lift $ log $ "unimplemented handler in processRulesOutput for: " ++ show cmd
      -- TODO update logged in

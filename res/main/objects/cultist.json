@@ -38,16 +38,12 @@
   },
 
   "rules": {
+    "rulesType": "animate",
+
     "numericProperties": {
       "health": {
         "full": 200
       }
-    },
-
-    "attack": {
-      "type": "throw",
-      "ref": "main/objects/wooden_arrow.json",
-      "impulse": 8
     },
 
     "behavior": {

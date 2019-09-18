@@ -5,9 +5,12 @@
   "equip": {
     "slot": "hands",
     "ability": {
-      "type": "melee",
-      "damage": 25,
-      "range": 1.2
+      "effect": {
+        "type": "melee",
+        "damage": 25,
+        "range": 1.2
+      },
+      "postSound": "main/sounds/melee/swing_1.wav"
     },
     "offset": [-0.48, -0.8]
   },

@@ -40,7 +40,11 @@
     },
 
     "behavior": {
-      "ref": "main/behaviors/projectile.json"
+      "ref": "main/behaviors/projectile.json",
+      "string_parameters": {
+        "hit_sound_inanimate": "main/sounds/arrow/hit_1.wav",
+        "hit_sound_animate": "main/sounds/arrow/hit_4.wav"
+      }
     }
   },
 

@@ -34,6 +34,7 @@ modules = Data.AVL.DDict
         , Descriptions.ObjectDescription.RenderDescription
         , Descriptions.ObjectDescription.RulesDescription
         , Descriptions.ObjectDescription.RulesDescription.BehaviorDescription
+        , Descriptions.ObjectDescription.RulesDescription.RuleFlags
         , Descriptions.SurfaceDescription
         , Descriptions.FontDescription
         , Dynamics

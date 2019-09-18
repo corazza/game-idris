@@ -9,7 +9,7 @@ BehaviorState : Type
 BehaviorState = String
 
 public export
-data BehaviorAction
+data BehaviorEffect
   = MoveLeft | MoveRight | Stop | ChangeDirection
   | ProjectileDamage
   | Attack
@@ -18,9 +18,11 @@ data BehaviorAction
   | Door | Loot
   | SetMaskBits (List String)
   | UnsetMaskBits (List String)
+  | PlaySound ContentReference
+  | PlaySoundParameter String
 
 export
-Show BehaviorAction where
+Show BehaviorEffect where
   show MoveLeft = "move left"
   show MoveRight = "move right"
   show Stop = "stop"
@@ -35,8 +37,10 @@ Show BehaviorAction where
   show Loot = "loot"
   show (SetMaskBits xs) = "set mask bit " ++ show xs
   show (UnsetMaskBits xs) = "unset mask bit " ++ show xs
+  show (PlaySound ref) = "play sound " ++ ref
+  show (PlaySoundParameter param) = "play sound, parameter: " ++ param
 
-actionPicker : Dict String BehaviorAction
+actionPicker : Dict String BehaviorEffect
 actionPicker = fromList [
   ("move left", MoveLeft),
   ("move right", MoveRight),
@@ -53,19 +57,53 @@ actionPicker = fromList [
 ]
 
 export
-Cast String (Checked BehaviorAction) where
+Cast String (Checked BehaviorEffect) where
   cast actionString = pick "action" actionString actionPicker
 
-ObjectCaster BehaviorAction where
+ObjectCaster BehaviorEffect where
   objectCast dict = with Checked do
     type <- getString "type" dict
-    case the (Checked BehaviorAction) $ cast type of
+    case the (Checked BehaviorEffect) $ cast type of
       Left e => case type of
         "set mask bit" => getString "maskBit" dict >>= pure . SetMaskBits . (::[])
         "unset mask bit" => getString "maskBit" dict >>= pure . UnsetMaskBits . (::[])
         "set mask bits" => getStrings "maskBits" dict >>= pure . SetMaskBits
         "unset mask bits" => getStrings "maskBits" dict >>= pure . UnsetMaskBits
+        "play sound" => getString "sound" dict >>= pure . PlaySound
+        "play sound parameter" => getString "parameter" dict >>= pure . PlaySoundParameter
       Right r => pure r
+
+public export
+data BehaviorCondition = Animate | Inanimate
+
+conditionPicker : Dict String BehaviorCondition
+conditionPicker = fromList [
+  ("animate", Animate),
+  ("inanimate", Inanimate)
+]
+
+export
+Cast String (Checked BehaviorCondition) where
+  cast conditionString = pick "condition" conditionString conditionPicker
+
+getBehaviorCondition : JSONDict -> Checked BehaviorCondition
+getBehaviorCondition dict = getString "condition" dict >>= cast
+
+public export
+record BehaviorAction where
+  constructor MkBehaviorAction
+  effect : BehaviorEffect
+  condition : Maybe BehaviorCondition
+
+ObjectCaster BehaviorAction where
+  objectCast dict = case hasKey "condition" dict of
+    False => with Checked do
+      effect <- the (Checked BehaviorEffect) (objectCast dict)
+      pure $ MkBehaviorAction effect Nothing
+    True => with Checked do
+      effect <- the (Checked BehaviorEffect) $ getCastable "effect" dict
+      condition <- getBehaviorCondition dict
+      pure $ MkBehaviorAction effect $ Just condition
 
 getActions : JSONDict -> Checked (List BehaviorAction)
 getActions dict = case hasKey "actions" dict of

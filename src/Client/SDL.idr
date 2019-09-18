@@ -12,6 +12,9 @@ import Exception
 import GameIO
 import JSONCache
 
+-- HERE start using mixer, see if that fixes audio issues
+-- add drops to top layer
+
 TextureCache : Type
 TextureCache = Dict String Texture
 
@@ -29,6 +32,9 @@ interface SDL (m : Type -> Type) where
 
   startSDL : Int -> Int -> PreloadResults -> ST m Var [add SSDL]
   endSDL : (draw : Var) -> ST m () [remove draw SSDL]
+
+  queryPSDL : (sdl : Var) -> (q : PSDL -> a) -> ST m a [sdl ::: SSDL]
+  updatePSDL : (sdl : Var) -> (f : PSDL -> PSDL) -> ST m () [sdl ::: SSDL]
 
   poll : STrans m (List SDL2.Event) xs (const xs)
 
@@ -62,8 +68,28 @@ interface SDL (m : Type -> Type) where
 
   -- TODO resetCache : ...
 
+  playWav : (sdl : Var) ->
+            (ref : ContentReference) ->
+            ST m () [sdl ::: SSDL]
+
+  playMusic : (sdl : Var) ->
+              (ref : ContentReference) ->
+              ST m () [sdl ::: SSDL]
+
   private
-  getTexture : (sdl : Var) -> (ref : ContentReference) -> ST m (Checked Texture) [sdl ::: SSDL]
+  getTexture : (sdl : Var) ->
+               (ref : ContentReference) ->
+               ST m (Checked Texture) [sdl ::: SSDL]
+
+  private
+  getWav : (sdl : Var) ->
+           (ref : ContentReference) ->
+           ST m (Checked Wav) [sdl ::: SSDL]
+
+  private
+  getMusic : (sdl : Var) ->
+             (ref : ContentReference) ->
+             ST m (Checked Music) [sdl ::: SSDL]
 
 export
 SDL IO where
@@ -73,7 +99,7 @@ SDL IO where
     renderer <- new $ !(lift (init x y))
     textureCache <- new empty
     sdl <- new ()
-    psdl <- new $ MkPSDL preload
+    psdl <- new $ fromPreload preload
     combine sdl [renderer, textureCache, psdl]
     pure sdl
 
@@ -82,6 +108,17 @@ SDL IO where
     lift quit
     delete renderer; delete textureCache; delete psdl
     delete sdl
+
+  queryPSDL sdl q = with ST do
+    [renderer, textureCache, psdl] <- split sdl
+    psdl' <- read psdl
+    combine sdl [renderer, textureCache, psdl]
+    pure $ q psdl'
+
+  updatePSDL sdl f = with ST do
+    [renderer, textureCache, psdl] <- split sdl
+    update psdl f
+    combine sdl [renderer, textureCache, psdl]
 
   poll = lift pollEvents
 
@@ -130,6 +167,15 @@ SDL IO where
         lift $ SDL2.renderText !(read renderer) text path size (r, g, b, a) rect
         combine sdl [renderer, textureCache, psdl]
 
+  playWav sdl ref = with ST do
+    Right wav <- getWav sdl ref | Left e => lift (log e)
+    lift $ SDL2.playWav wav
+
+  playMusic sdl ref = with ST do
+    lift haltMusic
+    Right music <- getMusic sdl ref | Left e => lift (log e)
+    lift $ SDL2.playMusic music
+
   getTexture sdl ref = with ST do
     [renderer, textureCache, psdl] <- split sdl
     cache <- read textureCache
@@ -143,3 +189,23 @@ SDL IO where
         combine sdl [renderer, textureCache, psdl]
         pure $ Right texture
       Just texture => do combine sdl [renderer, textureCache, psdl]; pure (Right texture)
+
+  getWav sdl ref = with ST do
+    wavCache' <- queryPSDL sdl wavCache
+    case lookup ref wavCache' of
+      Nothing => with ST do
+        Right wav <- lift $ PSDL.loadWav (refToFilepath ref)
+                | Left e => (pure $ fail $ e ++ " (called by getWav)")
+        updatePSDL sdl $ psdlAddWav ref wav
+        pure $ Right wav
+      Just wav => pure $ Right wav
+
+  getMusic sdl ref = with ST do
+    musicCache' <- queryPSDL sdl musicCache
+    case lookup ref musicCache' of
+      Nothing => with ST do
+        Right music <- lift $ PSDL.loadMusic (refToFilepath ref)
+                | Left e => (pure $ fail $ e ++ " (called by getMusic)")
+        updatePSDL sdl $ psdlAddMusic ref music
+        pure $ Right music
+      Just music => pure $ Right music

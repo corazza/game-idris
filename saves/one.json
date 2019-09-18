@@ -7,8 +7,8 @@
                          "hands": "main/items/black_sword.json"
                     },
                     "inventory": {
-                         "main/items/black_sword.json": 34,
-                         "main/items/demonic_bow.json": 67
+                         "main/items/black_sword.json": 35,
+                         "main/items/demonic_bow.json": 68
                     }
                },
                "map": "main/maps/castle.json",

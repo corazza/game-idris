@@ -2,6 +2,7 @@
   "name": "Castle",
   "dimensions": [200, 100],
   "spawn": [0, -7],
+  "music": "main/music/broken_souls.wav",
 
   "background": {
     "image": "main/images/backgrounds/castle.jpg",
@@ -66,7 +67,8 @@
         "ref": "main/behaviors/hold-chase.json",
         "double_parameters": {
           "chase_duration": 10
-        }
+        },
+        "rulesType": "animate"
       }
     },
     {

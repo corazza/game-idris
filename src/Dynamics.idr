@@ -12,6 +12,7 @@ import Descriptions.ObjectDescription.BodyFlags
 import Dynamics.DynamicsCommand
 import Dynamics.DynamicsControl
 import Dynamics.DynamicsEvent
+import Dynamics.MoveDirection
 import GameIO
 import Objects
 import Exception
@@ -180,6 +181,7 @@ Dynamics IO where
     updatePDynamics dynamics $ pdynamicsAddAnimationUpdate $
       MkAnimationUpdate id animationState
   runCommand dynamics (ApplyImpulse id impulse) = applyImpulse dynamics id impulse
+  runCommand dynamics (SetFacing id direction) = updateControl dynamics id (face direction)
   runCommand dynamics (QueryFor object_id name span) = with ST do
     Just (x, y) <- queryPDynamics dynamics $ (map position . getBodyData object_id)
           | pure ()

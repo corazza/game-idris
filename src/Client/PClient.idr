@@ -10,7 +10,9 @@ import Descriptions.ItemDescription
 import Descriptions.SurfaceDescription
 import Descriptions.ObjectDescription
 import Descriptions.ObjectDescription.RenderDescription
+import Dynamics.MoveDirection
 import Objects
+import Commands
 import Settings
 import Timeline
 
@@ -19,6 +21,7 @@ record PClient where
   constructor MkPClient
   preload : PreloadResults
   settings : ClientSettings
+  lastFacing : Maybe Direction
 
 public export
 record SessionData where
@@ -38,3 +41,7 @@ export
 withRender : Maybe RenderDescription -> ObjectDescription -> ObjectDescription
 withRender Nothing = id
 withRender render'@(Just x) = record { render = render' }
+
+export
+setLastFacing : Maybe Direction -> PClient -> PClient
+setLastFacing direction = record { lastFacing = direction }

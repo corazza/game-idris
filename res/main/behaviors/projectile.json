@@ -7,7 +7,23 @@
     "onCollision": {
       "transition": {
         "state": "intermediate",
-        "action": {"type": "projectile damage"}
+        "actions": [
+          { "type": "projectile damage" },
+          {
+            "effect": {
+              "type": "play sound parameter",
+              "parameter": "hit_sound_inanimate"
+            },
+            "condition": "inanimate"
+          },
+          {
+            "effect": {
+              "type": "play sound parameter",
+              "parameter": "hit_sound_animate"
+            },
+            "condition": "animate"
+          }
+        ]
       }
     }
   },

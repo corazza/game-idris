@@ -56,7 +56,10 @@ creationBodyDescriptionToDefinition creation desc = MkBodyDefinition
   (type desc) (position creation) (angle creation) (fixedRotation desc) (bullet desc)
 
 fromBehavior : BehaviorParameters -> RulesDescription
-fromBehavior bp = MkRulesDescription Nothing Nothing Nothing (Just bp) Nothing
+fromBehavior bp
+  = MkRulesDescription Nothing Nothing Nothing (Just bp) Nothing rulesType' where
+      rulesType' : RulesType
+      rulesType' = fromMaybe Inanimate $ rulesType bp
 
 export
 rulesDescFromCreation : Maybe RulesDescription -> Creation -> Maybe RulesDescription
@@ -182,16 +185,18 @@ record MapDescription where
   walls : List WallCreation
   creations : List Creation
   joints : List JointDescription
+  music : Maybe ContentReference
 
 export
 Show MapDescription where
-  show (MkMapDescription name dimensions spawn background walls creations joints)
+  show (MkMapDescription name dimensions spawn background walls creations joints music)
     =  "{ name: " ++ name
     ++ ", dimensions: " ++ show dimensions
     ++ ", spawn: " ++ show spawn
     ++ ", background: " ++ show background
     ++ ", walls: " ++ show walls
     ++ ", creations: " ++ show creations
+    ++ ", music: " ++ show music
     ++ " }"
 
 export
@@ -207,4 +212,5 @@ ObjectCaster MapDescription where
     walls <- catResults $ the (List (Checked WallCreation)) $ map cast wallsJSON
     creations <- catResults $ the (List (Checked Creation)) $ map cast creationsJSON
     joints <- catResults $ the (List (Checked JointDescription)) $ map cast jointsJSON
-    pure $ MkMapDescription name dimensions spawn background walls creations joints
+    music <- getStringMaybe "music" dict
+    pure $ MkMapDescription name dimensions spawn background walls creations joints music

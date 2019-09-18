@@ -6,3 +6,4 @@ src/game
 *.a
 test.idr
 *_old.idr
+res/main/music
