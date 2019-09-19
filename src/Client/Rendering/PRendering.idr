@@ -5,11 +5,13 @@ import Control.ST.ImplicitCall
 
 import Client.Rendering.Camera
 import Client.Rendering.Info
+import Client.Rendering.Layers
+import Client.Rendering.PositionData
+import Client.Rendering.AnimationState
 import Client.SDL
 import Dynamics.BodyData
 import GameIO
 import Objects
-import Descriptions
 import JSONCache
 import Settings
 import Descriptions.MapDescription
@@ -17,32 +19,14 @@ import Descriptions.ObjectDescription.RulesDescription
 import Descriptions.ObjectDescription.RenderDescription
 
 public export
-record AnimationState where
-  constructor MkAnimationState
-  name : String
-  started : Int
-  attackShowing : Maybe ContentReference
-
-setStarted : Int -> AnimationState -> AnimationState
-setStarted ticks = record { started = ticks }
-
-setAttackShowing : ContentReference -> AnimationState -> AnimationState
-setAttackShowing ref = record { attackShowing = Just ref }
-unsetAttackShowing : AnimationState -> AnimationState
-unsetAttackShowing = record { attackShowing = Nothing }
-
-setName : String -> AnimationState -> AnimationState
-setName name' = record { name = name' }
-
-public export
 record PRendering where
   constructor MkPRendering
-  background : Background
-  layers : Dict Nat (Objects RenderDescription)
+  background : Maybe Background
+  layers : Layers
   animationStates : Objects AnimationState
   camera : Camera
   following : Maybe ObjectId
-  bodyData : Objects BodyData
+  positionData : Objects PositionData
   preload : PreloadResults
   info : Objects ObjectInfo
   settings : RenderingSettings
@@ -55,50 +39,27 @@ refreshSettings prendering
 
 export
 prenderingInitial : RenderingSettings ->
-                    Background ->
                     PreloadResults ->
                     PRendering
-prenderingInitial settings background preload
+prenderingInitial settings preload
   = let camera = fromSettings $ cameraSettings settings
-        in MkPRendering background empty empty camera Nothing empty preload empty settings
+        in MkPRendering Nothing empty empty camera Nothing empty preload empty settings
 
 export
-addToLayer : (id : ObjectId) ->
-             (desc : RenderDescription) ->
-             PRendering -> PRendering
-addToLayer id desc prendering = let layer = fromMaybe 0 (layer desc) in
-  case hasKey layer (layers prendering) of
-    False => let layerDict = the (Objects RenderDescription) $ insert id desc empty
-                 in record { layers $= insert layer layerDict } prendering
-    True => record { layers $= update layer (insert id desc) } prendering
+setBackground : Background -> PRendering -> PRendering
+setBackground background' = record { background = Just background' }
 
 export
-removeFromLayer : (id : ObjectId) -> (layer : Nat) -> PRendering -> PRendering
-removeFromLayer id layer = record { layers $= update layer (removeObject id) }
+getPositionData : ObjectId -> PRendering -> Maybe PositionData
+getPositionData id = lookup id . positionData
 
 export
-removeFromLayers : (id : ObjectId) -> PRendering -> PRendering
-removeFromLayers id = record { layers $= map (removeObject id) }
+updateLayers : (f : Layers -> Layers) -> PRendering -> PRendering
+updateLayers f = record { layers $= f }
 
 export
-layerList : PRendering -> List (List (ObjectId, RenderDescription))
-layerList prendering
-  = let layers' : List (Nat, Objects RenderDescription) = toList (layers prendering)
-        sorted = sortBy compareLayer layers'
-        in map (DDict.toList . snd) sorted where
-           compareLayer : (Nat, Objects RenderDescription) ->
-                          (Nat, Objects RenderDescription) ->
-                          Ordering
-           compareLayer (x, _) (y, _) = compare x y
-
-export
-getRenderingDescription : ObjectId -> PRendering -> Maybe RenderDescription
-getRenderingDescription id
-  = head' . catMaybes . map (DDict.lookup id) . map snd . toList . layers
-
-export
-getBodyData : ObjectId -> PRendering -> Maybe BodyData
-getBodyData id = lookup id . bodyData
+queryLayers : (q : Layers -> a) -> PRendering -> a
+queryLayers q = q . layers
 
 export
 addInitialAnimationState : (id : ObjectId) -> (clock : Int) -> PRendering -> PRendering
@@ -145,14 +106,12 @@ prenderingSetAttackShowing : (object_id : ObjectId) ->
                              PRendering -> PRendering
 prenderingSetAttackShowing object_id ref
   = prenderingUpdateAnimationState object_id (setAttackShowing ref)
-  -- = record { animationStates $= updateObject object_id (setAttackShowing ref) }
 
 export
 prenderingUnsetAttackShowing : (object_id : ObjectId) ->
                                PRendering -> PRendering
 prenderingUnsetAttackShowing object_id
   = prenderingUpdateAnimationState object_id unsetAttackShowing
-  -- = record { animationStates $= updateObject object_id unsetAttackShowing }
 
 export
 prenderingUpdateAnimationStateName : (object_id : ObjectId) ->
@@ -162,8 +121,8 @@ prenderingUpdateAnimationStateName object_id
   = prenderingUpdateAnimationState object_id . setName
 
 export
-setBodyData : (bodyData : Objects BodyData) -> PRendering -> PRendering
-setBodyData bodyData = record { bodyData = bodyData }
+setPositionData : (positionData : Objects PositionData) -> PRendering -> PRendering
+setPositionData positionData' = record { positionData = positionData' }
 
 export
 setFollowing : ObjectId -> PRendering -> PRendering
@@ -175,9 +134,10 @@ unsetFollowing = record { following = Nothing }
 
 export
 setCameraOn : ObjectId -> PRendering -> PRendering
-setCameraOn id prendering = case lookup id (bodyData prendering) of
+setCameraOn id prendering = case lookup id (positionData prendering) of
   Nothing => prendering
-  Just body_data => record { camera $= translate (position body_data) } prendering
+  Just position_data => record {
+    camera $= translate (position position_data) } prendering
 
 export
 updateFollow : PRendering -> PRendering

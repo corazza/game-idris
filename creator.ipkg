@@ -1,4 +1,4 @@
-package game
+package creator
 
 pkgs = sdl2, contrib, containers, box2d
 
@@ -17,7 +17,7 @@ modules = Data.AVL.DDict
         , Timeline
         , Timeline.Items
         , Settings
-        , Main
+        , CreatorMain
         , Descriptions
         , Descriptions.Color
         , Descriptions.MapDescription
@@ -36,40 +36,14 @@ modules = Data.AVL.DDict
         , Descriptions.ObjectDescription.RulesDescription.RuleFlags
         , Descriptions.SurfaceDescription
         , Descriptions.FontDescription
-        , Dynamics
-        , Dynamics.DynamicsControl
-        , Dynamics.BodyData
-        , Descriptions.ObjectDescription.BodyFlags
-        , Dynamics.MoveDirection
-        , Dynamics.DynamicsCommand
-        , Dynamics.PDynamics
-        , Dynamics.DynamicsEvent
-        , Dynamics.Movement
-        , Server
-        , Server.PServer
-        , Server.Rules
-        , Server.Rules.RulesData
-        , Server.Rules.Behavior
-        , Server.Rules.PRules
-        , Server.Rules.NumericProperties
-        , Server.Rules.RuleScript
-        , Server.Rules.Scripts
-        , Server.Rules.Scripts.Basics
-        , Server.Rules.Scripts.AbilityScripts
-        , Server.Rules.Scripts.AttackScripts
-        , Server.Rules.Scripts.BehaviorScripts
-        , Server.Rules.Scripts.Damage
-        , Server.Rules.Scripts.ItemsScripts
-        , Server.Rules.Scripts.MovementScripts
-        , Client
         , Client.PClient
         , Client.SDL
         , Client.SDL.PSDL
         , Client.Input
         , Client.ClientCommands
         , Client.Rendering
-        , Client.Rendering.Camera
         , Client.Rendering.RenderMethods
+        , Client.Rendering.Camera
         , Client.Rendering.PRendering
         , Client.Rendering.Info
         , Client.Rendering.AnimationState
@@ -79,7 +53,11 @@ modules = Data.AVL.DDict
         , Client.UI.PUI
         , Client.UI.Inventory
         , Client.UI.Character
+        , Creator
+        , Creator.PCreator
+        , Creator.MapCreator
+        , Creator.MapCreator.PMapCreator
 
-main = Main
+main = CreatorMain
 
-executable = game
+executable = creator

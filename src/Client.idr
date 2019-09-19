@@ -223,7 +223,7 @@ export
       Right map_description => with ST do
         settings <- queryPClient client settings {s=Disconnected}
         rendering <- startRendering
-          (renderingSettings settings) (background map_description) preload
+          (renderingSettings settings) preload
         loadMap rendering map_description
         follow rendering characterId
         [pclient, ui, sdl] <- split client
@@ -341,6 +341,7 @@ export
     camera <- getCamera rendering
     combine client [pclient, session_data, rendering, ui, sdl]
     characterId <- querySessionData client characterId
+    -- TODO this shouldn't depend on characterId, should be added later
     case processEvents characterId camera sdl_events of
       Right (clientCommands, commands) => with ST do
         clientCommands' <- feedUI client clientCommands

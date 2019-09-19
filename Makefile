@@ -1,4 +1,4 @@
-PROGRAMS := game
+PROGRAMS := game creator
 
 .PHONY: all
 all: $(PROGRAMS)
@@ -7,6 +7,10 @@ all: $(PROGRAMS)
 game:
 	idris --build game.ipkg
 
+.PHONY: creator
+creator:
+	idris --build creator.ipkg
+
 .PHONY: clean
 clean:
-	idris --clean game.ipkg
+	idris --clean game.ipkg creator.ipkg

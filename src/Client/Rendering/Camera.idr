@@ -43,6 +43,10 @@ translate : Vector2D -> Camera -> Camera
 translate a = record { position = a }
 
 export
+move : Vector2D -> Camera -> Camera
+move a camera = translate (position camera + a) camera
+
+export
 zoomFactor : Double -> Camera -> Camera
 zoomFactor factor = record { zoom $= (*) factor }
 

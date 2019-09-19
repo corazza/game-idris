@@ -64,6 +64,16 @@ data RenderMethod = Invisible
 %name RenderMethod render_description
 
 export
+getSingleAnimation : AnimationParametersDict -> Maybe (ContentReference, Vector2D)
+getSingleAnimation = map refDimensions . head' . Dict.toList where
+  refDimensions : (String, AnimationParameters) -> (ContentReference, Vector2D)
+  refDimensions (stateName, params) = (ref params, dimensions params)
+
+export
+getSingleAnimation' : AnimationParametersDict -> Maybe AnimationParameters
+getSingleAnimation' = map snd . head' . Dict.toList
+
+export
 Show RenderMethod where
   show Invisible = "invisible"
   show (Tiled ref tileDims repeat)

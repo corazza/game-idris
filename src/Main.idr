@@ -321,7 +321,6 @@ game state = with ST do
       endSession state
       game state
 
-export
 start : (GameIO m, Dynamics m, Client m, Server m) => ST m () []
 start = with ST do
   Right dynamics_settings <- lift $ loadDynamicsSettings

@@ -34,7 +34,7 @@ Serialize CameraSettings where
 
 public export
 defaultCameraSettings : CameraSettings
-defaultCameraSettings = MkCameraSettings (1280, 800) 50 45.0
+defaultCameraSettings = MkCameraSettings (1580, 900) 4.5 45.0
 
 public export
 record InfoSettings where
@@ -179,6 +179,13 @@ Serialize ServerSettings where
 public export
 defaultServerSettings : ServerSettings
 defaultServerSettings = MkServerSettings 0
+
+public export
+record CreatorSettings where
+  constructor MkCreatorSettings
+  cameraSettings : CameraSettings
+  cameraSpeed : Double
+
 
 -- TODO LATER make simpleLoad interface where someMethod = cast
 
