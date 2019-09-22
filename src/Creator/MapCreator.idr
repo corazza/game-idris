@@ -5,6 +5,7 @@ import Control.ST.ImplicitCall
 import Graphics.SDL2
 
 import Client.UI
+import Client.ClientCommands
 import Client.Rendering
 import Client.Rendering.Camera
 import Client.Rendering.RenderMethods
@@ -42,17 +43,13 @@ interface MapCreator (m : Type -> Type) where
             (map_ref : ContentReference) ->
             ST m () [map_creator ::: SMapCreator]
 
+  getMap : (map_creator : Var) -> ST m (Maybe MapDescription) [map_creator ::: SMapCreator]
+
   getAnimationStateQ : (map_creator : Var) ->
                        ST m (ObjectId -> Maybe AnimationState) [map_creator ::: SMapCreator]
 
   -- TODO think how objects are simultaneously added to layers, positions,
   -- and also edit the map
-  addObject : (map_creator : Var) ->
-              (id : ObjectId) ->
-              (desc : ObjectDescription) ->
-              (position : PositionData) ->
-              ST m () [map_creator ::: SMapCreator]
-
 
   runCommand : (map_creator : Var) ->
                (command : Command) ->
@@ -64,6 +61,30 @@ interface MapCreator (m : Type -> Type) where
 
   iterate : (map_creator : Var) ->
             ST m () [map_creator ::: SMapCreator]
+
+  runClientCommand : (map_creator : Var) ->
+                     (clientCommand : ClientCommand) ->
+                     ST m () [map_creator ::: SMapCreator]
+
+  -- EDITING FUNCTIONS
+  setAdding : (map_creator : Var) ->
+              (ref : ContentReference) ->
+              ST m () [map_creator ::: SMapCreator]
+  unsetAdding : (map_creator : Var) ->
+                ST m () [map_creator ::: SMapCreator]
+  editAddDynamicAt : (map_creator : Var) ->
+                     (position : Vector2D) ->
+                     ST m () [map_creator ::: SMapCreator]
+  editRemoveCreationFrom : (map_creator : Var) ->
+                           (position : Vector2D) ->
+                           ST m () [map_creator ::: SMapCreator]
+
+  private
+  addObject : (map_creator : Var) ->
+              (id : ObjectId) ->
+              (desc : ObjectDescription) ->
+              (position : PositionData) ->
+              ST m () [map_creator ::: SMapCreator]
 
   private
   newId : (map_creator : Var) -> ST m ObjectId [map_creator ::: SMapCreator]
@@ -87,6 +108,9 @@ interface MapCreator (m : Type -> Type) where
                 MapDescription ->
                 ST m (Checked (List (Creation, ObjectDescription)))
                      [map_creator ::: SMapCreator]
+
+  private
+  zoom : (map_creator : Var) -> (x : Int) -> ST m () [map_creator ::: SMapCreator]
 
 export
 (GameIO m, SDL m) => MapCreator m where
@@ -113,6 +137,23 @@ export
     [pmap_creator] <- split map_creator
     update pmap_creator f
     combine map_creator [pmap_creator]
+
+  setAdding map_creator ref = updatePMapCreator map_creator $ pmapSetAdding ref
+  unsetAdding map_creator = updatePMapCreator map_creator pmapUnsetAdding
+
+  editAddDynamicAt map_creator position = with ST do
+    Just adding_data <- queryPMapCreator map_creator adding | pure ()
+    preload' <- queryPMapCreator map_creator preload
+    let ref' = ref adding_data
+    case getObjectDescription ref' preload' of
+      Left e => lift $ log $
+        "(editAddDynamicAt) couldn't get object description, error:\n" ++ e
+      Right object_desc => with ST do
+        let creation = creationForEditor ref' position
+        updatePMapCreator map_creator $ editAddDynamic creation
+        let positionData = noFlip position $ angle adding_data
+        id' <- newId map_creator
+        addObject map_creator id' object_desc positionData
 
   runCommand map_creator (Start (Movement direction) id)
     = updatePMapCreator map_creator $ updateControl $ startMoving direction
@@ -145,6 +186,8 @@ export
           lift $ log $ "map creator couldn't get dynamic, error:\n" ++ e
         addStatic map_creator static
         addDynamic map_creator dynamic
+
+  getMap map_creator = queryPMapCreator map_creator map_desc
 
   -- TODO DUPLICATION (also in server)
   newId map_creator = with ST do
@@ -188,6 +231,23 @@ export
   getAnimationStateQ map_creator =
     pure $ dummyAnimationStates' !ticks
 
+  zoom map_creator x =
+    updatePMapCreator map_creator $ updateCamera $ zoomFactor $ computeZoomFactor x
+
+  runClientCommand map_creator (Stop (Zoom x))
+    = case !(queryPMapCreator map_creator adding) of
+        Nothing => zoom map_creator x
+        Just adding_data =>
+          updatePMapCreator map_creator $ pmapRotateAdding $ angleChange x
+  runClientCommand map_creator (Mouse (ButtonDown x y)) = pure ()
+  runClientCommand map_creator (Mouse (ButtonUp x y)) = with ST do
+    camera' <- queryPMapCreator map_creator camera
+    editAddDynamicAt map_creator $ screenToPosition camera' (x, y)
+  runClientCommand map_creator (Mouse (Move x y)) = with ST do
+    camera' <- queryPMapCreator map_creator camera
+    updatePMapCreator map_creator $ setMouseLast $ screenToPosition camera' (x, y)
+
+
 renderBackground : (SDL m, GameIO m) =>
                      (map_creator : Var) ->
                      (sdl : Var) ->
@@ -212,7 +272,7 @@ renderLayer map_creator sdl ((id, render_description)::xs) = with ST do
     Just position_data => with ST do
       camera' <- queryPMapCreator map_creator camera
       let position' = position position_data
-      let angle' = angle position_data
+      let angle' = radToDeg $ angle position_data
       let flip' = flip position_data
       let method' = method render_description
       preload' <- queryPMapCreator map_creator preload
@@ -230,6 +290,28 @@ renderLayers map_creator sdl (layer::xs)
   = renderLayer map_creator sdl layer >>=
       const (renderLayers map_creator sdl xs)
 
+renderAdding : SDL m => MapCreator m => GameIO m =>
+               (map_creator : Var) ->
+               (sdl : Var) ->
+               ST m () [map_creator ::: SMapCreator {m}, sdl ::: SSDL {m}]
+renderAdding map_creator sdl = case !(queryPMapCreator map_creator adding) of
+  Nothing => pure ()
+  Just adding_data => with ST do
+    preload' <- queryPMapCreator map_creator preload
+    case getObjectDescription (ref adding_data) preload' of
+      Left e => lift $ log $
+        "(renderAdding) couldn't find object description, error:\n" ++ e
+      Right object_desc => case render object_desc of
+        Nothing => pure ()
+        Just render_description => with ST do
+          camera' <- queryPMapCreator map_creator camera
+          position' <- queryPMapCreator map_creator mouseLast
+          let angle' = radToDeg $ angle adding_data
+          let flip' = 0
+          let method' = method render_description
+          aq <- MapCreator.getAnimationStateQ map_creator
+          executeMethod aq preload' sdl camera' "adding" position' angle' flip' method'
+
 export
 renderMapCreator : (SDL m, GameIO m) =>
                    (map_creator : Var) ->
@@ -240,3 +322,4 @@ renderMapCreator map_creator sdl = with ST do
   renderBackground map_creator sdl camera'
   layers <- queryPMapCreator map_creator $ queryLayers layerList
   renderLayers map_creator sdl layers
+  renderAdding map_creator sdl

@@ -7,6 +7,7 @@ import Exception
 import Objects
 import Descriptions.AbilityDescription
 import Timeline.Items
+import Serializer
 
 public export
 record NumericPropertyDescription where
@@ -108,6 +109,10 @@ ObjectCaster BehaviorParameters where
     rulesType <- getRulesTypeMaybe dict
     pure $ MkBehaviorParameters ref intParameters doubleParameters
                 stringlistParameters stringParameters logTransitions rulesType
+
+export
+Serialize BehaviorParameters where
+  toDict bp = ?sdkfskdfk
 
 public export
 record RulesDescription where

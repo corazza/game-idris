@@ -35,12 +35,6 @@ export
 Show Creation where
   show creation = ref creation ++ " at " ++ show (position creation)
 
-makeCreationStatic : Creation -> Creation
-makeCreationStatic = record { body $= map makeStatic }
-
-setId : ObjectId -> Creation -> Creation
-setId id' = record { id = Just id' }
-
 getCreationAngle : JSONDict -> Checked (Maybe Double)
 getCreationAngle dict = case hasKey "angle" dict of
   False => pure Nothing
@@ -56,6 +50,28 @@ ObjectCaster Creation where
     render <- the (Checked (Maybe RenderDescription)) $ getCastableMaybe "render" dict
     body <- the (Checked (Maybe BodyDescription)) $ getCastableMaybe "body" dict
     pure $ MkCreation ref position Nothing Nothing angle behavior id render body
+
+Serialize Creation where
+  toDict creation = with ST do
+    creationObject <- makeObject
+    addString creationObject "ref" $ ref creation
+    addVector creationObject "position" $ position creation
+    addDoubleMaybe creationObject "angle" $ angle creation
+    addObjectMaybe creationObject "behavior" $ map serialize' $ behavior creation
+    ?sdfksdfk
+
+export
+creationForEditor : (ref : ContentReference) ->
+                    (position : Vector2D) ->
+                    Creation
+creationForEditor ref position =
+  MkCreation ref position Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+
+makeCreationStatic : Creation -> Creation
+makeCreationStatic = record { body $= map makeStatic }
+
+setId : ObjectId -> Creation -> Creation
+setId id' = record { id = Just id' }
 
 export
 creationBodyDescriptionToDefinition : Creation -> BodyDescription -> BodyDefinition
@@ -155,3 +171,7 @@ ObjectCaster MapDescription where
     joints <- catResults $ the (List (Checked JointDescription)) $ map cast jointsJSON
     music <- getStringMaybe "music" dict
     pure $ MkMapDescription name dimensions spawn background creations static joints music
+
+export
+addDynamic : Creation -> MapDescription -> MapDescription
+addDynamic creation = record { creations $= append creation }

@@ -168,8 +168,8 @@ export
 
   follow rendering id = update rendering $ setFollowing id
 
-  zoom rendering x = let factor = if x > 0 then 1.05 else 0.95 in
-    update rendering $ updateCamera $ zoomFactor $ factor -- * abs (cast x)
+  zoom rendering x =
+    update rendering $ updateCamera $ zoomFactor $ computeZoomFactor x -- * abs (cast x)
 
   getSettings rendering = with ST do
     update rendering refreshSettings

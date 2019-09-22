@@ -18,8 +18,12 @@ getFlip body_data = case forceDirection body_data of
   Leftward => 2
   Rightward => 0
 
+export
+radToDeg : Double -> Double
+radToDeg angle = - angle / (2.0*pi) * 360.0
+
 getDegAngle : BodyData -> Double
-getDegAngle body_data = -(angle body_data) / (2.0*pi) * 360.0
+getDegAngle = radToDeg . angle
 
 fromBodyData : BodyData -> PositionData
 fromBodyData body_data = MkPositionData
@@ -37,3 +41,7 @@ fromCreation creation = MkPositionData
 export
 fromCreation' : StaticCreation -> PositionData
 fromCreation'  = fromCreation . creation
+
+export
+noFlip : Vector2D -> Double-> PositionData
+noFlip pos angle = MkPositionData pos angle 0

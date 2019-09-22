@@ -7,7 +7,7 @@ import Creator
 import GameIO
 import Commands
 import JSONCache
-import Descriptions
+import Descriptions.MapDescription
 import Settings
 import Timeline
 import Exception
@@ -39,7 +39,11 @@ start = with ST do
   creator <- startCreator defaultClientSettings preload
   loadMap creator "main/maps/castle.json"
   loop creator
+  map_result <- getMap creator
   endCreator creator
+  case map_result of
+    Nothing => pure ()
+    Just map_desc => lift $ log $ show map_desc
 
 main : IO ()
 main = with IO do

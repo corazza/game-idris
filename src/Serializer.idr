@@ -133,6 +133,22 @@ addStringMaybe : (object : Var) ->
 addStringMaybe object key (Just s) = addString object key s
 addStringMaybe object key Nothing = pure ()
 
+export
+addDoubleMaybe : (object : Var) ->
+                 (key : String) ->
+                 (value : Maybe Double) ->
+                 ST Identity () [object ::: SKind JSONOBject {m=Identity}]
+addDoubleMaybe object key (Just d) = addDouble object key d
+addDoubleMaybe object key Nothing = pure ()
+
+export
+addObjectMaybe : (object : Var) ->
+                 (key : String) ->
+                 (value : Maybe JSONDict) ->
+                 ST Identity () [object ::: SKind JSONOBject {m=Identity}]
+addObjectMaybe object key (Just dict) = addObject object key dict
+addObjectMaybe object key Nothing = pure ()
+
 public export
 interface Serialize a where
   toDict : a -> ST Identity JSONDict []
@@ -140,6 +156,9 @@ interface Serialize a where
 export
 serialize : Serialize a => a -> JSON
 serialize = dictToJSON . (runIdentity . run) . toDict
+
+export
+serialize' : Serialize a => a -> JSONDict
 
 export
 pretty : Serialize a => a -> String

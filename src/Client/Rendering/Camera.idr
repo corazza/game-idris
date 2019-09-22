@@ -85,3 +85,11 @@ dimToScreen' camera dims = let (MkSDLRect x y w h) = getRect camera nullVector d
 export
 lengthToScreen : Camera -> Double -> Int
 lengthToScreen camera x = cast $ zoom camera * x
+
+export
+computeZoomFactor : Int -> Double
+computeZoomFactor x = if x > 0 then 1.05 else 0.95
+
+export
+angleChange : Int -> Double
+angleChange x = if x > 0 then 0.1 else -0.1

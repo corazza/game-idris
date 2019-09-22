@@ -58,7 +58,8 @@ startStopOrClient cstr_left cstr_right key = case processKey key of -- TODO conc
 processEvent : ObjectId -> Camera -> SDL2.Event -> Either () (Maybe (Either ClientCommand Command))
 processEvent id camera (KeyDown x) = Right $ startStopOrClient Start (flip Start id) x
 processEvent id camera (KeyUp x) = Right $ startStopOrClient Stop (flip Stop id) x
-processEvent id camera (MouseMotion x y z w) = Right Nothing
+processEvent id camera (MouseMotion x y z w)
+  = Right $ Just $ Left $ Mouse $ Move x y
 processEvent id camera (MouseButtonDown button x y)
   = Right $ Just $ Left $ Mouse $ ButtonDown x y
 processEvent id camera (MouseButtonUp button x y)

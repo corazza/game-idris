@@ -12,6 +12,26 @@ import Client.Rendering.Layers
 import Client.Rendering.PositionData
 
 public export
+record AddingData where
+  constructor MkAddingData
+  ref : ContentReference
+  angle : Double
+
+initialAddingData : ContentReference -> AddingData
+initialAddingData ref = MkAddingData ref 0.0
+
+normalizedAngle : Double -> Double
+normalizedAngle angle =
+      let fills = the Int $ cast $ angle / (2*pi)
+          in angle - (cast fills * 2 * pi)
+
+normalizeAngle : AddingData -> AddingData
+normalizeAngle = record { angle $= normalizedAngle }
+
+rotateAdding : Double -> AddingData -> AddingData
+rotateAdding angle' = normalizeAngle . (record { angle $= (+) angle' })
+
+public export
 record MapCreatorControl where
   constructor MkMapCreatorControl
   movingLeft : Bool
@@ -60,6 +80,8 @@ record PMapCreator where
   positions : Objects PositionData
   control : MapCreatorControl
   lastms : Int
+  adding : Maybe AddingData
+  mouseLast : Vector2D
 
 defaultCamera : Camera
 defaultCamera = fromSettings defaultCameraSettings
@@ -67,11 +89,28 @@ defaultCamera = fromSettings defaultCameraSettings
 export
 initialPMapCreator : Int -> PreloadResults -> PMapCreator
 initialPMapCreator lastms preload
-  = MkPMapCreator Z preload Nothing defaultCamera empty empty initialControl lastms
+  = MkPMapCreator Z preload Nothing defaultCamera empty empty initialControl
+                  lastms Nothing nullVector
 
 export
 setLastms : Int -> PMapCreator -> PMapCreator
 setLastms lastms' = record { lastms = lastms' }
+
+export
+setMouseLast : Vector2D -> PMapCreator -> PMapCreator
+setMouseLast pos = record { mouseLast = pos }
+
+export
+pmapSetAdding : ContentReference -> PMapCreator -> PMapCreator
+pmapSetAdding ref = record { adding = Just $ initialAddingData ref }
+
+export
+pmapUnsetAdding : PMapCreator -> PMapCreator
+pmapUnsetAdding = record { adding = Nothing }
+
+export
+pmapRotateAdding : Double -> PMapCreator -> PMapCreator
+pmapRotateAdding angle = record { adding $= map $ rotateAdding angle }
 
 export
 scounter : PMapCreator -> PMapCreator
@@ -108,3 +147,8 @@ queryLayers q = q . layers
 export
 addToPositions : ObjectId -> PositionData -> PMapCreator -> PMapCreator
 addToPositions id positionData = record { positions $= addObject id positionData }
+
+-- EDIT functions
+export
+editAddDynamic : Creation -> PMapCreator -> PMapCreator
+editAddDynamic creation = record { map_desc $= map $ addDynamic creation }
