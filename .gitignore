@@ -7,4 +7,3 @@ src/game
 test.idr
 *_old.idr
 res/main/music
-windeps/*
