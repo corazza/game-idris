@@ -36,6 +36,10 @@ rulesTypePicker = fromList [
   ("inanimate", Inanimate)
 ]
 
+rulesTypeToString : RulesType -> String
+rulesTypeToString Animate = "animate"
+rulesTypeToString Inanimate = "inanimate"
+
 getRulesType : JSONDict -> Checked RulesType
 getRulesType dict = case hasKey "rulesType" dict of
   False => pure Inanimate
@@ -112,7 +116,16 @@ ObjectCaster BehaviorParameters where
 
 export
 Serialize BehaviorParameters where
-  toDict bp = ?sdkfskdfk
+  toDict bp = with ST do
+    bpObject <- makeObject
+    addString bpObject "ref" $ ref bp
+    addIntDict bpObject "int_parameters" $ intParameters bp
+    addDoubleDict bpObject "double_parameters" $ doubleParameters bp
+    addStringlistDict bpObject "stringlist_parameters" $ stringlistParameters bp
+    addStringDict bpObject "string_parameters" $ stringParameters bp
+    addBool bpObject "logTransitions" $ logTransitions bp
+    addStringMaybe bpObject "rulesType" $ map rulesTypeToString $ rulesType bp
+    getDict bpObject
 
 public export
 record RulesDescription where

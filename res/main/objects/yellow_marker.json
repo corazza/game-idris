@@ -13,11 +13,5 @@
         }
       }
     ]
-  },
-
-  "render": {
-    "method": {
-      "type": "invisible"
-    }
   }
 }

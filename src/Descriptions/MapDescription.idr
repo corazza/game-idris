@@ -57,8 +57,11 @@ Serialize Creation where
     addString creationObject "ref" $ ref creation
     addVector creationObject "position" $ position creation
     addDoubleMaybe creationObject "angle" $ angle creation
-    addObjectMaybe creationObject "behavior" $ map serialize' $ behavior creation
-    ?sdfksdfk
+    addObjectMaybe creationObject "behavior" $ behavior creation
+    addStringMaybe creationObject "id" $ id creation
+    addObjectMaybe creationObject "render" $ render creation
+    addObjectMaybe creationObject "body" $ body creation
+    getDict creationObject
 
 export
 creationForEditor : (ref : ContentReference) ->
@@ -113,6 +116,13 @@ ObjectCaster Background where
     dimensions <- getVector "dimensions" dict
     pure $ MkBackground image dimensions
 
+Serialize Background where
+  toDict bg = with ST do
+    bgObject <- makeObject
+    addString bgObject "image" $ image bg
+    addVector bgObject "dimensions" $ dimensions bg
+    getDict bgObject
+
 public export
 record StaticCreation where
   constructor MkStaticCreation
@@ -124,6 +134,12 @@ ObjectCaster StaticCreation where
     id <- getString "id" dict
     creation <- the (Checked Creation) $ objectCast dict
     pure $ MkStaticCreation id creation
+
+Serialize StaticCreation where
+  toDict sc = with ST do
+    scObject <- makeObjectFrom $ creation sc
+    addString scObject "id" $ id sc
+    getDict scObject
 
 export
 processStaticCreations : List (StaticCreation, ObjectDescription) ->
@@ -171,6 +187,20 @@ ObjectCaster MapDescription where
     joints <- catResults $ the (List (Checked JointDescription)) $ map cast jointsJSON
     music <- getStringMaybe "music" dict
     pure $ MkMapDescription name dimensions spawn background creations static joints music
+
+export
+Serialize MapDescription where
+  toDict md = with ST do
+    mdObject <- makeObject
+    addString mdObject "name" $ name md
+    addVector mdObject "dimensions" $ dimensions md
+    addVector mdObject "spawn" $ spawn md
+    addObject' mdObject "background" $ background md
+    addObjectArray mdObject "creations" $ creations md
+    addObjectArray mdObject "static" $ static md
+    addObjectArray mdObject "joints" $ joints md
+    addStringMaybe mdObject "music" $ music md
+    getDict mdObject
 
 export
 addDynamic : Creation -> MapDescription -> MapDescription

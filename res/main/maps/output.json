@@ -1,0 +1,550 @@
+{
+     "background": {
+          "dimensions": [
+               30,
+               10.7335
+          ],
+          "image": "main/images/backgrounds/castle.jpg"
+     },
+     "creations": [
+          {
+               "behavior": {
+                    "double_parameters": {},
+                    "int_parameters": {},
+                    "logTransitions": false,
+                    "ref": "main/behaviors/door.json",
+                    "string_parameters": {
+                         "to": "main/maps/encampment.json"
+                    },
+                    "stringlist_parameters": {}
+               },
+               "position": [
+                    0,
+                    -6
+               ],
+               "ref": "main/objects/yellow_marker.json"
+          },
+          {
+               "position": [
+                    -6.2,
+                    -6.1
+               ],
+               "ref": "main/objects/wooden_crate.json"
+          },
+          {
+               "position": [
+                    -5.1,
+                    -6.1
+               ],
+               "ref": "main/objects/wooden_crate.json"
+          },
+          {
+               "position": [
+                    -5.1,
+                    -5.1
+               ],
+               "ref": "main/objects/wooden_crate.json"
+          },
+          {
+               "position": [
+                    -4,
+                    -4
+               ],
+               "ref": "main/objects/wooden_crate.json"
+          },
+          {
+               "position": [
+                    -4,
+                    -5.1
+               ],
+               "ref": "main/objects/wooden_crate.json"
+          },
+          {
+               "position": [
+                    -4,
+                    -6.1
+               ],
+               "ref": "main/objects/wooden_crate.json"
+          },
+          {
+               "position": [
+                    -10,
+                    -9
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "behavior": {
+                    "double_parameters": {
+                         "chase_duration": 10
+                    },
+                    "int_parameters": {},
+                    "logTransitions": false,
+                    "ref": "main/behaviors/hold-chase.json",
+                    "rulesType": "animate",
+                    "string_parameters": {},
+                    "stringlist_parameters": {}
+               },
+               "position": [
+                    1,
+                    0.5
+               ],
+               "ref": "main/objects/mage-2.json"
+          },
+          {
+               "position": [
+                    10,
+                    -9
+               ],
+               "ref": "main/objects/mage-3.json"
+          },
+          {
+               "id": "map_castle_metal_ledge_1",
+               "position": [
+                    1,
+                    -5
+               ],
+               "ref": "main/objects/metal_ledge.json"
+          },
+          {
+               "id": "map_castle_static_joint_1",
+               "position": [
+                    1,
+                    -5
+               ],
+               "ref": "main/objects/static_joint.json"
+          },
+          {
+               "behavior": {
+                    "double_parameters": {},
+                    "int_parameters": {},
+                    "logTransitions": false,
+                    "ref": "main/behaviors/loot.json",
+                    "string_parameters": {
+                         "loot": "main/items/demonic_bow.json"
+                    },
+                    "stringlist_parameters": {}
+               },
+               "position": [
+                    5,
+                    -5
+               ],
+               "ref": "main/objects/drop.json",
+               "render": {
+                    "method": {
+                         "dimensions": [
+                              0.7,
+                              0.7
+                         ],
+                         "facingRight": true,
+                         "image": "main/images/demonic_weapons/demonic_bows/Bow 1 Animation/Bow-1.png",
+                         "type": "single"
+                    }
+               }
+          },
+          {
+               "behavior": {
+                    "double_parameters": {},
+                    "int_parameters": {},
+                    "logTransitions": false,
+                    "ref": "main/behaviors/loot.json",
+                    "string_parameters": {
+                         "loot": "main/items/black_sword.json"
+                    },
+                    "stringlist_parameters": {}
+               },
+               "position": [
+                    10,
+                    -5
+               ],
+               "ref": "main/objects/drop.json",
+               "render": {
+                    "method": {
+                         "dimensions": [
+                              0.7,
+                              0.7
+                         ],
+                         "facingRight": true,
+                         "image": "main/images/black_sword.png",
+                         "type": "single"
+                    }
+               }
+          },
+          {
+               "position": [
+                    -11.6,
+                    2.855555555555555
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    -3.111111111111111,
+                    6.811111111111112
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    11.44444444444444,
+                    6.233333333333333
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    8.044444444444444,
+                    -1.877777777777778
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    -6.533333333333333,
+                    0.6777777777777776
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    -8.222222222222223,
+                    4.811111111111111
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    -6.355555555555556,
+                    6.877777777777778
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    -0.7777777777777778,
+                    7.5
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    8.711111111111112,
+                    5.233333333333333
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    9.28888888888889,
+                    1.433333333333333
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    5.377777777777778,
+                    -0.2555555555555555
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    4.600000000000001,
+                    7.9
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    -1.844444444444445,
+                    2.655555555555555
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    0.4666666666666667,
+                    1.5
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    -0.5777777777777778,
+                    7.9
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    -2.955555555555556,
+                    6.966666666666667
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    7.066666666666667,
+                    3.966666666666667
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    7.155555555555556,
+                    3.3
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    2.866666666666667,
+                    4.477777777777778
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    0.6,
+                    5.477777777777778
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    -4.911111111111111,
+                    7.055555555555555
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    -15.33333333333333,
+                    8.611111111111111
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    -14.08888888888889,
+                    6.433333333333334
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    -12.11111111111111,
+                    -2.433333333333334
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    -13.62222222222222,
+                    -2.388888888888889
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    -15.15555555555556,
+                    2.188888888888889
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    -10.28888888888889,
+                    7.655555555555556
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    -5.711111111111111,
+                    10.41111111111111
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    5.266666666666667,
+                    7.211111111111111
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    16.88888888888889,
+                    0.833333333333333
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    15.55555555555556,
+                    -3.233333333333333
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    9.577777777777778,
+                    -2.922222222222222
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    2.133333333333333,
+                    -2.188888888888889
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    -3.822222222222222,
+                    -2.122222222222223
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    -0.8666666666666667,
+                    3.544444444444444
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    -6.688888888888889,
+                    4.5
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    -9.955555555555556,
+                    2.366666666666667
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    -6.666666666666667,
+                    1.122222222222222
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    -3.022222222222222,
+                    4.077777777777778
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    -8.622222222222222,
+                    -0.7888888888888888
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    -8.244444444444445,
+                    -3.877777777777778
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    4.066666666666666,
+                    2.344444444444445
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    16.2,
+                    12.34444444444444
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    4.177777777777778,
+                    10.54444444444444
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    -2.177777777777778,
+                    11.76666666666667
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "position": [
+                    8.088888888888889,
+                    7.588888888888889
+               ],
+               "ref": "main/objects/cultist.json"
+          }
+     ],
+     "dimensions": [
+          200,
+          100
+     ],
+     "joints": [
+          {
+               "bodyA": "map_castle_metal_ledge_1",
+               "bodyB": "map_castle_static_joint_1",
+               "localAnchorA": [
+                    0,
+                    0
+               ],
+               "localAnchorB": [
+                    0,
+                    0
+               ],
+               "type": "revolute"
+          }
+     ],
+     "music": "main/music/broken_souls.wav",
+     "name": "Castle",
+     "spawn": [
+          0,
+          -7
+     ],
+     "static": [
+          {
+               "body": {
+                    "categoryBits": [
+                         "wall"
+                    ],
+                    "fixtures": [
+                         {
+                              "friction": 0.5,
+                              "shape": {
+                                   "dimensions": [
+                                        30,
+                                        1
+                                   ],
+                                   "type": "box"
+                              }
+                         }
+                    ],
+                    "physicsEffects": [],
+                    "type": "static"
+               },
+               "id": "map_castle_invisible_wall",
+               "position": [
+                    0,
+                    -9.5
+               ],
+               "ref": "main/objects/invisible_wall.json"
+          }
+     ]
+}

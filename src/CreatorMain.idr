@@ -25,8 +25,8 @@ loop creator = case !(iterate creator) of
   False => pure ()
   True => loop creator
 
-start : (GameIO m, Creator m) => ST m () []
-start = with ST do
+start : (GameIO m, Creator m) => String -> ST m () []
+start map_ref = with ST do
   Right preload_info <- lift $ checkedJSONLoad {r=Preload} "res/main/preload.json"
         | Left e => with ST do
               lift $ log "couldn't load preload info, error:"
@@ -37,15 +37,19 @@ start = with ST do
               lift $ log e
 
   creator <- startCreator defaultClientSettings preload
-  loadMap creator "main/maps/castle.json"
+  loadMap creator map_ref
   loop creator
   map_result <- getMap creator
   endCreator creator
   case map_result of
     Nothing => pure ()
-    Just map_desc => lift $ log $ show map_desc
+    Just map_desc => lift $
+      GameIO.write (pretty map_desc) "res_work/creator/output.json"
 
 main : IO ()
 main = with IO do
   disableBuffering
-  run start
+  args <- getArgs
+  case args of
+    [prog, map_ref] => run $ start map_ref
+    _ => log $ "provide name of map to edit, e.g. \"main/maps/castle.json\""

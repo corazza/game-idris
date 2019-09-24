@@ -85,7 +85,6 @@ executeMethod : SDL m => GameIO m =>
                (flip : Int) ->
                (rendering_description : RenderMethod) ->
                ST m () [sdl ::: SSDL {m}]
-executeMethod aq preload sdl camera id position angle flip Invisible = pure ()
 executeMethod aq preload sdl camera id position angle flip (Tiled ref tileDims@(w, h) howMany@(nx, ny))
   = let tileDimsFull = dimToScreen camera (2 `scale` tileDims)
         topleft = position - (cast nx * w, - cast ny * h)

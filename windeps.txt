@@ -1,9 +1,0 @@
-c:\msys64\mingw64\bin\SDL2_IMAGE.DLL
-c:\msys64\mingw64\bin\LIBSDL2_GFX-1-0-0.DLL
-c:\msys64\mingw64\bin\SDL2.DLL
-c:\msys64\mingw64\bin\LIBBOX2D.DLL
-c:\program files\haskell platform\8.6.3\mingw\bin\LIBSTDC++-6.DLL
-c:\program files\haskell platform\8.6.3\mingw\bin\LIBWINPTHREAD-1.DLL
-
-c:\msys64\mingw64\bin\LIBJPEG-8.DLL
-c:\program files\haskell platform\8.6.3\mingw\bin\LIBGCC_S_SEH-1.DLL

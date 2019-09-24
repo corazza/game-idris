@@ -15,5 +15,12 @@ ObjectCaster BodyFlags where
     pure $ MkBodyFlags drop
 
 export
+Serialize BodyFlags where
+  toDict bf = with ST do
+    bfObject <- makeObject
+    addBool bfObject "drop" $ BodyFlags.drop bf
+    getDict bfObject
+
+export
 defaultFlags : BodyFlags
 defaultFlags = MkBodyFlags False

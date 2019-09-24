@@ -37,3 +37,15 @@ ObjectCaster JointDescription where
         collideConnected <- getBoolMaybe "collideConnected" dict
         pure $ MkJointDescription bodyA localAnchorA bodyB localAnchorB collideConnected
       _ => fail "joint type must be of \"revolute\""
+
+export
+Serialize JointDescription where
+  toDict jd = with ST do
+    jdObject <- makeObject
+    addString jdObject "type" "revolute"
+    addString jdObject "bodyA" $ bodyA jd
+    addString jdObject "bodyB" $ bodyB jd
+    addVector jdObject "localAnchorA" $ localAnchorA jd
+    addVector jdObject "localAnchorB" $ localAnchorB jd
+    addBoolMaybe jdObject "collideConnected" $ collideConnected jd
+    getDict jdObject

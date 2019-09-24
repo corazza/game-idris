@@ -18,6 +18,7 @@ interface (Monad m, ConsoleIO m) => GameIO (m : Type -> Type) where
   loadJSON : (filepath : String) -> m (Maybe JSON)
   checkedJSONLoad : (Cast JSON (Checked r), GameIO m) => (filepath : String) -> m (Checked r)
   write : (what : String) -> (filepath : String) -> m ()
+  saveJSON : Serialize a => a -> (filepath : String) -> m ()
 
   log : String -> m ()
 
@@ -62,6 +63,8 @@ GameIO IO where
     writeFile filepath what
     pure ()
 
+  saveJSON x filepath = write (pretty x) filepath
+
   log = putStrLn
 
   createWorld = Box2D.createWorld
@@ -92,7 +95,11 @@ ObjectCaster a => Cast JSON (Checked a) where
   cast _ = fail "not a JSON object"
 
 export
-pick : (fieldName : String) -> (key : String) -> (from : Dict String a) -> Checked a
+pick : Ord k => Show k =>
+       (fieldName : String) ->
+       (key : k) ->
+       (from : Dict k a) ->
+       Checked a
 pick fieldName key from = case lookup key from of
   Nothing => fail $ fieldName ++ " must be of " ++ show (keys from)
   Just x => pure x

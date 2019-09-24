@@ -30,7 +30,8 @@
 
   "maps": [
     "main/maps/castle.json",
-    "main/maps/encampment.json"
+    "main/maps/encampment.json",
+    "main/maps/output.json"
   ],
 
   "behaviors": [

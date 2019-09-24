@@ -20,6 +20,14 @@ ObjectCaster EquipmentRender where
     legs <- getVector "legs" dict
     pure $ MkEquipmentRender head hands legs
 
+Serialize EquipmentRender where
+  toDict er = with ST do
+    erObject <- makeObject
+    addVector erObject "head" $ head er
+    addVector erObject "hands" $ hands er
+    addVector erObject "legs" $ legs er
+    getDict erObject
+
 public export
 record AnimationParameters where
   constructor MkAnimationParameters
@@ -50,13 +58,22 @@ ObjectCaster AnimationParameters where
     equip <- the (Checked (Maybe EquipmentRender)) $ getCastableMaybe "equip" dict
     pure $ MkAnimationParameters animation dimensions fps equip
 
+export
+Serialize AnimationParameters where
+  toDict ap = with ST do
+    apObject <- makeObject
+    addString apObject "animation" $ ref ap
+    addVector apObject "dimensions" $ dimensions ap
+    addDouble apObject "fps" $ fps ap
+    addObjectMaybe apObject "equip" $ equipment ap
+    getDict apObject
+
 public export
 AnimationParametersDict : Type
 AnimationParametersDict = Dict String AnimationParameters
 
 public export
-data RenderMethod = Invisible
-                  | Tiled ContentReference Vector2D (Nat, Nat)
+data RenderMethod = Tiled ContentReference Vector2D (Nat, Nat)
                   | ColoredCircle Color Double
                   | ColoredRect Color Vector2D
                   | Single ContentReference Vector2D Bool
@@ -75,7 +92,6 @@ getSingleAnimation' = map snd . head' . Dict.toList
 
 export
 Show RenderMethod where
-  show Invisible = "invisible"
   show (Tiled ref tileDims repeat)
     =    "tiled with " ++ show ref
     ++ " (tileDims: " ++ show tileDims
@@ -94,11 +110,7 @@ toParameters (state, json) = case the (Checked AnimationParameters) (cast json) 
 getAnimationStates : Dict String JSON -> Checked (Dict String AnimationParameters)
 getAnimationStates dict = case lookup "states" dict of
   Nothing => fail "missing animation states"
-  Just (JObject xs) => with Checked do
-    let attempt = map toParameters xs
-    -- aparams <- foldr toChecked (pure empty) attempt
-    aparams <- catResults attempt
-    pure $ fromList aparams
+  Just (JObject xs) => catResults (map toParameters xs) >>= pure . fromList
   _ => fail "animation states aren't JObject"
 
 export
@@ -106,7 +118,6 @@ ObjectCaster RenderMethod where
   objectCast dict = with Checked do
     type <- getString "type" dict
     case type of
-      "invisible" => pure Invisible
       "color" => with Checked do
         color <- getColor "color" dict
         case (hasKey "dimensions" dict, hasKey "radius" dict) of
@@ -125,7 +136,41 @@ ObjectCaster RenderMethod where
         (nx, ny) <- getIntPair "repeat" dict
         pure $ Tiled image tileDims (cast nx, cast ny)
       "animated" => getAnimationStates dict >>= pure . Animated
-      _ => fail "render type must be of \"invisible\"|\"single\"|\"tile\"|\"animated\""
+      _ => fail "render type must be of \"single\"|\"tile\"|\"animated\"|\"color\""
+
+export
+Serialize RenderMethod where
+  toDict (Tiled ref tileDims (nx, ny)) = with ST do
+    rmObject <- makeObject
+    addString rmObject "type" "tile"
+    addString rmObject "image" ref
+    addVector rmObject "tileDims" tileDims
+    addIntPair rmObject "repeat" (cast nx, cast ny)
+    getDict rmObject
+  toDict (ColoredCircle color radius) = with ST do
+    rmObject <- makeObject
+    addString rmObject "type" "color"
+    addColor rmObject "color" color
+    addDouble rmObject "radius" radius
+    getDict rmObject
+  toDict (ColoredRect color dims) = with ST do
+    rmObject <- makeObject
+    addString rmObject "type" "color"
+    addColor rmObject "color" color
+    addVector rmObject "dimensions" dims
+    getDict rmObject
+  toDict (Single ref dims facingRight) = with ST do
+    rmObject <- makeObject
+    addString rmObject "type" "single"
+    addString rmObject "image" ref
+    addVector rmObject "dimensions" dims
+    addBool rmObject "facingRight" facingRight
+    getDict rmObject
+  toDict (Animated statesDict) = with ST do
+    rmObject <- makeObject
+    addString rmObject "type" "animated"
+    addObject rmObject "states" $ map serializeToJSON statesDict
+    getDict rmObject
 
 public export
 record InfoRenderParameters where
@@ -140,6 +185,12 @@ ObjectCaster InfoRenderParameters where
   objectCast dict = with Checked do
     yd <- getDouble "yd" dict
     pure $ MkInfoRenderParameters yd
+
+Serialize InfoRenderParameters where
+  toDict irp = with ST do
+    irpObject <- makeObject
+    addDouble irpObject "yd" $ yd irp
+    getDict irpObject
 
 public export
 record RenderDescription where
@@ -163,3 +214,12 @@ ObjectCaster RenderDescription where
     info <- the (Checked (Maybe InfoRenderParameters)) $ getCastableMaybe "info" dict
     let layer = eitherToMaybe $ getInt "layer" dict
     pure $ MkRenderDescription method info (map cast layer)
+
+export
+Serialize RenderDescription where
+  toDict rd = with ST do
+    rdObject <- makeObject
+    addObject' rdObject "method" $ method rd
+    addObjectMaybe rdObject "info" $ info rd
+    addIntMaybe rdObject "layer" $ map cast $ layer rd
+    getDict rdObject
