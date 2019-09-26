@@ -59,6 +59,21 @@ interface Creator (m : Type -> Type) where
                ST m () [creator ::: SCreator]
 
   private
+  setTool : (creator : Var) ->
+            (tool : Tool) ->
+            ST m () [creator ::: SCreator]
+
+  private
+  processClick : (creator : Var) ->
+                 (click : Click) ->
+                 ST m () [creator ::: SCreator]
+
+  private
+  processClicks : (creator : Var) ->
+                  (clicks : List Click) ->
+                  ST m () [creator ::: SCreator]
+
+  private
   render : (creator : Var) ->
            ST m () [creator ::: SCreator]
 
@@ -139,7 +154,6 @@ export
   loadMap creator map_ref = with ST do
     [pcreator, sdl, map_creator, ui] <- split creator
     MapCreator.loadMap map_creator map_ref
-    setTool map_creator Tools.Remove
     combine creator [pcreator, sdl, map_creator, ui]
 
   getMap creator = with ST do
@@ -175,6 +189,23 @@ export
   runCommands creator (cmd::xs)
     = runCommand creator cmd >>= const (runCommands creator xs)
 
+  setTool creator tool = with ST do
+    [pcreator, sdl, map_creator, ui] <- split creator
+    MapCreator.setTool map_creator tool
+    combine creator [pcreator, sdl, map_creator, ui]
+
+  processClick creator (Inventory x) = pure ()
+  processClick creator (Character x) = pure ()
+  processClick creator MainMenuExit = pure ()
+  processClick creator MainMenuOptions = pure ()
+  processClick creator CreatorRemove = setTool creator Tools.Remove
+  processClick creator CreatorAdd = setTool creator $
+    Tools.Add "main/objects/wooden_crate.json"
+
+  processClicks creator [] = pure ()
+  processClicks creator (x::xs) = processClick creator x >>=
+    const (processClicks creator xs)
+
   iterate creator = with ST do
     render creator
     sdl_events <- poll
@@ -183,9 +214,9 @@ export
       Right (clientCommands, commands) => with ST do
         clientCommands' <- feedUI creator clientCommands
         clicks <- getClicks creator
-        lift $ log $ show clicks
         runClientCommands creator clientCommands
         runCommands creator commands
+        processClicks creator clicks
         [pcreator, sdl, map_creator, ui] <- split creator
         MapCreator.iterate map_creator
         combine creator [pcreator, sdl, map_creator, ui]

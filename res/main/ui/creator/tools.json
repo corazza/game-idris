@@ -57,6 +57,7 @@
           "name": "spacer",
           "width": 50,
           "height": 50,
+          "click": "creator add",
           "layout": "vertical",
           "displayStyle": "center",
           "children": []

@@ -169,6 +169,41 @@
                          "type": "single"
                     }
                }
+          },
+          {
+               "position": [
+                    -9.994215363225246,
+                    3.810743768053431
+               ],
+               "ref": "main/objects/wooden_crate.json"
+          },
+          {
+               "position": [
+                    -2.900619976108477,
+                    3.925619806711193
+               ],
+               "ref": "main/objects/wooden_crate.json"
+          },
+          {
+               "position": [
+                    3.877066304699449,
+                    6.10826454120866
+               ],
+               "ref": "main/objects/wooden_crate.json"
+          },
+          {
+               "position": [
+                    8.73057893798987,
+                    2.97789248778466
+               ],
+               "ref": "main/objects/wooden_crate.json"
+          },
+          {
+               "position": [
+                    8.902892995976513,
+                    0.4219006276494683
+               ],
+               "ref": "main/objects/wooden_crate.json"
           }
      ],
      "dimensions": [

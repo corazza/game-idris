@@ -160,11 +160,11 @@ dimensionsFromChildren surface xs
   = let widths = map fst xs
         heights = map snd xs
         in case layout (surfaceParameters surface) of
-            Vertical => let x = fromMaybe 0 $ head' $ sort widths
+            Vertical => let x = fromMaybe 0 $ head' $ sortBy (flip compare) widths
                             y = sum heights
                             in (x, y)
             Horizontal => let x = sum widths
-                              y = fromMaybe 0 $ head' $ sort heights
+                              y = fromMaybe 0 $ head' $ sortBy (flip compare) heights
                               in (x, y)
 
 decideDimensions : UISurface -> List (Int, Int) -> (Int, Int)

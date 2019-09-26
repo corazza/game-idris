@@ -124,6 +124,7 @@ Show Click where
   show CreatorRemove = "creator remove"
   show CreatorAdd = "creator add"
 
+-- other types of clicks are created dynamically
 getClick : JSONDict -> Checked (Maybe Click)
 getClick dict = case hasKey "click" dict of
   True => with Checked do
