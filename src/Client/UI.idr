@@ -234,13 +234,6 @@ export
     setSurface ui ref desc
     setSurfaces ui xs
 
-  processCommand ui (Stop MainMenu) = with ST do
-    toggleRoot ui "main/ui/main_menu.json" 100 100
-    pure $ Left ()
-  processCommand ui command@(Stop Inventory) = with ST do
-    toggleRoot ui "main/ui/character.json" 400 200
-    toggleRoot ui "main/ui/inventory.json" 650 200
-    pure $ Right command -- not eaten because the client has to feed further info
   processCommand ui (Mouse x) = pure $ map Mouse !(processMouseEvent ui x)
   processCommand ui command = pure $ Right command
 

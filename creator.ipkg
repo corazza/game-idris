@@ -57,6 +57,8 @@ modules = Data.AVL.DDict
         , Creator.PCreator
         , Creator.MapCreator
         , Creator.MapCreator.PMapCreator
+        , Creator.MapCreator.Tools
+        , Creator.MapCreator.MapCreatorControl
 
 main = CreatorMain
 

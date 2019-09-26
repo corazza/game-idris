@@ -11,6 +11,7 @@ import Client.ClientCommands
 import Creator.PCreator
 import Creator.MapCreator
 import Creator.MapCreator.PMapCreator
+import Creator.MapCreator.Tools
 import Descriptions.MapDescription
 import Descriptions.SurfaceDescription
 import GameIO
@@ -50,6 +51,12 @@ interface Creator (m : Type -> Type) where
 
   iterate : (creator : Var) ->
             ST m Bool [creator ::: SCreator]
+
+  toggleRoot : (creator : Var) ->
+               (ref : ContentReference) ->
+               (x : Int) ->
+               (y : Int) ->
+               ST m () [creator ::: SCreator]
 
   private
   render : (creator : Var) ->
@@ -132,7 +139,7 @@ export
   loadMap creator map_ref = with ST do
     [pcreator, sdl, map_creator, ui] <- split creator
     MapCreator.loadMap map_creator map_ref
-    setAdding map_creator "main/objects/cultist.json"
+    setTool map_creator Tools.Remove
     combine creator [pcreator, sdl, map_creator, ui]
 
   getMap creator = with ST do
@@ -145,6 +152,7 @@ export
     [pcreator, sdl, map_creator, ui] <- split creator
     clear sdl
     renderMapCreator map_creator sdl
+    renderUI ui sdl
     present sdl
     combine creator [pcreator, sdl, map_creator, ui]
 
@@ -174,6 +182,8 @@ export
     case processEvents "map creator" camera sdl_events of
       Right (clientCommands, commands) => with ST do
         clientCommands' <- feedUI creator clientCommands
+        clicks <- getClicks creator
+        lift $ log $ show clicks
         runClientCommands creator clientCommands
         runCommands creator commands
         [pcreator, sdl, map_creator, ui] <- split creator
@@ -205,3 +215,8 @@ export
     clicks <- UI.getClicks ui
     combine creator [pcreator, sdl, map_creator, ui]
     pure clicks
+
+  toggleRoot creator ref x y = with ST do
+    [pcreator, sdl, map_creator, ui] <- split creator
+    UI.toggleRoot ui ref x y
+    combine creator [pcreator, sdl, map_creator, ui]

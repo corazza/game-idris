@@ -152,6 +152,14 @@ interface Client (m : Type -> Type) where
                     (x : Int) -> (y : Int) ->
                     ST m (Maybe Command) [client ::: SClient Connected]
 
+  private
+  toggleRoot : (client : Var) ->
+               (ref : ContentReference) ->
+               (x : Int) ->
+               (y : Int) ->
+               ST m () [client ::: SClient Connected]
+
+
 export
 (GameIO m, Rendering m, SDL m) => Client m where
   SClient Disconnected = Composite [State PClient, SUI {m}, SSDL {m}]
@@ -284,7 +292,13 @@ export
     pure Nothing
   runClientCommand client (Mouse (ButtonDown x y)) = characterAttack client Start x y
   runClientCommand client (Mouse (ButtonUp x y)) = characterAttack client Stop x y
-  runClientCommand client (Stop Inventory) = runClientCommand client RefreshInventory
+  runClientCommand client (Stop MainMenu) = with ST do
+    toggleRoot client "main/ui/main_menu.json" 100 100
+    pure Nothing
+  runClientCommand client (Stop Inventory) = with ST do
+    toggleRoot client "main/ui/character.json" 400 200
+    toggleRoot client "main/ui/inventory.json" 650 200
+    runClientCommand client RefreshInventory
   runClientCommand client RefreshInventory = with ST do
     items' <- querySessionData client (items . character)
     preload <- queryPClient client preload {s=Connected}
@@ -401,3 +415,8 @@ export
   getSettings client = with ST do
     refreshSettings client
     queryPClient client settings {s=Connected}
+
+  toggleRoot client ref x y = with ST do
+    [pclient, session_data, rendering, ui, sdl] <- split client
+    UI.toggleRoot ui ref x y
+    combine client [pclient, session_data, rendering, ui, sdl]

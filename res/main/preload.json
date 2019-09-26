@@ -50,7 +50,8 @@
   "ui": [
     "main/ui/main_menu.json",
     "main/ui/inventory.json",
-    "main/ui/character.json"
+    "main/ui/character.json",
+    "main/ui/creator/tools.json"
   ],
 
   "fonts": [

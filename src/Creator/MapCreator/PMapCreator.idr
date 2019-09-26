@@ -10,64 +10,8 @@ import Commands
 import Client.Rendering.Camera
 import Client.Rendering.Layers
 import Client.Rendering.PositionData
-
-public export
-record AddingData where
-  constructor MkAddingData
-  ref : ContentReference
-  angle : Double
-
-initialAddingData : ContentReference -> AddingData
-initialAddingData ref = MkAddingData ref 0.0
-
-normalizedAngle : Double -> Double
-normalizedAngle angle =
-      let fills = the Int $ cast $ angle / (2*pi)
-          in angle - (cast fills * 2 * pi)
-
-normalizeAngle : AddingData -> AddingData
-normalizeAngle = record { angle $= normalizedAngle }
-
-rotateAdding : Double -> AddingData -> AddingData
-rotateAdding angle' = normalizeAngle . (record { angle $= (+) angle' })
-
-public export
-record MapCreatorControl where
-  constructor MkMapCreatorControl
-  movingLeft : Bool
-  movingRight : Bool
-  movingUp : Bool
-  movingDown : Bool
-
-initialControl : MapCreatorControl
-initialControl = MkMapCreatorControl False False False False
-
-moveSelectors : MapCreatorControl -> List (Bool, Vector2D)
-moveSelectors control =  [
-  (movingLeft control, (-1, 0)),
-  (movingRight control, (1, 0)),
-  (movingUp control, (0, 1)),
-  (movingDown control, (0, -1))
-]
-
-export
-getMove : MapCreatorControl -> Vector2D
-getMove control = let summed = sum $ map snd $ filter fst $ moveSelectors control
-                      in if norm summed == 0 then nullVector else normed summed
-
-export
-startMoving : Direction -> MapCreatorControl -> MapCreatorControl
-startMoving Left = record { movingLeft = True }
-startMoving Right = record { movingRight = True }
-startMoving Up = record { movingUp = True }
-startMoving Down = record { movingDown = True }
-
-export
-stopMoving : Direction -> MapCreatorControl -> MapCreatorControl
-stopMoving Left = record { movingLeft = False }
-stopMoving Right = record { movingRight = False }
-stopMoving Up = record { movingUp = False }
-stopMoving Down = record { movingDown = False }
+import Creator.MapCreator.Tools
+import Creator.MapCreator.MapCreatorControl
 
 public export
 record PMapCreator where
@@ -80,7 +24,8 @@ record PMapCreator where
   positions : Objects PositionData
   control : MapCreatorControl
   lastms : Int
-  adding : Maybe AddingData
+  adding : AddingData
+  tool : Maybe Tool
   mouseLast : Vector2D
 
 defaultCamera : Camera
@@ -90,7 +35,7 @@ export
 initialPMapCreator : Int -> PreloadResults -> PMapCreator
 initialPMapCreator lastms preload
   = MkPMapCreator Z preload Nothing defaultCamera empty empty initialControl
-                  lastms Nothing nullVector
+                  lastms initialAddingData Nothing nullVector
 
 export
 setLastms : Int -> PMapCreator -> PMapCreator
@@ -101,16 +46,16 @@ setMouseLast : Vector2D -> PMapCreator -> PMapCreator
 setMouseLast pos = record { mouseLast = pos }
 
 export
-pmapSetAdding : ContentReference -> PMapCreator -> PMapCreator
-pmapSetAdding ref = record { adding = Just $ initialAddingData ref }
+pmapSetTool : Tool -> PMapCreator -> PMapCreator
+pmapSetTool tool = record { tool = Just $ tool }
 
 export
-pmapUnsetAdding : PMapCreator -> PMapCreator
-pmapUnsetAdding = record { adding = Nothing }
+pmapUnsetTool : PMapCreator -> PMapCreator
+pmapUnsetTool = record { tool = Nothing }
 
 export
 pmapRotateAdding : Double -> PMapCreator -> PMapCreator
-pmapRotateAdding angle = record { adding $= map $ rotateAdding angle }
+pmapRotateAdding angle = record { adding $= rotateAdding angle }
 
 export
 scounter : PMapCreator -> PMapCreator

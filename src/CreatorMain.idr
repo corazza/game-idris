@@ -38,6 +38,7 @@ start map_ref = with ST do
 
   creator <- startCreator defaultClientSettings preload
   loadMap creator map_ref
+  toggleRoot creator "main/ui/creator/tools.json" 50 50
   loop creator
   map_result <- getMap creator
   endCreator creator
@@ -51,5 +52,5 @@ main = with IO do
   disableBuffering
   args <- getArgs
   case args of
-    [prog, map_ref] => run $ start map_ref
+    [_, map_ref] => run $ start map_ref
     _ => log $ "provide name of map to edit, e.g. \"main/maps/castle.json\""

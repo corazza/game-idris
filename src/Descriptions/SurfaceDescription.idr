@@ -101,11 +101,15 @@ data Click = Inventory ContentReference
            | Character ContentReference
            | MainMenuExit
            | MainMenuOptions
+           | CreatorRemove
+           | CreatorAdd
 
 clickDict : Dict String Click
 clickDict = fromList [
   ("main menu exit", MainMenuExit),
-  ("main menu options", MainMenuOptions)
+  ("main menu options", MainMenuOptions),
+  ("creator remove", CreatorRemove),
+  ("creator add", CreatorAdd)
 ]
 
 Cast String (Checked Click) where
@@ -117,6 +121,8 @@ Show Click where
   show (Character x) = "character " ++ x
   show MainMenuExit = "main menu exit"
   show MainMenuOptions = "main menu options"
+  show CreatorRemove = "creator remove"
+  show CreatorAdd = "creator add"
 
 getClick : JSONDict -> Checked (Maybe Click)
 getClick dict = case hasKey "click" dict of
