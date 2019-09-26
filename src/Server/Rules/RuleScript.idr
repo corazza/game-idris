@@ -4,7 +4,6 @@ import Physics.Box2D
 
 import Server.Rules.Behavior
 import Server.Rules.RulesOutput
-import Server.Rules.RuleEvent
 import Server.Rules.NumericProperties
 import Server.Rules.RulesData
 import Client.ClientCommands
