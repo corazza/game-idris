@@ -74,6 +74,16 @@ tile {m} sdl camera texture (x, y) (w, h) (nx, S ny) = (with ST do
       tileRow (x' + w, y') k
 
 export
+getDimensions : RenderMethod -> Vector2D
+getDimensions (Tiled ref tileDims (nx, ny))
+  = let (w, h) = 2.0 `scale` tileDims in (cast nx * w, cast ny * h)
+getDimensions (ColoredRect color dims) = dims
+getDimensions (ColoredCircle color radius) = (radius * 2, radius * 2)
+getDimensions (Single ref dims facingRight) = dims
+getDimensions (Animated state_dict)
+  = fromMaybe (1, 1) $ map snd $ getSingleAnimation state_dict
+
+export
 executeMethod : SDL m => GameIO m =>
                (aq : ObjectId -> Maybe AnimationState) ->
                (preload : PreloadResults) ->

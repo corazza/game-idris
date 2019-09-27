@@ -103,6 +103,7 @@ data Click = Inventory ContentReference
            | MainMenuOptions
            | CreatorRemove
            | CreatorAdd
+           | CreatorObjectSelect ContentReference
 
 clickDict : Dict String Click
 clickDict = fromList [
@@ -123,6 +124,7 @@ Show Click where
   show MainMenuOptions = "main menu options"
   show CreatorRemove = "creator remove"
   show CreatorAdd = "creator add"
+  show (CreatorObjectSelect ref) = "select " ++ ref
 
 -- other types of clicks are created dynamically
 getClick : JSONDict -> Checked (Maybe Click)

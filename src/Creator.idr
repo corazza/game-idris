@@ -10,6 +10,7 @@ import Client.SDL
 import Client.ClientCommands
 import Creator.PCreator
 import Creator.MapCreator
+import Creator.UI.ObjectsSurfaces
 import Creator.MapCreator.PMapCreator
 import Creator.MapCreator.Tools
 import Descriptions.MapDescription
@@ -57,6 +58,10 @@ interface Creator (m : Type -> Type) where
                (x : Int) ->
                (y : Int) ->
                ST m () [creator ::: SCreator]
+
+
+  private
+  updateObjectList : (creator : Var) -> ST m () [creator ::: SCreator]
 
   private
   setTool : (creator : Var) ->
@@ -199,12 +204,23 @@ export
   processClick creator MainMenuExit = pure ()
   processClick creator MainMenuOptions = pure ()
   processClick creator CreatorRemove = setTool creator Tools.Remove
-  processClick creator CreatorAdd = setTool creator $
-    Tools.Add "main/objects/wooden_crate.json"
+  processClick creator CreatorAdd = with ST do
+    toggleRoot creator "main/ui/creator/objects.json" 300 300
+    updateObjectList creator
+  processClick creator (CreatorObjectSelect ref) = with ST do
+    setTool creator $ Tools.Add ref
+    toggleRoot creator "main/ui/creator/objects.json" 300 300
 
   processClicks creator [] = pure ()
   processClicks creator (x::xs) = processClick creator x >>=
     const (processClicks creator xs)
+
+  updateObjectList creator = with ST do
+    preload' <- queryPCreator creator preload
+    let objectsSurfaces' = objectsSurfaces preload'
+    [pcreator, sdl, map_creator, ui] <- split creator
+    setSurfaceChildren ui objectslistRef objectsSurfaces'
+    combine creator [pcreator, sdl, map_creator, ui]
 
   iterate creator = with ST do
     render creator

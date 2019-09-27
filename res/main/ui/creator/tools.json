@@ -57,7 +57,6 @@
           "name": "spacer",
           "width": 50,
           "height": 50,
-          "click": "creator add",
           "layout": "vertical",
           "displayStyle": "center",
           "children": []
@@ -86,7 +85,7 @@
               "height": 20,
               "render": {
                 "type": "text",
-                "text": "Add",
+                "text": "Add object",
                 "font": "main/fonts/ui_text.json"
               }
             }

@@ -89,6 +89,10 @@ interface MapCreator (m : Type -> Type) where
               (position : PositionData) ->
               ST m () [map_creator ::: SMapCreator]
 
+  removeObject : (map_creator : Var) ->
+                 (id : ObjectId) ->
+                 ST m () [map_creator ::: SMapCreator]
+
   private
   newId : (map_creator : Var) -> ST m ObjectId [map_creator ::: SMapCreator]
   private
@@ -151,11 +155,18 @@ export
       Left e => lift $ log $
         "(editAddDynamicAt) couldn't get object description, error:\n" ++ e
       Right object_desc => with ST do
-        let creation = creationForEditor ref position
+        id' <- newId map_creator
+        let creation = creationForEditor ref position $ Just id'
         updatePMapCreator map_creator $ editAddDynamic creation
         let positionData = noFlip position $ angle adding_data
-        id' <- newId map_creator
         addObject map_creator id' object_desc positionData
+
+  editRemoveCreationFrom map_creator position = with ST do
+    posdims <- queryPMapCreator map_creator positions
+    layers' <- queryPMapCreator map_creator layers
+    case getIdAt posdims layers' position of
+      Nothing => pure ()
+      Just id => removeObject map_creator id
 
   runCommand map_creator (Start (Movement direction) id)
     = updatePMapCreator map_creator $ updateControl $ startMoving direction
@@ -216,8 +227,13 @@ export
   addObject map_creator id desc positionData = case render desc of
     Nothing => pure ()
     Just render_desc => with ST do
+      let dims = getDimensions $ method render_desc
       updatePMapCreator map_creator $ updateLayers $ addToLayer id render_desc
-      updatePMapCreator map_creator $ addToPositions id positionData
+      updatePMapCreator map_creator $ addToPositions id positionData dims
+
+  removeObject map_creator id = with ST do
+    updatePMapCreator map_creator $ updateLayers $ removeFromLayers id
+
 
   addStatic map_creator [] = pure ()
   addStatic map_creator ((creation, desc)::xs)
@@ -248,6 +264,10 @@ export
           camera' <- queryPMapCreator map_creator camera
           let at = screenToPosition camera' (x, y)
           editAddDynamicAt map_creator ref at
+        Just Remove => with ST do
+          camera' <- queryPMapCreator map_creator camera
+          let at = screenToPosition camera' (x, y)
+          editRemoveCreationFrom map_creator at
         _ => pure ()
   runClientCommand map_creator (Mouse (Move x y)) = with ST do
     camera' <- queryPMapCreator map_creator camera
@@ -275,7 +295,7 @@ renderLayer map_creator sdl ((id, render_description)::xs) = with ST do
     Nothing =>  with ST do
       lift $ log $ "renderLayer: no body data for " ++ id
       renderLayer map_creator sdl xs
-    Just position_data => with ST do
+    Just (position_data, dims) => with ST do
       camera' <- queryPMapCreator map_creator camera
       let position' = position position_data
       let angle' = radToDeg $ angle position_data

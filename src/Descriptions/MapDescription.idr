@@ -66,9 +66,10 @@ Serialize Creation where
 export
 creationForEditor : (ref : ContentReference) ->
                     (position : Vector2D) ->
+                    (id : Maybe ObjectId) ->
                     Creation
-creationForEditor ref position =
-  MkCreation ref position Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+creationForEditor ref position id =
+  MkCreation ref position Nothing Nothing Nothing Nothing id Nothing Nothing
 
 makeCreationStatic : Creation -> Creation
 makeCreationStatic = record { body $= map makeStatic }

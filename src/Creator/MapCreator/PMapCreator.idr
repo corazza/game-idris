@@ -21,7 +21,7 @@ record PMapCreator where
   map_desc : Maybe MapDescription
   camera : Camera
   layers : Layers
-  positions : Objects PositionData
+  positions : Objects (PositionData, Vector2D)
   control : MapCreatorControl
   lastms : Int
   adding : AddingData
@@ -90,10 +90,36 @@ queryLayers : (q : Layers -> a) -> PMapCreator -> a
 queryLayers q = q . layers
 
 export
-addToPositions : ObjectId -> PositionData -> PMapCreator -> PMapCreator
-addToPositions id positionData = record { positions $= addObject id positionData }
+addToPositions : ObjectId -> PositionData -> Vector2D -> PMapCreator -> PMapCreator
+addToPositions id positionData dims
+  = record { positions $= addObject id (positionData, dims) }
+
+-- export
 
 -- EDIT functions
+isClicked : Vector2D -> (ObjectId, PositionData, Vector2D) -> Bool
+isClicked (at_x, at_y) (_, position_data, (w, h))
+  = let (x, y) = position position_data
+        in at_x > x-w && at_x < x+w && at_y > y-h && at_y < y+h
+
+export
+getIdAt : Objects (PositionData, Vector2D) -> Layers -> Vector2D -> Maybe ObjectId
+getIdAt pos layers at = pickTop $ map fst $ filter (isClicked at) $ toList pos where
+  sortWithLayer : (Nat, String) -> (Nat, String) -> Ordering
+  sortWithLayer (x, _) (y, _) = compare y x
+
+  filterNoLayer : List (Maybe Nat, String) -> List (Nat, String)
+  filterNoLayer = foldr addConditional empty where
+    addConditional : (Maybe Nat, String) -> List (Nat, String) -> List (Nat, String)
+    addConditional (Nothing, _) acc = acc
+    addConditional (Just x, id) acc = append (x, id) acc
+
+  pickTop : List ObjectId -> Maybe ObjectId
+  pickTop xs = let layerNums = map (flip getLayer layers) xs
+                   withLayer = filterNoLayer $ zip layerNums xs
+                   sorted = sortBy sortWithLayer withLayer
+                   in map snd $ head' sorted
+
 export
 editAddDynamic : Creation -> PMapCreator -> PMapCreator
 editAddDynamic creation = record { map_desc $= map $ addDynamic creation }

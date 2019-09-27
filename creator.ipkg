@@ -55,6 +55,8 @@ modules = Data.AVL.DDict
         , Client.UI.Character
         , Creator
         , Creator.PCreator
+        , Creator.UI
+        , Creator.UI.ObjectSurfaces
         , Creator.MapCreator
         , Creator.MapCreator.PMapCreator
         , Creator.MapCreator.Tools

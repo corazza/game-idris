@@ -10,7 +10,9 @@ import Physics.Vector2D -- needed only for empty/dummy/default objects REMOVE
 import Exception
 import GameIO
 import Objects
+import Descriptions.Color
 import Descriptions.ObjectDescription
+import Descriptions.ObjectDescription.RenderDescription
 import Descriptions.ObjectDescription.RulesDescription.BehaviorDescription
 import Descriptions.MapDescription
 import Descriptions.ItemDescription
@@ -29,11 +31,12 @@ record Preload where
   items : List ContentReference
   ui : List ContentReference
   fonts : List ContentReference
+  creatorObjects : List ContentReference
 %name Preload preload
 
 export
 Show Preload where
-  show (MkPreload objects animations maps behaviors items ui fonts)
+  show (MkPreload objects animations maps behaviors items ui fonts cos)
     =  "{ objects: " ++ show objects
     ++ ", animations: " ++ show animations
     ++ ", maps: " ++ show maps
@@ -53,7 +56,8 @@ ObjectCaster Preload where
     items <- getStrings "items" dict
     ui <- getStrings "ui" dict
     fonts <- getStrings "fonts" dict
-    pure $ MkPreload objects animations maps behaviors items ui fonts
+    creatorObjects <- getStrings "creatorObjects" dict
+    pure $ MkPreload objects animations maps behaviors items ui fonts creatorObjects
 
 public export
 CacheType : Type -> Type
@@ -70,6 +74,7 @@ record PreloadResults where
   ui : CacheType SurfaceDescription
   fonts : CacheType FontDescription
   numPropRender : NumPropRenderDescriptionDict
+  creatorObjects : List ContentReference
 %name PreloadResults preload
 
 lookupError : (ref : ContentReference) -> (type : String) -> String
@@ -224,4 +229,19 @@ preloadResults preload_info = with ST do
         | Left e => pure (fail e)
   pure $ Right $ MkPreloadResults
     objects_dict animations_dict maps_dict behaviors_dict items_dict
-    ui_dict fonts_dict numPropRender
+    ui_dict fonts_dict numPropRender (creatorObjects preload_info)
+
+export
+getIcon : PreloadResults -> RenderDescription -> Checked ContentReference
+getIcon preload = methodGetIcon . method where
+  getAnimationIcon : ContentReference -> Checked ContentReference
+  getAnimationIcon ref = getAnimationDescription ref preload >>= pure . sheet
+
+  methodGetIcon : RenderMethod -> Checked ContentReference
+  methodGetIcon (Tiled ref y z) = pure ref
+  methodGetIcon (ColoredCircle color x) = pure "main/images/wooden_crate.png"
+  methodGetIcon (ColoredRect color x) = pure "main/images/wooden_crate.png"
+  methodGetIcon (Single ref y z) = pure ref
+  methodGetIcon (Animated stateDict) = case getSingleAnimation stateDict of
+    Nothing => fail "getSingleAnimation failed (methodGetIcon)"
+    Just (ref, _) => getAnimationIcon ref

@@ -51,12 +51,22 @@
     "main/ui/main_menu.json",
     "main/ui/inventory.json",
     "main/ui/character.json",
-    "main/ui/creator/tools.json"
+    "main/ui/creator/tools.json",
+    "main/ui/creator/objects.json"
   ],
 
   "fonts": [
     "main/fonts/inventory_count.json",
     "main/fonts/ui_title.json",
     "main/fonts/ui_text.json"
+  ],
+
+  "creatorObjects": [
+    "main/objects/wooden_crate.json",
+    "main/objects/mage-1.json",
+    "main/objects/mage-2.json",
+    "main/objects/mage-3.json",
+    "main/objects/cultist.json",
+    "main/objects/metal_ledge.json"
   ]
 }

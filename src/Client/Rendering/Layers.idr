@@ -47,3 +47,10 @@ export
 getRenderingDescription : ObjectId -> Layers -> Maybe RenderDescription
 getRenderingDescription id
   = head' . catMaybes . map (DDict.lookup id) . map snd . toList
+
+lookupMap : ObjectId -> (Nat, Objects RenderDescription) -> (Nat, Bool)
+lookupMap id (x, layer) = (x, hasKey id layer)
+
+export
+getLayer : ObjectId -> Layers -> Maybe Nat
+getLayer id = map fst . head' . filter snd . map (lookupMap id) . toList
