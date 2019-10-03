@@ -74,6 +74,7 @@ creationForEditor ref position id =
 makeCreationStatic : Creation -> Creation
 makeCreationStatic = record { body $= map makeStatic }
 
+export
 setId : ObjectId -> Creation -> Creation
 setId id' = record { id = Just id' }
 
@@ -129,25 +130,68 @@ record StaticCreation where
   constructor MkStaticCreation
   id : String
   creation : Creation
+  render : Maybe RenderMethod
 
 ObjectCaster StaticCreation where
   objectCast dict = with Checked do
     id <- getString "id" dict
     creation <- the (Checked Creation) $ objectCast dict
-    pure $ MkStaticCreation id creation
+    render <- the (Checked (Maybe RenderMethod)) $
+      getCastableMaybe "render_creator" dict
+    pure $ MkStaticCreation id creation render
 
 Serialize StaticCreation where
   toDict sc = with ST do
     scObject <- makeObjectFrom $ creation sc
     addString scObject "id" $ id sc
+    addObjectMaybe scObject "render_creator" $ render sc
     getDict scObject
+
+setRender : RenderMethod -> StaticCreation -> StaticCreation
+setRender rm = record { render = Just rm }
+
+shapeToRender : Shape -> RenderMethod
+shapeToRender (Circle radius) = ColoredCircle color_white radius
+shapeToRender (Box dims) = OutlineRect color_white dims
+shapeToRender (Polygon xs) = OutlineRect color_white (1, 1)
+
+fixtureToRender : FixtureDefinition -> RenderMethod
+fixtureToRender fd = shapeToRender $ shape fd
+
+generateStaticRender' : StaticCreation -> StaticCreation
+generateStaticRender' static = case body (creation static) of
+  Just body_desc => case fixtures body_desc of
+    (fixture_def::xs) => setRender (fixtureToRender fixture_def) static
+    _ => static
+  Nothing => static
+
+generateStaticRender : StaticCreation -> StaticCreation
+generateStaticRender static = case render static of
+  Nothing => generateStaticRender' static
+  Just x => static
+
+export
+creationForRectWall : ObjectId ->
+                      (position : Vector2D) ->
+                      (dims : Vector2D) ->
+                      StaticCreation
+creationForRectWall id position dims
+  = let shape = Box dims
+        fp = MkFixtureParameters
+          Nothing Nothing Nothing Nothing Nothing Nothing (Just 1) Nothing Nothing
+        fixture = fixtureFromParametersShape fp shape
+        body_desc = MkBodyDescription
+          Static Nothing Nothing [fixture] empty Nothing Nothing Nothing Nothing
+        creation = MkCreation "main/objects/invisible_wall.json" position Nothing
+                              Nothing Nothing Nothing (Just id) Nothing (Just body_desc)
+        in generateStaticRender $ MkStaticCreation id creation Nothing
 
 export
 processStaticCreations : List (StaticCreation, ObjectDescription) ->
                          List (Creation, ObjectDescription)
 processStaticCreations = map processPair where
   processPair : (StaticCreation, ObjectDescription) -> (Creation, ObjectDescription)
-  processPair (MkStaticCreation id creation, desc)
+  processPair (MkStaticCreation id creation render, desc)
     = (((setId id) . makeCreationStatic) creation, makeObjectDescStatic desc)
 
 public export
@@ -206,3 +250,23 @@ Serialize MapDescription where
 export
 addDynamic : Creation -> MapDescription -> MapDescription
 addDynamic creation = record { creations $= append creation }
+
+export
+removeDynamic : ObjectId -> MapDescription -> MapDescription
+removeDynamic id' = record { creations $= filter $ \x => id x /= Just id' }
+
+export
+addStatic : StaticCreation -> MapDescription -> MapDescription
+addStatic creation = record { static $= append creation }
+
+export
+removeStatic : ObjectId -> MapDescription -> MapDescription
+removeStatic id' = record { static $= filter $ \x => id x /= id' }
+
+export
+generateStaticRenders : MapDescription -> MapDescription
+generateStaticRenders = record { static $= map generateStaticRender }
+
+export
+setSpawn : Vector2D -> MapDescription -> MapDescription
+setSpawn pos = record { spawn = pos }

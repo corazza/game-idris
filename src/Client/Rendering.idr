@@ -89,7 +89,7 @@ interface SDL m => Rendering (m : Type -> Type) where
   private
   initAnimation : (rendering : Var) ->
                   (id : ObjectId) ->
-                  (desc : RenderMethod) ->
+                  (desc : Maybe RenderMethod) ->
                   ST m () [rendering ::: SRendering]
 
   private
@@ -117,12 +117,12 @@ export
     Nothing => pure ()
     Just render_desc => with ST do
       update rendering $ updateLayers $ addToLayer id render_desc
-      initAnimation rendering id $ method $ render_desc
+      initAnimation rendering id $ method render_desc
       case rules desc of
         Nothing => pure ()
         Just rules_desc => update rendering $ addInfo id rules_desc
 
-  initAnimation rendering id (Animated stateDict)
+  initAnimation rendering id (Just (Animated stateDict))
     = ticks >>= update rendering . addInitialAnimationState id
   initAnimation rendering id _ = pure ()
 
@@ -250,7 +250,7 @@ renderEquipment' : SDL m => Rendering m => GameIO m =>
                    ST m () [rendering ::: SRendering {m}, sdl ::: SSDL {m}]
 renderEquipment' rendering sdl camera id position angle flip desc
   = case method desc of
-      Animated state_dict =>
+      Just (Animated state_dict) =>
         case !(queryPRendering rendering (getAnimationState id)) of
           Nothing => pure ()
           Just (MkAnimationState name started attackShowing) =>

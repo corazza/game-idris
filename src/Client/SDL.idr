@@ -6,6 +6,7 @@ import Data.AVL.Dict
 import Graphics.SDL2 as SDL2
 
 import Client.SDL.PSDL
+import Client.SDL.Points
 import Descriptions.Color
 import Descriptions.FontDescription
 import Exception
@@ -31,40 +32,64 @@ interface SDL (m : Type -> Type) where
   SSDL : Type
 
   startSDL : Int -> Int -> PreloadResults -> ST m Var [add SSDL]
-  endSDL : (draw : Var) -> ST m () [remove draw SSDL]
+  endSDL : (sdl : Var) -> ST m () [remove sdl SSDL]
 
   queryPSDL : (sdl : Var) -> (q : PSDL -> a) -> ST m a [sdl ::: SSDL]
   updatePSDL : (sdl : Var) -> (f : PSDL -> PSDL) -> ST m () [sdl ::: SSDL]
 
   poll : STrans m (List SDL2.Event) xs (const xs)
 
-  clear : (draw : Var) -> ST m Int [draw ::: SSDL]
-  present : (draw : Var) -> ST m () [draw ::: SSDL]
+  clear : (sdl : Var) -> ST m Int [sdl ::: SSDL]
+  present : (sdl : Var) -> ST m () [sdl ::: SSDL]
 
   -- TODO the SDL lib should obviously accept Maybe SDLRect so these two methods
   -- could be unified
   -- TODO FIX URGENT flipping logic should be handled here, not in game code!!!!
-  drawWholeCenter : (draw : Var) ->
+  drawWholeCenter : (sdl : Var) ->
                     (ref : ContentReference) ->
                     (dst : SDLRect) ->
                     (angle : Double) ->
                     (flip : Int) ->
-                    ST m () [draw ::: SSDL]
+                    ST m () [sdl ::: SSDL]
 
-  drawCenter : (draw : Var) ->
+  drawCenter : (sdl : Var) ->
                (ref : ContentReference) ->
                (src : SDLRect) ->
                (dst : SDLRect) ->
                (angle : Double) ->
                (flip : Int) ->
-               ST m () [draw ::: SSDL]
+               ST m () [sdl ::: SSDL]
 
-  filledRect : (draw : Var) -> (dst : SDLRect) -> Color -> ST m () [draw ::: SSDL]
-  drawText : (draw : Var) ->
+  filledRect : (sdl : Var) -> (dst : SDLRect) -> Color -> ST m () [sdl ::: SSDL]
+  outlineRect : (sdl : Var) -> (dst : SDLRect) -> Color -> ST m () [sdl ::: SSDL]
+
+  filledEllipse : (sdl : Var) ->
+                  (position : (Int, Int)) ->
+                  (radii : (Int, Int)) ->
+                  Color ->
+                  ST m () [sdl ::: SSDL]
+
+  gfxFilledRect : (sdl : Var) ->
+                  (topright : (Int, Int)) ->
+                  (bottomleft : (Int, Int)) ->
+                  (color : Color) ->
+                  ST m () [sdl ::: SSDL]
+
+  filledPolygon : (sdl : Var) ->
+                  (points : List ScreenPoint) ->
+                  Color ->
+                  ST m () [sdl ::: SSDL]
+
+  outlinePolygon : (sdl : Var) ->
+                   (points : List ScreenPoint) ->
+                   Color ->
+                   ST m () [sdl ::: SSDL]
+
+  drawText : (sdl : Var) ->
              (text : String) ->
              (font_desc_ref : ContentReference) ->
              (dst : SDLRect) ->
-             ST m () [draw ::: SSDL]
+             ST m () [sdl ::: SSDL]
 
   -- TODO resetCache : ...
 
@@ -150,6 +175,33 @@ SDL IO where
   filledRect sdl (MkSDLRect x y z w) (MkColor r g b a) = with ST do
     [renderer, textureCache, psdl] <- split sdl
     lift $ SDL2.filledRect !(read renderer) x y z w r g b a
+    combine sdl [renderer, textureCache, psdl]
+
+  outlineRect sdl (MkSDLRect x y z w) (MkColor r g b a) = with ST do
+    [renderer, textureCache, psdl] <- split sdl
+    lift $ SDL2.outlineRect !(read renderer) x y z w r g b a
+    combine sdl [renderer, textureCache, psdl]
+
+  filledEllipse sdl (x, y) (rx, ry) (MkColor r g b a) = with ST do
+    [renderer, textureCache, psdl] <- split sdl
+    lift $ SDL2.filledEllipse !(read renderer) x y rx ry r g b a
+    combine sdl [renderer, textureCache, psdl]
+
+  gfxFilledRect sdl (x1, y1) (x2, y2) (MkColor r g b a) = with ST do
+    [renderer, textureCache, psdl] <- split sdl
+    lift $ SDL2.gfxFilledRect !(read renderer) x1 y1 x2 y2 r g b a
+    combine sdl [renderer, textureCache, psdl]
+
+  filledPolygon sdl points (MkColor r g b a) = with ST do
+    let (vx, vy) = screenPointsToSDLPoints points
+    [renderer, textureCache, psdl] <- split sdl
+    lift $ SDL2.filledPolygon !(read renderer) vx vy r g b a
+    combine sdl [renderer, textureCache, psdl]
+
+  outlinePolygon sdl points (MkColor r g b a) = with ST do
+    let (vx, vy) = screenPointsToSDLPoints points
+    [renderer, textureCache, psdl] <- split sdl
+    lift $ SDL2.outlinePolygon !(read renderer) vx vy r g b a
     combine sdl [renderer, textureCache, psdl]
 
   drawText sdl text font_desc_ref rect = with ST do

@@ -103,14 +103,20 @@ data Click = Inventory ContentReference
            | MainMenuOptions
            | CreatorRemove
            | CreatorAdd
+           | CreatorAddWall
            | CreatorObjectSelect ContentReference
+           | CreatorWallSelectRect
+           | CreatorSetSpawn
 
 clickDict : Dict String Click
 clickDict = fromList [
   ("main menu exit", MainMenuExit),
   ("main menu options", MainMenuOptions),
   ("creator remove", CreatorRemove),
-  ("creator add", CreatorAdd)
+  ("creator add", CreatorAdd),
+  ("creator add wall", CreatorAddWall),
+  ("creator wall select rect", CreatorWallSelectRect),
+  ("creator set spawn", CreatorSetSpawn)
 ]
 
 Cast String (Checked Click) where
@@ -124,7 +130,10 @@ Show Click where
   show MainMenuOptions = "main menu options"
   show CreatorRemove = "creator remove"
   show CreatorAdd = "creator add"
+  show CreatorAddWall = "creator add wall"
   show (CreatorObjectSelect ref) = "select " ++ ref
+  show CreatorWallSelectRect = "select rect wall"
+  show CreatorSetSpawn = "creator set spawn"
 
 -- other types of clicks are created dynamically
 getClick : JSONDict -> Checked (Maybe Click)

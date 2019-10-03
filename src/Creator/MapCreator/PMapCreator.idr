@@ -5,6 +5,8 @@ import Physics.Vector2D
 import JSONCache
 import GameIO
 import Descriptions.MapDescription
+import Descriptions.Color
+import Descriptions.ObjectDescription.RenderDescription
 import Settings
 import Commands
 import Client.Rendering.Camera
@@ -12,6 +14,18 @@ import Client.Rendering.Layers
 import Client.Rendering.PositionData
 import Creator.MapCreator.Tools
 import Creator.MapCreator.MapCreatorControl
+
+export
+objBackground : Color
+objBackground = MkColor 165 103 255 100
+
+export
+wallBackground : Color
+wallBackground = MkColor 0 171 84 100
+
+export
+spawnColor : Color
+spawnColor = MkColor 55 8 200 120
 
 public export
 record PMapCreator where
@@ -21,6 +35,7 @@ record PMapCreator where
   map_desc : Maybe MapDescription
   camera : Camera
   layers : Layers
+  invisibles : Objects RenderMethod
   positions : Objects (PositionData, Vector2D)
   control : MapCreatorControl
   lastms : Int
@@ -34,7 +49,7 @@ defaultCamera = fromSettings defaultCameraSettings
 export
 initialPMapCreator : Int -> PreloadResults -> PMapCreator
 initialPMapCreator lastms preload
-  = MkPMapCreator Z preload Nothing defaultCamera empty empty initialControl
+  = MkPMapCreator Z preload Nothing defaultCamera empty empty empty initialControl
                   lastms initialAddingData Nothing nullVector
 
 export
@@ -56,6 +71,10 @@ pmapUnsetTool = record { tool = Nothing }
 export
 pmapRotateAdding : Double -> PMapCreator -> PMapCreator
 pmapRotateAdding angle = record { adding $= rotateAdding angle }
+
+export
+updateAdding : (f : AddingData -> AddingData) -> PMapCreator -> PMapCreator
+updateAdding f = record { adding $= f }
 
 export
 scounter : PMapCreator -> PMapCreator
@@ -90,28 +109,47 @@ queryLayers : (q : Layers -> a) -> PMapCreator -> a
 queryLayers q = q . layers
 
 export
+addToInvisibles : ObjectId -> RenderMethod -> PMapCreator -> PMapCreator
+addToInvisibles id m = record { invisibles $= addObject id m }
+
+export
+removeFromInvisibles : ObjectId -> PMapCreator -> PMapCreator
+removeFromInvisibles id = record { invisibles $= removeObject id }
+
+export
 addToPositions : ObjectId -> PositionData -> Vector2D -> PMapCreator -> PMapCreator
 addToPositions id positionData dims
   = record { positions $= addObject id (positionData, dims) }
 
--- export
+export
+removeFromPositions : ObjectId -> PMapCreator -> PMapCreator
+removeFromPositions id = record { positions $= removeObject id }
+
+export
+updateMap : (f : MapDescription -> MapDescription) -> PMapCreator -> PMapCreator
+updateMap f = record { map_desc $= map f }
+
+export -- will only be used by MapCreator so defined here
+setDynamic : List Creation -> MapDescription -> MapDescription
+setDynamic xs = record { creations = xs }
 
 -- EDIT functions
-isClicked : Vector2D -> (ObjectId, PositionData, Vector2D) -> Bool
-isClicked (at_x, at_y) (_, position_data, (w, h))
-  = let (x, y) = position position_data
-        in at_x > x-w && at_x < x+w && at_y > y-h && at_y < y+h
-
 export
 getIdAt : Objects (PositionData, Vector2D) -> Layers -> Vector2D -> Maybe ObjectId
 getIdAt pos layers at = pickTop $ map fst $ filter (isClicked at) $ toList pos where
+  isClicked : Vector2D -> (ObjectId, PositionData, Vector2D) -> Bool
+  isClicked (at_x, at_y) (_, position_data, (w, h))
+    = let (x, y) = position position_data
+          in at_x > x-w && at_x < x+w && at_y > y-h && at_y < y+h
+
   sortWithLayer : (Nat, String) -> (Nat, String) -> Ordering
   sortWithLayer (x, _) (y, _) = compare y x
 
   filterNoLayer : List (Maybe Nat, String) -> List (Nat, String)
   filterNoLayer = foldr addConditional empty where
+    -- objects without a layer regarded as layer Z
     addConditional : (Maybe Nat, String) -> List (Nat, String) -> List (Nat, String)
-    addConditional (Nothing, _) acc = acc
+    addConditional (Nothing, id) acc = append (Z, id) acc
     addConditional (Just x, id) acc = append (x, id) acc
 
   pickTop : List ObjectId -> Maybe ObjectId
@@ -121,5 +159,26 @@ getIdAt pos layers at = pickTop $ map fst $ filter (isClicked at) $ toList pos w
                    in map snd $ head' sorted
 
 export
+getWallPosDims : (beginpos : Vector2D) -> (endpos : Vector2D) -> (Vector2D, Vector2D)
+getWallPosDims beginpos endpos = let dimv = 0.5 `scale` (endpos - beginpos)
+                                     in (beginpos + dimv, abs dimv)
+
+export
 editAddDynamic : Creation -> PMapCreator -> PMapCreator
 editAddDynamic creation = record { map_desc $= map $ addDynamic creation }
+
+export
+editRemoveDynamic : ObjectId -> PMapCreator -> PMapCreator
+editRemoveDynamic id = record { map_desc $= map $ removeDynamic id }
+
+export
+editAddStatic : StaticCreation -> PMapCreator -> PMapCreator
+editAddStatic creation = record { map_desc $= map $ addStatic creation }
+
+export
+editRemoveStatic : ObjectId -> PMapCreator -> PMapCreator
+editRemoveStatic id = record { map_desc $= map $ removeStatic id }
+
+export
+editSetSpawn : Vector2D -> PMapCreator -> PMapCreator
+editSetSpawn pos = record { map_desc $= map $ setSpawn pos }

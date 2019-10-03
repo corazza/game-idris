@@ -4,6 +4,8 @@ import Graphics.SDL2 as SDL2
 import public Physics.Vector2D
 
 import Settings
+import Client.SDL.Points
+import Client.Rendering.Transforms
 
 round : Double -> Int
 round x = if x < 0.0 then cast (x - 0.5) else cast (x + 0.5)
@@ -76,6 +78,15 @@ getRect camera position dimensions
         (x, y) = positionToScreen camera (position - dimensions')
         (x', y') = positionToScreen camera (position + dimensions')
         (w, h) = (x' - x, y' - y) in MkSDLRect x y w h
+
+export
+getRotatedRect : Camera ->
+                 (position : Vector2D) ->
+                 (dimensions : Vector2D) ->
+                 (angle : Double) ->
+                 List ScreenPoint
+getRotatedRect camera position dimensions angle
+  = map (positionToScreen camera) $ makeRotatedRect angle position dimensions
 
 export
 dimToScreen' : Camera -> Vector2D -> (Int, Int)

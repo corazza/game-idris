@@ -10,7 +10,7 @@ public export
 record PositionData where
   constructor MkPositionData
   position : Vector2D
-  angle : Double
+  angle : Double -- in degrees
   flip : Int
 
 getFlip : BodyData -> Int
@@ -21,6 +21,10 @@ getFlip body_data = case forceDirection body_data of
 export
 radToDeg : Double -> Double
 radToDeg angle = - angle / (2.0*pi) * 360.0
+
+export
+degToRad : Double -> Double
+degToRad angle = - (angle / 360.0) * 2.0*pi
 
 getDegAngle : BodyData -> Double
 getDegAngle = radToDeg . angle
@@ -43,5 +47,5 @@ fromCreation' : StaticCreation -> PositionData
 fromCreation'  = fromCreation . creation
 
 export
-noFlip : Vector2D -> Double-> PositionData
-noFlip pos angle = MkPositionData pos angle 0
+noFlip : Vector2D -> Double -> PositionData
+noFlip pos angle = MkPositionData pos (radToDeg angle) 0

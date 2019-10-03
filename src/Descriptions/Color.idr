@@ -33,3 +33,7 @@ addColor object key (MkColor r g b a) = with ST do
   appendDouble colorArray $ cast a
   colorArray' <- getArray colorArray
   addArray object key colorArray'
+
+export
+color_white : Color
+color_white = MkColor 255 255 255 255

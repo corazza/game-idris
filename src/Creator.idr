@@ -67,6 +67,9 @@ interface Creator (m : Type -> Type) where
   setTool : (creator : Var) ->
             (tool : Tool) ->
             ST m () [creator ::: SCreator]
+  private
+  unsetTool : (creator : Var) ->
+            ST m () [creator ::: SCreator]
 
   private
   processClick : (creator : Var) ->
@@ -199,17 +202,33 @@ export
     MapCreator.setTool map_creator tool
     combine creator [pcreator, sdl, map_creator, ui]
 
+  unsetTool creator = with ST do
+    [pcreator, sdl, map_creator, ui] <- split creator
+    MapCreator.unsetTool map_creator
+    combine creator [pcreator, sdl, map_creator, ui]
+
   processClick creator (Inventory x) = pure ()
   processClick creator (Character x) = pure ()
   processClick creator MainMenuExit = pure ()
   processClick creator MainMenuOptions = pure ()
   processClick creator CreatorRemove = setTool creator Tools.Remove
   processClick creator CreatorAdd = with ST do
+    unsetTool creator
     toggleRoot creator "main/ui/creator/objects.json" 300 300
     updateObjectList creator
+  processClick creator CreatorAddWall = with ST do
+    unsetTool creator
+    toggleRoot creator "main/ui/creator/walls.json" 600 300
   processClick creator (CreatorObjectSelect ref) = with ST do
     setTool creator $ Tools.Add ref
     toggleRoot creator "main/ui/creator/objects.json" 300 300
+  processClick creator CreatorWallSelectRect = with ST do
+    setTool creator Tools.AddRectWall
+    toggleRoot creator "main/ui/creator/walls.json" 600 300
+  processClick creator CreatorSetSpawn = with ST do
+    setTool creator Tools.SetSpawn
+  processClick creator click = lift $ log $
+    "unhandled click in creator: " ++ show click
 
   processClicks creator [] = pure ()
   processClicks creator (x::xs) = processClick creator x >>=

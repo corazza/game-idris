@@ -54,7 +54,7 @@
         },
 
         {
-          "name": "spacer",
+          "name": "spacer1",
           "width": 50,
           "height": 50,
           "layout": "vertical",
@@ -86,6 +86,84 @@
               "render": {
                 "type": "text",
                 "text": "Add object",
+                "font": "main/fonts/ui_text.json"
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "spacer2",
+          "width": 50,
+          "height": 50,
+          "layout": "vertical",
+          "displayStyle": "center",
+          "children": []
+        },
+
+        {
+          "name": "walls",
+          "layout": "vertical",
+          "displayStyle": "center",
+          "click": "creator add wall",
+          "children": [
+            {
+              "layout": "vertical",
+              "displayStyle": "center",
+              "width": 50,
+              "height": 50,
+              "render": {
+                "type": "image",
+                "image": "main/images/metal_ledge.png"
+              }
+            },
+            {
+              "layout": "vertical",
+              "displayStyle": "center",
+              "width": 50,
+              "height": 20,
+              "render": {
+                "type": "text",
+                "text": "Add wall",
+                "font": "main/fonts/ui_text.json"
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "spacer3",
+          "width": 50,
+          "height": 50,
+          "layout": "vertical",
+          "displayStyle": "center",
+          "children": []
+        },
+
+        {
+          "name": "spawn",
+          "layout": "vertical",
+          "displayStyle": "center",
+          "click": "creator set spawn",
+          "children": [
+            {
+              "layout": "vertical",
+              "displayStyle": "center",
+              "width": 50,
+              "height": 50,
+              "render": {
+                "type": "image",
+                "image": "main/images/spawn.png"
+              }
+            },
+            {
+              "layout": "vertical",
+              "displayStyle": "center",
+              "width": 50,
+              "height": 20,
+              "render": {
+                "type": "text",
+                "text": "Set spawn",
                 "font": "main/fonts/ui_text.json"
               }
             }

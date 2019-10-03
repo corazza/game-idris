@@ -13,6 +13,7 @@ import Client.Rendering.Layers
 import Client.Rendering.PositionData
 import Client.Rendering.AnimationState
 import Client.SDL
+import Client.SDL.Points
 import Descriptions.ObjectDescription
 import Descriptions.ObjectDescription.RenderDescription
 import Creator.MapCreator.PMapCreator
@@ -81,11 +82,26 @@ interface MapCreator (m : Type -> Type) where
   editRemoveCreationFrom : (map_creator : Var) ->
                            (position : Vector2D) ->
                            ST m () [map_creator ::: SMapCreator]
+  editAddRectWall : (map_creator : Var) ->
+                    (position : Vector2D) ->
+                    (dims : Vector2D) ->
+                    ST m () [map_creator ::: SMapCreator]
 
+  editSetSpawnAt : (map_creator : Var) ->
+                   (position : Vector2D) ->
+                   ST m () [map_creator ::: SMapCreator]
+
+  private
+  addRenderCreator : (map_creator : Var) ->
+                     (id : ObjectId) ->
+                     (position : PositionData) ->
+                     (render_creator : Maybe RenderMethod) ->
+                     ST m () [map_creator ::: SMapCreator]
   private
   addObject : (map_creator : Var) ->
               (id : ObjectId) ->
-              (desc : ObjectDescription) ->
+              (desc : Maybe ObjectDescription) ->
+              (render_creator : Maybe RenderMethod) ->
               (position : PositionData) ->
               ST m () [map_creator ::: SMapCreator]
 
@@ -97,6 +113,14 @@ interface MapCreator (m : Type -> Type) where
   newId : (map_creator : Var) -> ST m ObjectId [map_creator ::: SMapCreator]
   private
   decideId : (map_creator : Var) -> Creation -> ST m ObjectId [map_creator ::: SMapCreator]
+  private
+  correctDynamicIds' : (map_creator : Var) ->
+                       (creations : List Creation) ->
+                       ST m (List Creation) [map_creator ::: SMapCreator]
+  private
+  correctDynamicIds : (map_creator : Var) -> ST m () [map_creator ::: SMapCreator]
+  private
+  correctStaticRenders : (map_creator : Var) -> ST m () [map_creator ::: SMapCreator]
   private
   addStatic : (map_creator : Var) ->
               List (StaticCreation, ObjectDescription) ->
@@ -159,14 +183,29 @@ export
         let creation = creationForEditor ref position $ Just id'
         updatePMapCreator map_creator $ editAddDynamic creation
         let positionData = noFlip position $ angle adding_data
-        addObject map_creator id' object_desc positionData
+        addObject map_creator id' (Just object_desc) Nothing positionData
 
   editRemoveCreationFrom map_creator position = with ST do
     posdims <- queryPMapCreator map_creator positions
     layers' <- queryPMapCreator map_creator layers
     case getIdAt posdims layers' position of
       Nothing => pure ()
-      Just id => removeObject map_creator id
+      Just id' => with ST do
+        lift $ log id'
+        removeObject map_creator id'
+        updatePMapCreator map_creator $ editRemoveDynamic id'
+        updatePMapCreator map_creator $ editRemoveStatic id'
+
+  editAddRectWall map_creator position dims = with ST do
+    id <- newId map_creator
+    adding_data <- queryPMapCreator map_creator adding
+    let creation = creationForRectWall id position dims
+    updatePMapCreator map_creator $ editAddStatic creation
+    let positionData = noFlip position $ angle adding_data
+    addObject map_creator id Nothing (render creation) positionData
+
+  editSetSpawnAt map_creator position
+    = updatePMapCreator map_creator $ editSetSpawn position
 
   runCommand map_creator (Start (Movement direction) id)
     = updatePMapCreator map_creator $ updateControl $ startMoving direction
@@ -193,9 +232,12 @@ export
         "(loadMap map_creator) client couldn't get map description, error:\n" ++ e
       Right desc => with ST do
         updatePMapCreator map_creator $ setMap desc
-        Right static <- loadStatic map_creator desc | Left e => with ST do
+        correctDynamicIds map_creator
+        correctStaticRenders map_creator
+        Just desc' <- queryPMapCreator map_creator map_desc
+        Right static <- loadStatic map_creator desc' | Left e => with ST do
           lift $ log $ "map creator couldn't get static, error:\n" ++ e
-        Right dynamic <- loadDynamic map_creator desc | Left e => with ST do
+        Right dynamic <- loadDynamic map_creator desc' | Left e => with ST do
           lift $ log $ "map creator couldn't get dynamic, error:\n" ++ e
         addStatic map_creator static
         addDynamic map_creator dynamic
@@ -207,6 +249,21 @@ export
     id_num <- queryPMapCreator map_creator idCounter
     updatePMapCreator map_creator scounter
     pure $ "map_creator_autoid_" ++ show id_num
+
+  correctStaticRenders map_creator = updatePMapCreator map_creator $
+    updateMap $ generateStaticRenders
+
+  correctDynamicIds' map_creator [] = pure []
+  correctDynamicIds' map_creator (creation::xs) = with ST do
+    id' <- decideId map_creator creation
+    let creation' = setId id' creation
+    rest <- correctDynamicIds' map_creator xs
+    pure $ creation' :: rest
+
+  correctDynamicIds map_creator = with ST do
+    Just map_desc' <- queryPMapCreator map_creator map_desc | pure ()
+    updatePMapCreator map_creator $ updateMap $
+      setDynamic !(correctDynamicIds' map_creator (creations map_desc'))
 
   decideId map_creator creation = case Creation.id creation of
     Nothing => newId map_creator
@@ -224,27 +281,41 @@ export
     = queryPMapCreator map_creator preload >>=
         pure . flip getObjectsFromMap map_description
 
-  addObject map_creator id desc positionData = case render desc of
-    Nothing => pure ()
-    Just render_desc => with ST do
-      let dims = getDimensions $ method render_desc
-      updatePMapCreator map_creator $ updateLayers $ addToLayer id render_desc
-      updatePMapCreator map_creator $ addToPositions id positionData dims
+  addRenderCreator map_creator id positionData Nothing = pure ()
+  addRenderCreator map_creator id positionData (Just method) = with ST do
+    let dims = getDimensions method
+    updatePMapCreator map_creator $ addToPositions id positionData dims
+    updatePMapCreator map_creator $ addToInvisibles id method
+
+  addObject map_creator id Nothing render_creator positionData =
+    addRenderCreator map_creator id positionData render_creator
+  addObject map_creator id (Just desc) render_creator positionData = with ST do
+    addRenderCreator map_creator id positionData render_creator
+    case render desc of
+      Nothing => pure ()
+      Just render_desc => case pickRenderMethod render_desc of
+        Just method => with ST do
+          let dims = getDimensions method
+          updatePMapCreator map_creator $ addToPositions id positionData dims
+          updatePMapCreator map_creator $ updateLayers $ addToLayer id render_desc
+        Nothing => pure ()
 
   removeObject map_creator id = with ST do
+    updatePMapCreator map_creator $ removeFromPositions id
     updatePMapCreator map_creator $ updateLayers $ removeFromLayers id
-
+    updatePMapCreator map_creator $ removeFromInvisibles id
 
   addStatic map_creator [] = pure ()
-  addStatic map_creator ((creation, desc)::xs)
-    = addObject map_creator (id creation) desc (fromCreation' creation) >>=
-        const (addStatic map_creator xs)
+  addStatic map_creator ((creation, desc)::xs) = with ST do
+    addObject map_creator (id creation) (Just desc) (render creation)
+              (fromCreation' creation)
+    addStatic map_creator xs
 
   addDynamic map_creator [] = pure ()
   addDynamic map_creator ((creation, desc)::xs) = with ST do
     id' <- decideId map_creator creation
-    addObject map_creator id' desc (fromCreation creation) >>=
-      const (addDynamic map_creator xs)
+    addObject map_creator id' (Just desc) Nothing (fromCreation creation)
+    addDynamic map_creator xs
 
   getAnimationStateQ map_creator =
     pure $ dummyAnimationStates' !ticks
@@ -255,33 +326,85 @@ export
   runClientCommand map_creator (Stop (Zoom x))
     = case !(queryPMapCreator map_creator tool) of
         Just (Add ref) =>
-          updatePMapCreator map_creator $ pmapRotateAdding $ angleChange x
+          updatePMapCreator map_creator $ updateAdding $ rotateAdding $ angleChange x
+        Just AddRectWall =>
+          updatePMapCreator map_creator $ updateAdding $ rotateAdding $ angleChange x
         _ => zoom map_creator x
-  runClientCommand map_creator (Mouse (ButtonDown x y)) = pure ()
-  runClientCommand map_creator (Mouse (ButtonUp x y))
-    = case !(queryPMapCreator map_creator tool) of
-        Just (Add ref) => with ST do
-          camera' <- queryPMapCreator map_creator camera
-          let at = screenToPosition camera' (x, y)
-          editAddDynamicAt map_creator ref at
-        Just Remove => with ST do
-          camera' <- queryPMapCreator map_creator camera
-          let at = screenToPosition camera' (x, y)
-          editRemoveCreationFrom map_creator at
-        _ => pure ()
+  runClientCommand map_creator (Mouse (ButtonDown x y)) = with ST do
+    camera' <- queryPMapCreator map_creator camera
+    let at = screenToPosition camera' (x, y)
+    updatePMapCreator map_creator $ updateAdding $ setSelectBegin at
+  runClientCommand map_creator (Mouse (ButtonUp x y)) = with ST do
+    adding_data <- queryPMapCreator map_creator adding
+    let selectBegin = selectBegin adding_data
+    updatePMapCreator map_creator $ updateAdding unsetSelectBegin
+    case !(queryPMapCreator map_creator tool) of
+      Just (Add ref) => with ST do
+        camera' <- queryPMapCreator map_creator camera
+        let at = screenToPosition camera' (x, y)
+        editAddDynamicAt map_creator ref at
+      Just Remove => with ST do
+        camera' <- queryPMapCreator map_creator camera
+        let at = screenToPosition camera' (x, y)
+        editRemoveCreationFrom map_creator at
+      Just AddRectWall => with ST do
+        camera <- queryPMapCreator map_creator camera
+        let endpos = screenToPosition camera (x, y)
+        case selectBegin of
+          Nothing => pure ()
+          Just beginpos => with ST do
+            let (position, dims) = getWallPosDims beginpos endpos
+            editAddRectWall map_creator position dims
+      Just SetSpawn => with ST do
+        camera <- queryPMapCreator map_creator camera
+        let at = screenToPosition camera (x, y)
+        editSetSpawnAt map_creator at
+      _ => pure ()
   runClientCommand map_creator (Mouse (Move x y)) = with ST do
     camera' <- queryPMapCreator map_creator camera
     updatePMapCreator map_creator $ setMouseLast $ screenToPosition camera' (x, y)
-
+  runClientCommand map_creator _ = pure ()
 
 renderBackground : (SDL m, GameIO m) =>
-                     (map_creator : Var) ->
-                     (sdl : Var) ->
-                     (camera : Camera) ->
-                     ST m () [map_creator ::: SMapCreator {m}, sdl ::: SSDL {m}]
+                   (map_creator : Var) ->
+                   (sdl : Var) ->
+                   (camera : Camera) ->
+                   ST m () [map_creator ::: SMapCreator {m}, sdl ::: SSDL {m}]
 renderBackground map_creator sdl camera = with ST do
   Just map_desc' <- queryPMapCreator map_creator map_desc | pure ()
   renderBackground sdl camera $ background map_desc'
+
+renderSpawn : (SDL m, GameIO m) =>
+              (map_creator : Var) ->
+              (sdl : Var) ->
+              (camera : Camera) ->
+              ST m () [map_creator ::: SMapCreator {m}, sdl ::: SSDL {m}]
+renderSpawn map_creator sdl camera = with ST do
+  Just map_desc' <- queryPMapCreator map_creator map_desc | pure ()
+  let spawn_rect = getRect camera (spawn map_desc') (0.5, 0.5)
+  drawWholeCenter sdl "main/images/spawn.png" spawn_rect 0.0 0
+
+renderInvisibles : SDL m => MapCreator m => GameIO m =>
+                   (map_creator : Var) ->
+                   (sdl : Var) ->
+                   (xs : List (ObjectId, RenderMethod)) ->
+                   ST m () [map_creator ::: SMapCreator {m}, sdl ::: SSDL {m}]
+renderInvisibles map_creator sdl [] = pure ()
+renderInvisibles map_creator sdl ((id, method)::xs) = with ST do
+  positions' <- queryPMapCreator map_creator positions
+  case lookup id positions' of
+    Nothing => renderInvisibles map_creator sdl xs
+    Just (position_data, dims) => with ST do
+      camera' <- queryPMapCreator map_creator camera
+      let position' = position position_data
+      let angle' = angle position_data -- radToDeg $ angle position_data
+      let flip' = flip position_data
+      preload' <- queryPMapCreator map_creator preload
+      aq <- MapCreator.getAnimationStateQ map_creator
+      let poly = getRotatedRect camera' position' dims angle'
+      filledPolygon sdl poly wallBackground
+      executeMethod aq preload' sdl camera' id position' angle' flip' $ Just method
+      renderInvisibles map_creator sdl xs
 
 renderLayer : SDL m => MapCreator m => GameIO m =>
               (map_creator : Var) ->
@@ -298,12 +421,16 @@ renderLayer map_creator sdl ((id, render_description)::xs) = with ST do
     Just (position_data, dims) => with ST do
       camera' <- queryPMapCreator map_creator camera
       let position' = position position_data
-      let angle' = radToDeg $ angle position_data
+      let angle' = angle position_data -- radToDeg $ angle position_data
       let flip' = flip position_data
       let method' = method render_description
+      let method_creator = method_creator render_description
       preload' <- queryPMapCreator map_creator preload
       aq <- MapCreator.getAnimationStateQ map_creator
+      let poly = getRotatedRect camera' position' dims angle'
+      filledPolygon sdl poly objBackground
       executeMethod aq preload' sdl camera' id position' angle' flip' method'
+      executeMethod aq preload' sdl camera' id position' angle' flip' method_creator
       renderLayer map_creator sdl xs
 
 renderLayers : SDL m => MapCreator m => GameIO m =>
@@ -335,14 +462,38 @@ renderTool map_creator sdl = case !(queryPMapCreator map_creator tool) of
           let angle' = radToDeg $ angle adding_data
           let flip' = 0
           let method' = method render_description
+          let method_creator = method_creator render_description
           aq <- MapCreator.getAnimationStateQ map_creator
-          executeMethod aq preload' sdl camera' "adding" position' angle' flip' method'
+          executeMethod aq preload' sdl camera' "adding" position' angle' flip'
+                        method'
+          executeMethod aq preload' sdl camera' "adding" position' angle' flip'
+                        method_creator
   Just Remove => with ST do
     camera' <- queryPMapCreator map_creator camera
     position <- queryPMapCreator map_creator mouseLast
     let (x, y) = positionToScreen camera' position
-    let rect = MkSDLRect (x-25) (y-25) 50 50
+    let rect = MkSDLRect (x-10) (y-10) 20 20
     drawWholeCenter sdl "main/images/ui/red-x.png" rect 0.0 0
+  Just AddRectWall => with ST do
+    camera <- queryPMapCreator map_creator camera
+    endpos <- queryPMapCreator map_creator mouseLast
+    adding_data <- queryPMapCreator map_creator adding
+    case selectBegin adding_data of
+      Nothing => with ST do
+        let angle' = radToDeg $ angle adding_data
+        let (x, y) = positionToScreen camera endpos
+        let rect = MkSDLRect (x-10) (y-10) 20 20
+        drawWholeCenter sdl "main/images/metal_ledge.png" rect angle' 0
+      Just beginpos => with ST do
+        let angle = radToDeg $ angle adding_data
+        let (position, dims) = getWallPosDims beginpos endpos
+        let poly = getRotatedRect camera position dims angle
+        outlinePolygon sdl poly color_white
+  Just SetSpawn => with ST do
+    camera <- queryPMapCreator map_creator camera
+    position <- queryPMapCreator map_creator mouseLast
+    let spawn_rect = getRect camera position (0.5, 0.5)
+    drawWholeCenter sdl "main/images/spawn.png" spawn_rect 0.0 0
   _ => pure ()
 
 export
@@ -353,6 +504,9 @@ renderMapCreator : (SDL m, GameIO m) =>
 renderMapCreator map_creator sdl = with ST do
   camera' <- queryPMapCreator map_creator camera
   renderBackground map_creator sdl camera'
+  invisibles' <- queryPMapCreator map_creator (toList . invisibles)
+  renderInvisibles map_creator sdl invisibles'
   layers <- queryPMapCreator map_creator $ queryLayers layerList
   renderLayers map_creator sdl layers
+  renderSpawn map_creator sdl camera'
   renderTool map_creator sdl

@@ -4,14 +4,14 @@
           "character": {
                "items": {
                     "equipment": {
-                         "hands": "main/items/demonic_bow.json"
+                         "hands": "main/items/black_sword.json"
                     },
                     "inventory": {
                          "main/items/black_sword.json": 36,
-                         "main/items/demonic_bow.json": 67
+                         "main/items/demonic_bow.json": 68
                     }
                },
-               "map": "main/maps/output.json",
+               "map": "main/maps/encampment.json",
                "name": "Tristram",
                "object": "main/objects/character.json",
                "position": [

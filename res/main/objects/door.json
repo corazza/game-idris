@@ -13,5 +13,13 @@
         }
       }
     ]
+  },
+
+  "render": {
+    "method_creator": {
+      "type": "color",
+      "color": [255, 253, 85, 100],
+      "radius": 0.2
+    }
   }
 }

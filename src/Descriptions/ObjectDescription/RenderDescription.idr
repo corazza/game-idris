@@ -76,6 +76,7 @@ public export
 data RenderMethod = Tiled ContentReference Vector2D (Nat, Nat)
                   | ColoredCircle Color Double
                   | ColoredRect Color Vector2D
+                  | OutlineRect Color Vector2D
                   | Single ContentReference Vector2D Bool
                   | Animated AnimationParametersDict
 %name RenderMethod render_description
@@ -97,8 +98,9 @@ Show RenderMethod where
     ++ " (tileDims: " ++ show tileDims
     ++ ", repeated: " ++ show repeat
     ++  ")"
-  show (ColoredCircle color radius) = "colored with " ++ show color
-  show (ColoredRect color dims) = "colored with " ++ show color
+  show (ColoredCircle color radius) = "filled circle with " ++ show color
+  show (ColoredRect color dims) = "filled rect with " ++ show color
+  show (OutlineRect color dims) = "outline rect with " ++ show color
   show (Single ref dims facingRight) = "single with " ++ ref ++ ", dims: " ++ show dims
   show (Animated x) = "animated ( " ++ show x ++ " )"
 
@@ -125,6 +127,10 @@ ObjectCaster RenderMethod where
           (True, False) => getVector "dimensions" dict >>= pure . ColoredRect color
           (False, True) => getDouble "radius" dict >>= pure . ColoredCircle color
           (False, False) => fail "either dimensions or radius must be present for render method color"
+      "outline_rect" => with Checked do
+        color <- getColor "color" dict
+        dimensions <- getVector "dimensions" dict
+        pure $ OutlineRect color dimensions
       "single" => with Checked do
         image <- getString "image" dict
         dimensions <- getVector "dimensions" dict
@@ -156,6 +162,12 @@ Serialize RenderMethod where
   toDict (ColoredRect color dims) = with ST do
     rmObject <- makeObject
     addString rmObject "type" "color"
+    addColor rmObject "color" color
+    addVector rmObject "dimensions" dims
+    getDict rmObject
+  toDict (OutlineRect color dims) = with ST do
+    rmObject <- makeObject
+    addString rmObject "type" "outline_rect"
     addColor rmObject "color" color
     addVector rmObject "dimensions" dims
     getDict rmObject
@@ -195,7 +207,8 @@ Serialize InfoRenderParameters where
 public export
 record RenderDescription where
   constructor MkRenderDescription
-  method : RenderMethod
+  method : Maybe RenderMethod
+  method_creator : Maybe RenderMethod
   info : Maybe InfoRenderParameters
   layer : Maybe Nat
 
@@ -210,16 +223,28 @@ Show RenderDescription where
 export
 ObjectCaster RenderDescription where
   objectCast dict = with Checked do
-    method <- the (Checked RenderMethod) $ getCastable "method" dict
-    info <- the (Checked (Maybe InfoRenderParameters)) $ getCastableMaybe "info" dict
+    method <- the (Checked (Maybe RenderMethod)) $
+      getCastableMaybe "method" dict
+    method_creator <- the (Checked (Maybe RenderMethod)) $
+      getCastableMaybe "method_creator" dict
+    info <- the (Checked (Maybe InfoRenderParameters)) $
+      getCastableMaybe "info" dict
     let layer = eitherToMaybe $ getInt "layer" dict
-    pure $ MkRenderDescription method info (map cast layer)
+    pure $ MkRenderDescription method method_creator info (map cast layer)
 
 export
 Serialize RenderDescription where
   toDict rd = with ST do
     rdObject <- makeObject
-    addObject' rdObject "method" $ method rd
+    addObjectMaybe rdObject "method" $ method rd
+    addObjectMaybe rdObject "method_creator" $ method_creator rd
     addObjectMaybe rdObject "info" $ info rd
     addIntMaybe rdObject "layer" $ map cast $ layer rd
     getDict rdObject
+
+export
+pickRenderMethod : RenderDescription -> Maybe RenderMethod
+pickRenderMethod desc = case (method desc, method_creator desc) of
+  (Just method, _) => Just method
+  (Nothing, Just method) => Just method
+  _ => Nothing

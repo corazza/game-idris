@@ -9,7 +9,7 @@
     "main/objects/mage-2.json",
     "main/objects/mage-3.json",
     "main/objects/cultist.json",
-    "main/objects/yellow_marker.json",
+    "main/objects/door.json",
     "main/objects/metal_ledge.json",
     "main/objects/static_joint.json"
   ],
@@ -52,7 +52,8 @@
     "main/ui/inventory.json",
     "main/ui/character.json",
     "main/ui/creator/tools.json",
-    "main/ui/creator/objects.json"
+    "main/ui/creator/objects.json",
+    "main/ui/creator/walls.json"
   ],
 
   "fonts": [
@@ -67,6 +68,7 @@
     "main/objects/mage-2.json",
     "main/objects/mage-3.json",
     "main/objects/cultist.json",
-    "main/objects/metal_ledge.json"
+    "main/objects/metal_ledge.json",
+    "main/objects/door.json"
   ]
 }

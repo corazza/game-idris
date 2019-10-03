@@ -1,0 +1,58 @@
+{
+  "render": {
+    "type": "color",
+    "color": [191, 191, 191, 38]
+  },
+  "displayStyle": "center",
+  "layout": "vertical",
+  "children": [
+    {
+      "width": 100,
+      "height": 30,
+      "render": {
+        "type": "text",
+        "text": "Walls",
+        "font": "main/fonts/ui_title.json"
+      },
+      "displayStyle": "center",
+      "layout": "vertical",
+      "children": []
+    },
+    {
+      "name": "wallslist",
+      "render": {
+        "type": "color",
+        "color": [191, 191, 191, 38]
+      },
+      "displayStyle": "center",
+      "layout": "vertical",
+      "children": [
+            {
+              "width": 100,
+              "height": 30,
+              "render": {
+                "type": "text",
+                "text": "Rectangular wall",
+                "font": "main/fonts/ui_text.json"
+              },
+              "click": "creator wall select rect",
+              "displayStyle": "center",
+              "layout": "vertical",
+              "children": []
+            },
+            {
+              "width": 100,
+              "height": 30,
+              "render": {
+                "type": "text",
+                "text": "Rectangular wall",
+                "font": "main/fonts/ui_text.json"
+              },
+              "displayStyle": "center",
+              "layout": "vertical",
+              "children": []
+            }
+      ]
+    }
+  ]
+}

@@ -39,11 +39,13 @@ modules = Data.AVL.DDict
         , Client.PClient
         , Client.SDL
         , Client.SDL.PSDL
+        , Client.SDL.Points
         , Client.Input
         , Client.ClientCommands
         , Client.Rendering
         , Client.Rendering.RenderMethods
         , Client.Rendering.Camera
+        , Client.Rendering.Transforms
         , Client.Rendering.PRendering
         , Client.Rendering.Info
         , Client.Rendering.AnimationState

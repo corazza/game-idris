@@ -30,7 +30,7 @@
 
   "creations": [
     {
-      "ref": "main/objects/yellow_marker.json",
+      "ref": "main/objects/door.json",
       "position": [0, -6],
       "behavior": {
         "ref": "main/behaviors/door.json",

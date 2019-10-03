@@ -233,15 +233,18 @@ preloadResults preload_info = with ST do
 
 export
 getIcon : PreloadResults -> RenderDescription -> Checked ContentReference
-getIcon preload = methodGetIcon . method where
-  getAnimationIcon : ContentReference -> Checked ContentReference
-  getAnimationIcon ref = getAnimationDescription ref preload >>= pure . sheet
+getIcon preload desc = (case pickRenderMethod desc of
+  Nothing => pure "no render method"
+  Just method => methodGetIcon method) where
+    getAnimationIcon : ContentReference -> Checked ContentReference
+    getAnimationIcon ref = getAnimationDescription ref preload >>= pure . sheet
 
-  methodGetIcon : RenderMethod -> Checked ContentReference
-  methodGetIcon (Tiled ref y z) = pure ref
-  methodGetIcon (ColoredCircle color x) = pure "main/images/wooden_crate.png"
-  methodGetIcon (ColoredRect color x) = pure "main/images/wooden_crate.png"
-  methodGetIcon (Single ref y z) = pure ref
-  methodGetIcon (Animated stateDict) = case getSingleAnimation stateDict of
-    Nothing => fail "getSingleAnimation failed (methodGetIcon)"
-    Just (ref, _) => getAnimationIcon ref
+    methodGetIcon : RenderMethod -> Checked ContentReference
+    methodGetIcon (Tiled ref y z) = pure ref
+    methodGetIcon (ColoredCircle color x) = pure "main/images/wooden_crate.png"
+    methodGetIcon (ColoredRect color x) = pure "main/images/wooden_crate.png"
+    methodGetIcon (OutlineRect color x) = pure "main/images/wooden_crate.png"
+    methodGetIcon (Single ref y z) = pure ref
+    methodGetIcon (Animated stateDict) = case getSingleAnimation stateDict of
+      Nothing => fail "getSingleAnimation failed (methodGetIcon)"
+      Just (ref, _) => getAnimationIcon ref

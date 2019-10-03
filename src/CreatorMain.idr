@@ -12,7 +12,6 @@ import Settings
 import Timeline
 import Exception
 import Objects
-import Client
 import Client.Rendering
 import Client.SDL
 import Client.PClient
