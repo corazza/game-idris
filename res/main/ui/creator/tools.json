@@ -168,6 +168,45 @@
               }
             }
           ]
+        },
+
+        {
+          "name": "spacer4",
+          "width": 50,
+          "height": 50,
+          "layout": "vertical",
+          "displayStyle": "center",
+          "children": []
+        },
+
+        {
+          "name": "move",
+          "layout": "vertical",
+          "displayStyle": "center",
+          "click": "creator move",
+          "children": [
+            {
+              "layout": "vertical",
+              "displayStyle": "center",
+              "width": 50,
+              "height": 50,
+              "render": {
+                "type": "image",
+                "image": "main/images/ui/move.png"
+              }
+            },
+            {
+              "layout": "vertical",
+              "displayStyle": "center",
+              "width": 50,
+              "height": 20,
+              "render": {
+                "type": "text",
+                "text": "Move",
+                "font": "main/fonts/ui_text.json"
+              }
+            }
+          ]
         }
       ]
     }

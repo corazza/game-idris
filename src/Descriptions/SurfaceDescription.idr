@@ -96,7 +96,7 @@ stringLayoutDict = fromList [
 Cast String (Checked Layout) where
   cast x = pick "layout" x stringLayoutDict
 
-public export
+public export -- TODO use strings and some smarter matching method
 data Click = Inventory ContentReference
            | Character ContentReference
            | MainMenuExit
@@ -107,6 +107,7 @@ data Click = Inventory ContentReference
            | CreatorObjectSelect ContentReference
            | CreatorWallSelectRect
            | CreatorSetSpawn
+           | CreatorMove
 
 clickDict : Dict String Click
 clickDict = fromList [
@@ -116,7 +117,8 @@ clickDict = fromList [
   ("creator add", CreatorAdd),
   ("creator add wall", CreatorAddWall),
   ("creator wall select rect", CreatorWallSelectRect),
-  ("creator set spawn", CreatorSetSpawn)
+  ("creator set spawn", CreatorSetSpawn),
+  ("creator move", CreatorMove)
 ]
 
 Cast String (Checked Click) where
@@ -134,6 +136,7 @@ Show Click where
   show (CreatorObjectSelect ref) = "select " ++ ref
   show CreatorWallSelectRect = "select rect wall"
   show CreatorSetSpawn = "creator set spawn"
+  show CreatorMove = "creator move"
 
 -- other types of clicks are created dynamically
 getClick : JSONDict -> Checked (Maybe Click)

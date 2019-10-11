@@ -64,6 +64,10 @@ Serialize Creation where
     getDict creationObject
 
 export
+setAngle : Double -> Creation -> Creation
+setAngle x = record { angle = Just x }
+
+export
 creationForEditor : (ref : ContentReference) ->
                     (position : Vector2D) ->
                     (id : Maybe ObjectId) ->
@@ -174,11 +178,12 @@ export
 creationForRectWall : ObjectId ->
                       (position : Vector2D) ->
                       (dims : Vector2D) ->
+                      (angle : Double) ->
                       StaticCreation
-creationForRectWall id position dims
+creationForRectWall id position dims angle
   = let shape = Box dims
         fp = MkFixtureParameters
-          Nothing Nothing Nothing Nothing Nothing Nothing (Just 1) Nothing Nothing
+          Nothing (Just angle) Nothing Nothing Nothing Nothing (Just 1) Nothing Nothing
         fixture = fixtureFromParametersShape fp shape
         body_desc = MkBodyDescription
           Static Nothing Nothing [fixture] empty Nothing Nothing Nothing Nothing
@@ -270,3 +275,37 @@ generateStaticRenders = record { static $= map generateStaticRender }
 export
 setSpawn : Vector2D -> MapDescription -> MapDescription
 setSpawn pos = record { spawn = pos }
+
+updateDynamicById : ObjectId ->
+                    (f : Creation -> Creation) ->
+                    MapDescription -> MapDescription
+updateDynamicById id' f = record { creations $= map updateDynamicById' } where
+  updateDynamicById' : Creation -> Creation
+  updateDynamicById' creation = case Creation.id creation == Just id' of
+    False => creation
+    True => f creation
+
+updateStaticById : ObjectId ->
+                   (f : Creation -> Creation) ->
+                   MapDescription -> MapDescription
+updateStaticById id' f = record { static $= map updateStaticById' } where
+  updateStaticById' : StaticCreation -> StaticCreation
+  updateStaticById' creation' = case StaticCreation.id creation' == id' of
+    False => creation'
+    True => record { creation $= f } creation'
+
+export
+setDynamicPosition : ObjectId -> Vector2D -> MapDescription -> MapDescription
+setDynamicPosition id pos = updateDynamicById id $ record { position = pos }
+
+export
+setStaticPosition : ObjectId -> Vector2D -> MapDescription -> MapDescription
+setStaticPosition id pos = updateStaticById id $ record { position = pos }
+
+export
+setDynamicAngle : ObjectId -> Double -> MapDescription -> MapDescription
+setDynamicAngle id angle' = updateDynamicById id $ record { angle = Just angle' }
+
+export
+setStaticAngle : ObjectId -> Double -> MapDescription -> MapDescription
+setStaticAngle id angle' = updateStaticById id $ record { angle = Just angle' }

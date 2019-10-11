@@ -26,10 +26,11 @@
                "ref": "main/objects/door.json"
           },
           {
+               "angle": -2.775557561562891e-17,
                "id": "map_creator_autoid_1",
                "position": [
-                    -4,
-                    0
+                    1.527851314148227,
+                    0.3341879939192842
                ],
                "ref": "main/objects/wooden_crate.json"
           },
@@ -257,6 +258,7 @@
                }
           },
           {
+               "angle": 0.2,
                "body": {
                     "fixtures": [
                          {
@@ -277,8 +279,8 @@
                },
                "id": "map_creator_autoid_11",
                "position": [
-                    4.910950652619302,
-                    -3.119685069780289
+                    4.965516770981739,
+                    -3.103477462914227
                ],
                "ref": "main/objects/invisible_wall.json",
                "render_creator": {
@@ -786,6 +788,328 @@
                "position": [
                     -18.99520837543493,
                     4.651936627327396
+               ],
+               "ref": "main/objects/invisible_wall.json",
+               "render_creator": {
+                    "color": [
+                         255,
+                         255,
+                         255,
+                         255
+                    ],
+                    "dimensions": [
+                         0,
+                         0
+                    ],
+                    "type": "outline_rect"
+               }
+          },
+          {
+               "body": {
+                    "fixtures": [
+                         {
+                              "angle": 0.2,
+                              "categoryBits": [
+                                   "wall"
+                              ],
+                              "shape": {
+                                   "dimensions": [
+                                        3.355816279289856,
+                                        0.3546797693558386
+                                   ],
+                                   "type": "box"
+                              }
+                         }
+                    ],
+                    "physicsEffects": [],
+                    "type": "static"
+               },
+               "id": "map_creator_autoid_0",
+               "position": [
+                    3.30125016092742,
+                    2.980644734497464
+               ],
+               "ref": "main/objects/invisible_wall.json",
+               "render_creator": {
+                    "color": [
+                         255,
+                         255,
+                         255,
+                         255
+                    ],
+                    "dimensions": [
+                         3.355816279289856,
+                         0.3546797693558386
+                    ],
+                    "type": "outline_rect"
+               }
+          },
+          {
+               "angle": -2.775557561562891e-17,
+               "body": {
+                    "fixtures": [
+                         {
+                              "angle": 0.2,
+                              "categoryBits": [
+                                   "wall"
+                              ],
+                              "shape": {
+                                   "dimensions": [
+                                        2.114437086544422,
+                                        1.091322367248734
+                                   ],
+                                   "type": "box"
+                              }
+                         }
+                    ],
+                    "physicsEffects": [],
+                    "type": "static"
+               },
+               "id": "map_creator_autoid_1",
+               "position": [
+                    1.527851314148227,
+                    0.3341879939192842
+               ],
+               "ref": "main/objects/invisible_wall.json",
+               "render_creator": {
+                    "color": [
+                         255,
+                         255,
+                         255,
+                         255
+                    ],
+                    "dimensions": [
+                         2.114437086544422,
+                         1.091322367248734
+                    ],
+                    "type": "outline_rect"
+               }
+          },
+          {
+               "body": {
+                    "fixtures": [
+                         {
+                              "angle": 0.2,
+                              "categoryBits": [
+                                   "wall"
+                              ],
+                              "shape": {
+                                   "dimensions": [
+                                        2.81015509566549,
+                                        1.173171544792389
+                                   ],
+                                   "type": "box"
+                              }
+                         }
+                    ],
+                    "physicsEffects": [],
+                    "type": "static"
+               },
+               "id": "map_creator_autoid_2",
+               "position": [
+                    5.047365948525394,
+                    1.261812006080708
+               ],
+               "ref": "main/objects/invisible_wall.json",
+               "render_creator": {
+                    "color": [
+                         255,
+                         255,
+                         255,
+                         255
+                    ],
+                    "dimensions": [
+                         2.81015509566549,
+                         1.173171544792389
+                    ],
+                    "type": "outline_rect"
+               }
+          },
+          {
+               "body": {
+                    "fixtures": [
+                         {
+                              "angle": 0.2,
+                              "categoryBits": [
+                                   "wall"
+                              ],
+                              "shape": {
+                                   "dimensions": [
+                                        1.664266610054319,
+                                        0.8048502458459411
+                                   ],
+                                   "type": "box"
+                              }
+                         }
+                    ],
+                    "physicsEffects": [],
+                    "type": "static"
+               },
+               "id": "map_creator_autoid_3",
+               "position": [
+                    -13.47783123552186,
+                    -1.998513566074884
+               ],
+               "ref": "main/objects/invisible_wall.json",
+               "render_creator": {
+                    "color": [
+                         255,
+                         255,
+                         255,
+                         255
+                    ],
+                    "dimensions": [
+                         1.664266610054319,
+                         0.8048502458459411
+                    ],
+                    "type": "outline_rect"
+               }
+          },
+          {
+               "angle": 3.209998055671758,
+               "body": {
+                    "fixtures": [
+                         {
+                              "angle": 0.2,
+                              "categoryBits": [
+                                   "wall"
+                              ],
+                              "shape": {
+                                   "dimensions": [
+                                        1.023114719295688,
+                                        1.118605426429952
+                                   ],
+                                   "type": "box"
+                              }
+                         }
+                    ],
+                    "physicsEffects": [],
+                    "type": "static"
+               },
+               "id": "map_creator_autoid_4",
+               "position": [
+                    -9.603636831788858,
+                    0.6070185857314676
+               ],
+               "ref": "main/objects/invisible_wall.json",
+               "render_creator": {
+                    "color": [
+                         255,
+                         255,
+                         255,
+                         255
+                    ],
+                    "dimensions": [
+                         1.023114719295688,
+                         1.118605426429952
+                    ],
+                    "type": "outline_rect"
+               }
+          },
+          {
+               "body": {
+                    "fixtures": [
+                         {
+                              "angle": 0.2,
+                              "categoryBits": [
+                                   "wall"
+                              ],
+                              "shape": {
+                                   "dimensions": [
+                                        0.9549070713426415,
+                                        1.186813074382998
+                                   ],
+                                   "type": "box"
+                              }
+                         }
+                    ],
+                    "physicsEffects": [],
+                    "type": "static"
+               },
+               "id": "map_creator_autoid_5",
+               "position": [
+                    -14.59643666195181,
+                    -0.4433791927454387
+               ],
+               "ref": "main/objects/invisible_wall.json",
+               "render_creator": {
+                    "color": [
+                         255,
+                         255,
+                         255,
+                         255
+                    ],
+                    "dimensions": [
+                         0.9549070713426415,
+                         1.186813074382998
+                    ],
+                    "type": "outline_rect"
+               }
+          },
+          {
+               "body": {
+                    "fixtures": [
+                         {
+                              "angle": 0.2,
+                              "categoryBits": [
+                                   "wall"
+                              ],
+                              "shape": {
+                                   "dimensions": [
+                                        2.305418500812951,
+                                        1.759757317188583
+                                   ],
+                                   "type": "box"
+                              }
+                         }
+                    ],
+                    "physicsEffects": [],
+                    "type": "static"
+               },
+               "id": "map_creator_autoid_6",
+               "position": [
+                    -14.06441700791806,
+                    0.40239564187233
+               ],
+               "ref": "main/objects/invisible_wall.json",
+               "render_creator": {
+                    "color": [
+                         255,
+                         255,
+                         255,
+                         255
+                    ],
+                    "dimensions": [
+                         2.305418500812951,
+                         1.759757317188583
+                    ],
+                    "type": "outline_rect"
+               }
+          },
+          {
+               "body": {
+                    "fixtures": [
+                         {
+                              "angle": 0.2,
+                              "categoryBits": [
+                                   "wall"
+                              ],
+                              "shape": {
+                                   "dimensions": [
+                                        0,
+                                        0
+                                   ],
+                                   "type": "box"
+                              }
+                         }
+                    ],
+                    "physicsEffects": [],
+                    "type": "static"
+               },
+               "id": "map_creator_autoid_7",
+               "position": [
+                    -8.921560352258398,
+                    10.23793847670154
                ],
                "ref": "main/objects/invisible_wall.json",
                "render_creator": {

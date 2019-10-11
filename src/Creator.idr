@@ -225,8 +225,8 @@ export
   processClick creator CreatorWallSelectRect = with ST do
     setTool creator Tools.AddRectWall
     toggleRoot creator "main/ui/creator/walls.json" 600 300
-  processClick creator CreatorSetSpawn = with ST do
-    setTool creator Tools.SetSpawn
+  processClick creator CreatorSetSpawn = setTool creator Tools.SetSpawn
+  processClick creator CreatorMove = setTool creator Tools.Move
   processClick creator click = lift $ log $
     "unhandled click in creator: " ++ show click
 

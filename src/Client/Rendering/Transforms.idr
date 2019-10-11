@@ -43,3 +43,25 @@ makeRotatedRect : (angle : Double) ->
                   List Vector2D
 makeRotatedRect angle position dims
   = rotatePoints angle position $ makeRectPoints position dims
+
+minmax : List Double -> (Double, Double)
+minmax xs
+  = let xs_ascending = sort xs
+        xs_descending = sortBy (flip compare) xs
+        minx = fromMaybe 0 $ head' xs_ascending
+        maxx = fromMaybe 0 $ head' xs_descending
+        in (minx, maxx)
+
+export
+getAABB : List Vector2D -> (Vector2D, Vector2D)
+getAABB vecs
+  = let n = the Int $ cast $ length vecs
+        xs = map fst vecs
+        ys = map snd vecs
+        (minx, maxx) = minmax xs
+        (miny, maxy) = minmax ys
+        w = (maxx - minx)/2
+        h = (maxy - miny)/2
+        x = (sum xs) / (cast n)
+        y = (sum ys) / (cast n)
+        in ((x, y), (w, h))

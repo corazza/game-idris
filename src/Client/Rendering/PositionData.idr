@@ -49,3 +49,11 @@ fromCreation'  = fromCreation . creation
 export
 noFlip : Vector2D -> Double -> PositionData
 noFlip pos angle = MkPositionData pos (radToDeg angle) 0
+
+export
+setPosition : Vector2D -> PositionData -> PositionData
+setPosition pos = record { position = pos }
+
+export
+setAngle : Double -> PositionData -> PositionData
+setAngle x = record { angle = x }

@@ -12,6 +12,7 @@ import Commands
 import Client.Rendering.Camera
 import Client.Rendering.Layers
 import Client.Rendering.PositionData
+import Client.Rendering.Transforms
 import Creator.MapCreator.Tools
 import Creator.MapCreator.MapCreatorControl
 
@@ -77,6 +78,10 @@ updateAdding : (f : AddingData -> AddingData) -> PMapCreator -> PMapCreator
 updateAdding f = record { adding $= f }
 
 export
+queryAdding : (q : AddingData -> a) -> PMapCreator -> a
+queryAdding q = q . adding
+
+export
 scounter : PMapCreator -> PMapCreator
 scounter = record { idCounter $= S }
 
@@ -126,6 +131,10 @@ removeFromPositions : ObjectId -> PMapCreator -> PMapCreator
 removeFromPositions id = record { positions $= removeObject id }
 
 export
+posdims : ObjectId -> PMapCreator -> Maybe (PositionData, Vector2D)
+posdims id = lookup id . positions
+
+export
 updateMap : (f : MapDescription -> MapDescription) -> PMapCreator -> PMapCreator
 updateMap f = record { map_desc $= map f }
 
@@ -133,12 +142,35 @@ export -- will only be used by MapCreator so defined here
 setDynamic : List Creation -> MapDescription -> MapDescription
 setDynamic xs = record { creations = xs }
 
+export
+setPosition : ObjectId -> Vector2D -> PMapCreator -> PMapCreator
+setPosition id pos = record { positions $= updateObject id setPosition' } where
+  setPosition' : (PositionData, Vector2D) -> (PositionData, Vector2D)
+  setPosition' (posdata, dims) = (setPosition pos posdata, dims)
+
+export
+setAngle : ObjectId -> Double -> PMapCreator -> PMapCreator
+setAngle id x = record { positions $= updateObject id setAngle' } where
+  setAngle' : (PositionData, Vector2D) -> (PositionData, Vector2D)
+  setAngle' (posdata, dims) = (setAngle x posdata, dims)
+
 -- EDIT functions
 export
-getIdAt : Objects (PositionData, Vector2D) -> Layers -> Vector2D -> Maybe ObjectId
-getIdAt pos layers at = pickTop $ map fst $ filter (isClicked at) $ toList pos where
+pmapGetIdAt : Objects (PositionData, Vector2D) -> Layers -> Vector2D -> Maybe ObjectId
+pmapGetIdAt pos layers at = pickTop $ map fst $ filter (isClicked at) $ toList pos where
   isClicked : Vector2D -> (ObjectId, PositionData, Vector2D) -> Bool
-  isClicked (at_x, at_y) (_, position_data, (w, h))
+  isClicked click_pos@(at_x, at_y) (_, position_data, (w, h))
+    = let angle = angle position_data
+          pos@(x, y) = position position_data
+          dims = (w, h)
+          rect = makeRotatedRect angle pos dims
+          rotated_rect = rotatePoints (negate angle) nullVector rect
+          [(rat_x, rat_y)] = rotatePoints (negate angle) nullVector [click_pos]
+          ((rx, ry), (rw, rh)) = getAABB rotated_rect
+          in rat_x > rx-rw && rat_x < rx+rw && rat_y > ry-rh && rat_y < ry+rh
+
+  isClicked' : Vector2D -> (ObjectId, PositionData, Vector2D) -> Bool
+  isClicked' (at_x, at_y) (_, position_data, (w, h))
     = let (x, y) = position position_data
           in at_x > x-w && at_x < x+w && at_y > y-h && at_y < y+h
 

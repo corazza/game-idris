@@ -51,9 +51,6 @@ interface MapCreator (m : Type -> Type) where
   getAnimationStateQ : (map_creator : Var) ->
                        ST m (ObjectId -> Maybe AnimationState) [map_creator ::: SMapCreator]
 
-  -- TODO think how objects are simultaneously added to layers, positions,
-  -- and also edit the map
-
   runCommand : (map_creator : Var) ->
                (command : Command) ->
                ST m () [map_creator ::: SMapCreator]
@@ -91,6 +88,19 @@ interface MapCreator (m : Type -> Type) where
                    (position : Vector2D) ->
                    ST m () [map_creator ::: SMapCreator]
 
+  editUpdateMoving : (map_creator : Var) ->
+                     ST m () [map_creator ::: SMapCreator]
+
+  editSetPosition : (map_creator : Var) ->
+                    (id : ObjectId) ->
+                    (position : Vector2D) ->
+                    ST m () [map_creator ::: SMapCreator]
+
+  editSetAngle : (map_creator : Var) ->
+                 (id : ObjectId) ->
+                 (angle : Double) ->
+                 ST m () [map_creator ::: SMapCreator]
+
   private
   addRenderCreator : (map_creator : Var) ->
                      (id : ObjectId) ->
@@ -108,6 +118,11 @@ interface MapCreator (m : Type -> Type) where
   removeObject : (map_creator : Var) ->
                  (id : ObjectId) ->
                  ST m () [map_creator ::: SMapCreator]
+
+  private
+  getIdAt : (map_creator : Var) ->
+            (position : Vector2D) ->
+            ST m (Maybe ObjectId) [map_creator ::: SMapCreator]
 
   private
   newId : (map_creator : Var) -> ST m ObjectId [map_creator ::: SMapCreator]
@@ -185,10 +200,18 @@ export
         let positionData = noFlip position $ angle adding_data
         addObject map_creator id' (Just object_desc) Nothing positionData
 
-  editRemoveCreationFrom map_creator position = with ST do
+  -- HERE
+  -- move tool
+  -- move position, not beginning point
+  -- render object background only on mouseover, also object info
+
+  getIdAt map_creator position = with ST do
     posdims <- queryPMapCreator map_creator positions
     layers' <- queryPMapCreator map_creator layers
-    case getIdAt posdims layers' position of
+    pure $ pmapGetIdAt posdims layers' position
+
+  editRemoveCreationFrom map_creator position =
+    case !(getIdAt map_creator position) of
       Nothing => pure ()
       Just id' => with ST do
         lift $ log id'
@@ -199,13 +222,38 @@ export
   editAddRectWall map_creator position dims = with ST do
     id <- newId map_creator
     adding_data <- queryPMapCreator map_creator adding
-    let creation = creationForRectWall id position dims
+    let creation = creationForRectWall id position dims $ angle adding_data
     updatePMapCreator map_creator $ editAddStatic creation
     let positionData = noFlip position $ angle adding_data
     addObject map_creator id Nothing (render creation) positionData
 
   editSetSpawnAt map_creator position
     = updatePMapCreator map_creator $ editSetSpawn position
+
+  editUpdateMoving map_creator
+    = case !(queryPMapCreator map_creator $ queryAdding clickedOn) of
+        Nothing => pure ()
+        Just id => case !(queryPMapCreator map_creator $ posdims id) of
+          Nothing => pure ()
+          Just (posdata, dims) => with ST do
+            let position = position posdata
+            let angle = angle posdata
+            position' <- queryPMapCreator map_creator mouseLast
+            angle' <- queryPMapCreator map_creator $ queryAdding AddingData.angle
+            editSetPosition map_creator id position'
+            editSetAngle map_creator id angle'
+
+  -- HERE making walls in encampment is broken, likely due to id collisions
+
+  editSetPosition map_creator id position = with ST do
+    updatePMapCreator map_creator $ updateMap $ setDynamicPosition id position
+    updatePMapCreator map_creator $ updateMap $ setStaticPosition id position
+    updatePMapCreator map_creator $ setPosition id position
+
+  editSetAngle map_creator id angle = with ST do
+    updatePMapCreator map_creator $ updateMap $ setDynamicAngle id angle
+    updatePMapCreator map_creator $ updateMap $ setStaticAngle id angle
+    updatePMapCreator map_creator $ setAngle id $ radToDeg angle
 
   runCommand map_creator (Start (Movement direction) id)
     = updatePMapCreator map_creator $ updateControl $ startMoving direction
@@ -224,6 +272,7 @@ export
     let dt = newms - lastms'
     updatePMapCreator map_creator $ setLastms newms
     applyControls map_creator $ (the Double (cast dt)) / 1000.0
+    editUpdateMoving map_creator
 
   loadMap map_creator map_ref = with ST do
     preload <- queryPMapCreator map_creator preload
@@ -329,15 +378,32 @@ export
           updatePMapCreator map_creator $ updateAdding $ rotateAdding $ angleChange x
         Just AddRectWall =>
           updatePMapCreator map_creator $ updateAdding $ rotateAdding $ angleChange x
+        Just Move => with ST do
+          updatePMapCreator map_creator $ updateAdding $ rotateAdding $ angleChange x
+          Just id <- queryPMapCreator map_creator $ queryAdding clickedOn | pure ()
+          angle <- queryPMapCreator map_creator $ queryAdding angle
+          editSetAngle map_creator id angle
         _ => zoom map_creator x
   runClientCommand map_creator (Mouse (ButtonDown x y)) = with ST do
     camera' <- queryPMapCreator map_creator camera
     let at = screenToPosition camera' (x, y)
-    updatePMapCreator map_creator $ updateAdding $ setSelectBegin at
+    case !(queryPMapCreator map_creator tool) of
+      Just Move => with ST do
+        updatePMapCreator map_creator $ updateAdding $ unsetSelectBegin
+        id <- getIdAt map_creator at
+        updatePMapCreator map_creator $ updateAdding $ setClickedOn' id
+        case id of
+          Nothing => pure ()
+          Just id' => case !(queryPMapCreator map_creator $ posdims id') of
+            Nothing => pure ()
+            Just (posdata, dims) => updatePMapCreator map_creator $
+              updateAdding $ setAngle $ radToDeg $ angle posdata
+      _ => updatePMapCreator map_creator $ updateAdding $ setSelectBegin at
   runClientCommand map_creator (Mouse (ButtonUp x y)) = with ST do
     adding_data <- queryPMapCreator map_creator adding
     let selectBegin = selectBegin adding_data
     updatePMapCreator map_creator $ updateAdding unsetSelectBegin
+    updatePMapCreator map_creator $ updateAdding unsetClickedOn
     case !(queryPMapCreator map_creator tool) of
       Just (Add ref) => with ST do
         camera' <- queryPMapCreator map_creator camera
@@ -443,6 +509,17 @@ renderLayers map_creator sdl (layer::xs)
   = renderLayer map_creator sdl layer >>=
       const (renderLayers map_creator sdl xs)
 
+renderAtMouse : SDL m => MapCreator m => GameIO m =>
+                (map_creator : Var) ->
+                (sdl : Var) ->
+                (ref : ContentReference) ->
+                ST m () [map_creator ::: SMapCreator {m}, sdl ::: SSDL {m}]
+renderAtMouse map_creator sdl ref = with ST do
+  camera <- queryPMapCreator map_creator camera
+  position <- queryPMapCreator map_creator mouseLast
+  let rect = getRect camera position (0.5, 0.5)
+  drawWholeCenter sdl ref rect 0.0 0
+
 renderTool : SDL m => MapCreator m => GameIO m =>
              (map_creator : Var) ->
              (sdl : Var) ->
@@ -468,12 +545,6 @@ renderTool map_creator sdl = case !(queryPMapCreator map_creator tool) of
                         method'
           executeMethod aq preload' sdl camera' "adding" position' angle' flip'
                         method_creator
-  Just Remove => with ST do
-    camera' <- queryPMapCreator map_creator camera
-    position <- queryPMapCreator map_creator mouseLast
-    let (x, y) = positionToScreen camera' position
-    let rect = MkSDLRect (x-10) (y-10) 20 20
-    drawWholeCenter sdl "main/images/ui/red-x.png" rect 0.0 0
   Just AddRectWall => with ST do
     camera <- queryPMapCreator map_creator camera
     endpos <- queryPMapCreator map_creator mouseLast
@@ -489,11 +560,9 @@ renderTool map_creator sdl = case !(queryPMapCreator map_creator tool) of
         let (position, dims) = getWallPosDims beginpos endpos
         let poly = getRotatedRect camera position dims angle
         outlinePolygon sdl poly color_white
-  Just SetSpawn => with ST do
-    camera <- queryPMapCreator map_creator camera
-    position <- queryPMapCreator map_creator mouseLast
-    let spawn_rect = getRect camera position (0.5, 0.5)
-    drawWholeCenter sdl "main/images/spawn.png" spawn_rect 0.0 0
+  Just SetSpawn => renderAtMouse map_creator sdl "main/images/spawn.png"
+  Just Move => renderAtMouse map_creator sdl "main/images/ui/move.png"
+  Just Remove => renderAtMouse map_creator sdl "main/images/ui/red-x.png"
   _ => pure ()
 
 export
