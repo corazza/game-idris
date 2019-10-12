@@ -1,6 +1,7 @@
 module Descriptions.MapDescription
 
 import Physics.Box2D
+import Data.String
 
 import Descriptions.ObjectDescription
 import Descriptions.AbilityDescription
@@ -251,6 +252,19 @@ Serialize MapDescription where
     addObjectArray mdObject "joints" $ joints md
     addStringMaybe mdObject "music" $ music md
     getDict mdObject
+
+greatest : List String -> Nat
+greatest = fromMaybe 0 . head' . sortBy (flip compare) . catMaybes . map idToNum where
+  idToNum : String -> Maybe Nat
+  idToNum = map cast . join . map parsePositive . last' . split (== '_')
+
+export
+getIdNum : MapDescription -> Nat
+getIdNum desc
+  = let dynamic_ids = catMaybes $ map Creation.id $ creations desc
+        static_ids = map StaticCreation.id $ static desc
+        in 1 + (fromMaybe 0 $ head' $ sortBy (flip compare)
+              [greatest dynamic_ids, greatest static_ids])
 
 export
 addDynamic : Creation -> MapDescription -> MapDescription

@@ -8,4 +8,3 @@ src/game
 test.idr
 *_old.idr
 res/main/music
-res_work/creator/output.json

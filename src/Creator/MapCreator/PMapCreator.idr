@@ -91,7 +91,7 @@ cameraSpeed = 3
 
 export
 setMap : MapDescription -> PMapCreator -> PMapCreator
-setMap desc = record { map_desc = Just desc }
+setMap desc = record { map_desc = Just desc, idCounter = getIdNum desc }
 
 export
 updateControl : (f : MapCreatorControl -> MapCreatorControl) -> PMapCreator -> PMapCreator

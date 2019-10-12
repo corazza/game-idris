@@ -281,6 +281,8 @@ export
         "(loadMap map_creator) client couldn't get map description, error:\n" ++ e
       Right desc => with ST do
         updatePMapCreator map_creator $ setMap desc
+        count <- queryPMapCreator map_creator idCounter
+        lift $ log $ show count
         correctDynamicIds map_creator
         correctStaticRenders map_creator
         Just desc' <- queryPMapCreator map_creator map_desc
@@ -397,7 +399,7 @@ export
           Just id' => case !(queryPMapCreator map_creator $ posdims id') of
             Nothing => pure ()
             Just (posdata, dims) => updatePMapCreator map_creator $
-              updateAdding $ setAngle $ radToDeg $ angle posdata
+              updateAdding $ setAngle $ degToRad $ angle posdata
       _ => updatePMapCreator map_creator $ updateAdding $ setSelectBegin at
   runClientCommand map_creator (Mouse (ButtonUp x y)) = with ST do
     adding_data <- queryPMapCreator map_creator adding
