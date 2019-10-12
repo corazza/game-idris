@@ -11,8 +11,7 @@ applyOperator : Operator -> Vector2D -> Vector2D
 applyOperator ((a, c), (b, d)) (x, y) = (a*x + c*y, b*x + d*y)
 
 rotationMatrix : Double -> Operator
-rotationMatrix angle' = let angle = degToRad angle'
-                            in ((cos angle, -(sin angle)), (sin angle, cos angle))
+rotationMatrix angle = ((cos angle, -(sin angle)), (sin angle, cos angle))
 
 rotate : Double -> Vector2D -> Vector2D
 rotate angle vec = applyOperator (rotationMatrix angle) vec

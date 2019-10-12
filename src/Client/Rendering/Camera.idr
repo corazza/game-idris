@@ -49,8 +49,8 @@ move : Vector2D -> Camera -> Camera
 move a camera = translate (position camera + a) camera
 
 export
-zoomFactor : Double -> Camera -> Camera
-zoomFactor factor = record { zoom $= (*) factor }
+zoomByFactor : Double -> Camera -> Camera
+zoomByFactor factor = record { zoom $= (*) factor }
 
 export
 dimToScreen : Camera -> Vector2D -> (Int, Int)
@@ -102,5 +102,5 @@ computeZoomFactor : Int -> Double
 computeZoomFactor x = if x > 0 then 1.05 else 0.95
 
 export
-angleChange : Int -> Double
-angleChange x = if x > 0 then 0.1 else -0.1
+angleChange : Int -> Int -> Double
+angleChange parts x = (pi / cast parts) * if x > 0 then 1 else -1

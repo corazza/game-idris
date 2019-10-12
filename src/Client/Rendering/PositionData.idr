@@ -10,7 +10,7 @@ public export
 record PositionData where
   constructor MkPositionData
   position : Vector2D
-  angle : Double -- in degrees
+  angle : Double -- in radians
   flip : Int
 
 getFlip : BodyData -> Int
@@ -26,12 +26,9 @@ export
 degToRad : Double -> Double
 degToRad angle = - (angle / 360.0) * 2.0*pi
 
-getDegAngle : BodyData -> Double
-getDegAngle = radToDeg . angle
-
 fromBodyData : BodyData -> PositionData
 fromBodyData body_data = MkPositionData
-  (position body_data) (getDegAngle body_data) (getFlip body_data)
+  (position body_data) (angle body_data) (getFlip body_data)
 
 export
 bodyDataToPositionData : Objects BodyData -> Objects PositionData
@@ -48,7 +45,7 @@ fromCreation'  = fromCreation . creation
 
 export
 noFlip : Vector2D -> Double -> PositionData
-noFlip pos angle = MkPositionData pos (radToDeg angle) 0
+noFlip pos angle = MkPositionData pos angle 0
 
 export
 setPosition : Vector2D -> PositionData -> PositionData

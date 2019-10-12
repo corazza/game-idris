@@ -8,6 +8,7 @@ import Client.SDL
 import Client.SDL.Points
 import Client.Rendering.Camera
 import Client.Rendering.AnimationState
+import Client.Rendering.PositionData
 import Descriptions.MapDescription
 import Descriptions.ItemDescription
 import Descriptions.Color
@@ -114,7 +115,7 @@ executeMethod' aq preload sdl camera id position angle flip (ColoredCircle color
         in filledEllipse sdl position rii color
 executeMethod' aq preload sdl camera id position angle flip (Single ref dims facingRight)
   = let rect = getRect camera position dims
-        in drawWholeCenter sdl ref rect angle (correctFacing facingRight flip)
+        in drawWholeCenter sdl ref rect (radToDeg angle) (correctFacing facingRight flip)
 executeMethod' aq preload sdl camera id position angle flip (Animated state_dict) =
   case aq id of
     Nothing => pure ()
@@ -131,7 +132,7 @@ executeMethod' aq preload sdl camera id position angle flip (Animated state_dict
                   dst = getRect camera position dimensions'
                   sheet = sheet animation_description
                   flip = correctFacing (facingRight animation_description) flip
-                  in drawCenter sdl sheet src dst angle flip
+                  in drawCenter sdl sheet src dst (radToDeg angle) flip
 
 export
 executeMethod : SDL m => GameIO m =>

@@ -201,7 +201,6 @@ export
         addObject map_creator id' (Just object_desc) Nothing positionData
 
   -- HERE
-  -- move tool
   -- move position, not beginning point
   -- render object background only on mouseover, also object info
 
@@ -214,7 +213,6 @@ export
     case !(getIdAt map_creator position) of
       Nothing => pure ()
       Just id' => with ST do
-        lift $ log id'
         removeObject map_creator id'
         updatePMapCreator map_creator $ editRemoveDynamic id'
         updatePMapCreator map_creator $ editRemoveStatic id'
@@ -243,8 +241,6 @@ export
             editSetPosition map_creator id position'
             editSetAngle map_creator id angle'
 
-  -- HERE making walls in encampment is broken, likely due to id collisions
-
   editSetPosition map_creator id position = with ST do
     updatePMapCreator map_creator $ updateMap $ setDynamicPosition id position
     updatePMapCreator map_creator $ updateMap $ setStaticPosition id position
@@ -253,7 +249,7 @@ export
   editSetAngle map_creator id angle = with ST do
     updatePMapCreator map_creator $ updateMap $ setDynamicAngle id angle
     updatePMapCreator map_creator $ updateMap $ setStaticAngle id angle
-    updatePMapCreator map_creator $ setAngle id $ radToDeg angle
+    updatePMapCreator map_creator $ setAngle id angle
 
   runCommand map_creator (Start (Movement direction) id)
     = updatePMapCreator map_creator $ updateControl $ startMoving direction
@@ -281,8 +277,6 @@ export
         "(loadMap map_creator) client couldn't get map description, error:\n" ++ e
       Right desc => with ST do
         updatePMapCreator map_creator $ setMap desc
-        count <- queryPMapCreator map_creator idCounter
-        lift $ log $ show count
         correctDynamicIds map_creator
         correctStaticRenders map_creator
         Just desc' <- queryPMapCreator map_creator map_desc
@@ -372,19 +366,16 @@ export
     pure $ dummyAnimationStates' !ticks
 
   zoom map_creator x =
-    updatePMapCreator map_creator $ updateCamera $ zoomFactor $ computeZoomFactor x
+    updatePMapCreator map_creator $ updateCamera $ zoomByFactor $ computeZoomFactor x
 
   runClientCommand map_creator (Stop (Zoom x))
     = case !(queryPMapCreator map_creator tool) of
-        Just (Add ref) =>
-          updatePMapCreator map_creator $ updateAdding $ rotateAdding $ angleChange x
-        Just AddRectWall =>
-          updatePMapCreator map_creator $ updateAdding $ rotateAdding $ angleChange x
-        Just Move => with ST do
-          updatePMapCreator map_creator $ updateAdding $ rotateAdding $ angleChange x
-          Just id <- queryPMapCreator map_creator $ queryAdding clickedOn | pure ()
-          angle <- queryPMapCreator map_creator $ queryAdding angle
-          editSetAngle map_creator id angle
+        Just (Add ref) => updatePMapCreator map_creator $ updateAdding $
+          rotateAdding $ angleChange 100 x
+        Just AddRectWall => updatePMapCreator map_creator $ updateAdding $
+          rotateAdding $ angleChange 100 x
+        Just Move => updatePMapCreator map_creator $ updateAdding $
+          rotateAdding $ angleChange 100 x
         _ => zoom map_creator x
   runClientCommand map_creator (Mouse (ButtonDown x y)) = with ST do
     camera' <- queryPMapCreator map_creator camera
@@ -399,7 +390,7 @@ export
           Just id' => case !(queryPMapCreator map_creator $ posdims id') of
             Nothing => pure ()
             Just (posdata, dims) => updatePMapCreator map_creator $
-              updateAdding $ setAngle $ degToRad $ angle posdata
+              updateAdding $ setAngle $ angle posdata
       _ => updatePMapCreator map_creator $ updateAdding $ setSelectBegin at
   runClientCommand map_creator (Mouse (ButtonUp x y)) = with ST do
     adding_data <- queryPMapCreator map_creator adding
@@ -465,7 +456,7 @@ renderInvisibles map_creator sdl ((id, method)::xs) = with ST do
     Just (position_data, dims) => with ST do
       camera' <- queryPMapCreator map_creator camera
       let position' = position position_data
-      let angle' = angle position_data -- radToDeg $ angle position_data
+      let angle' = angle position_data
       let flip' = flip position_data
       preload' <- queryPMapCreator map_creator preload
       aq <- MapCreator.getAnimationStateQ map_creator
@@ -489,7 +480,7 @@ renderLayer map_creator sdl ((id, render_description)::xs) = with ST do
     Just (position_data, dims) => with ST do
       camera' <- queryPMapCreator map_creator camera
       let position' = position position_data
-      let angle' = angle position_data -- radToDeg $ angle position_data
+      let angle' = angle position_data
       let flip' = flip position_data
       let method' = method render_description
       let method_creator = method_creator render_description
@@ -538,14 +529,14 @@ renderTool map_creator sdl = case !(queryPMapCreator map_creator tool) of
         Just render_description => with ST do
           camera' <- queryPMapCreator map_creator camera
           position' <- queryPMapCreator map_creator mouseLast
-          let angle' = radToDeg $ angle adding_data
+          let angle' = angle adding_data
           let flip' = 0
           let method' = method render_description
           let method_creator = method_creator render_description
           aq <- MapCreator.getAnimationStateQ map_creator
-          executeMethod aq preload' sdl camera' "adding" position' angle' flip'
+          executeMethod aq preload' sdl camera' "adding1" position' angle' flip'
                         method'
-          executeMethod aq preload' sdl camera' "adding" position' angle' flip'
+          executeMethod aq preload' sdl camera' "adding2" position' angle' flip'
                         method_creator
   Just AddRectWall => with ST do
     camera <- queryPMapCreator map_creator camera
@@ -558,7 +549,7 @@ renderTool map_creator sdl = case !(queryPMapCreator map_creator tool) of
         let rect = MkSDLRect (x-10) (y-10) 20 20
         drawWholeCenter sdl "main/images/metal_ledge.png" rect angle' 0
       Just beginpos => with ST do
-        let angle = radToDeg $ angle adding_data
+        let angle = angle adding_data
         let (position, dims) = getWallPosDims beginpos endpos
         let poly = getRotatedRect camera position dims angle
         outlinePolygon sdl poly color_white

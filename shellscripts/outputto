@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+cp res_work/creator/output.json "$1"

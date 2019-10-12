@@ -169,7 +169,7 @@ export
   follow rendering id = update rendering $ setFollowing id
 
   zoom rendering x =
-    update rendering $ updateCamera $ zoomFactor $ computeZoomFactor x -- * abs (cast x)
+    update rendering $ updateCamera $ zoomByFactor $ computeZoomFactor x -- * abs (cast x)
 
   getSettings rendering = with ST do
     update rendering refreshSettings
