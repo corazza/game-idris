@@ -1,4 +1,15 @@
-# Typed references
+# Hardening
+
+1. Try compiling on other computers, then on other Idris versions
+2. Stress-tests
+
+# Goals
+
+1. Finish object editor
+
+# Improvements
+
+## Typed references
 
 A large number of game rules concern ownership and transferring of references, which are currently strings and thus the absence of error states cannot be guaranteed.
 
@@ -7,9 +18,12 @@ A large number of game rules concern ownership and transferring of references, w
 - level 3 (?): function computing the ref type
 - level 4: use dependent types somehow
 
-# Rest
+## Click strings and smarter matching
 
-1. Click strings and smarter matching
-  -
-2. Simplify communication between components. Too many command types, i.e. they're too confusing.
-3. Marshalling: use a plain monad instead of Control.ST
+## Commands
+
+Simplify communication between components. Too many command types, i.e. they're too confusing.
+
+## Marshalling
+
+Use a plain monad instead of Control.ST

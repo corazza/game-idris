@@ -11,7 +11,7 @@
                          "main/items/demonic_bow.json": 67
                     }
                },
-               "map": "main/maps/encampment.json",
+               "map": "main/maps/castle.json",
                "name": "Tristram",
                "object": "main/objects/character.json",
                "position": [
