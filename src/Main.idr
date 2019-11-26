@@ -25,7 +25,10 @@ import Client.SDL
 import Client.PClient
 import Client.ClientCommands
 
--- %flag C "-g -fno-omit-frame-pointer"
+%flag C "-I/mingw64/include"
+%flag C "-IC:\\msys64\\mingw64\\include\\"
+%flag C "-LC:\\msys64\\mingw64\\lib\\"
+%flag C "-LC:\\msys64\\mingw64\\x86_64-w64-mingw32\\lib\\"
 
 record PGame where
   constructor MkPGame
