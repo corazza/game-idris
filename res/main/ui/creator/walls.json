@@ -45,9 +45,10 @@
               "height": 30,
               "render": {
                 "type": "text",
-                "text": "Rectangular wall",
+                "text": "Chain wall",
                 "font": "main/fonts/ui_text.json"
               },
+              "click": "creator wall select chain",
               "displayStyle": "center",
               "layout": "vertical",
               "children": []

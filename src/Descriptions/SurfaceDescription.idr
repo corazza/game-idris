@@ -106,6 +106,7 @@ data Click = Inventory ContentReference
            | CreatorAddWall
            | CreatorObjectSelect ContentReference
            | CreatorWallSelectRect
+           | CreatorWallSelectChain
            | CreatorSetSpawn
            | CreatorMove
 
@@ -117,6 +118,7 @@ clickDict = fromList [
   ("creator add", CreatorAdd),
   ("creator add wall", CreatorAddWall),
   ("creator wall select rect", CreatorWallSelectRect),
+  ("creator wall select chain", CreatorWallSelectChain),
   ("creator set spawn", CreatorSetSpawn),
   ("creator move", CreatorMove)
 ]
@@ -135,6 +137,7 @@ Show Click where
   show CreatorAddWall = "creator add wall"
   show (CreatorObjectSelect ref) = "select " ++ ref
   show CreatorWallSelectRect = "select rect wall"
+  show CreatorWallSelectChain = "select chain wall"
   show CreatorSetSpawn = "creator set spawn"
   show CreatorMove = "creator move"
 

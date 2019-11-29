@@ -1,147 +1,255 @@
 {
-  "name": "Castle",
-  "dimensions": [200, 100],
-  "spawn": [0, -7],
-  "music": "main/music/broken_souls.wav",
-
-  "background": {
-    "image": "main/images/backgrounds/castle.jpg",
-    "dimensions": [30, 10.7335]
-  },
-
-  "static": [
-    {
-      "id": "map_castle_invisible_wall",
-      "ref": "main/objects/invisible_wall.json",
-      "position": [0, -9.5],
-      "body": {
-          "type": "static",
-          "categoryBits": ["wall"],
-          "fixture": {
-            "shape": {
-              "type": "box",
-              "dimensions": [30, 1]
-            },
-            "friction": 0.5
+     "background": {
+          "dimensions": [
+               30,
+               10.7335
+          ],
+          "image": "main/images/backgrounds/castle.jpg"
+     },
+     "creations": [
+          {
+               "behavior": {
+                    "double_parameters": {},
+                    "int_parameters": {},
+                    "logTransitions": false,
+                    "ref": "main/behaviors/door.json",
+                    "string_parameters": {
+                         "to": "main/maps/encampment.json"
+                    },
+                    "stringlist_parameters": {}
+               },
+               "id": "map_creator_autoid_2",
+               "position": [
+                    0,
+                    -6
+               ],
+               "ref": "main/objects/door.json"
+          },
+          {
+               "id": "map_creator_autoid_3",
+               "position": [
+                    -6.2,
+                    -6.1
+               ],
+               "ref": "main/objects/wooden_crate.json"
+          },
+          {
+               "id": "map_creator_autoid_4",
+               "position": [
+                    -5.1,
+                    -6.1
+               ],
+               "ref": "main/objects/wooden_crate.json"
+          },
+          {
+               "id": "map_creator_autoid_5",
+               "position": [
+                    -5.1,
+                    -5.1
+               ],
+               "ref": "main/objects/wooden_crate.json"
+          },
+          {
+               "id": "map_creator_autoid_6",
+               "position": [
+                    -4,
+                    -4
+               ],
+               "ref": "main/objects/wooden_crate.json"
+          },
+          {
+               "id": "map_creator_autoid_7",
+               "position": [
+                    -4,
+                    -5.1
+               ],
+               "ref": "main/objects/wooden_crate.json"
+          },
+          {
+               "id": "map_creator_autoid_8",
+               "position": [
+                    -4,
+                    -6.1
+               ],
+               "ref": "main/objects/wooden_crate.json"
+          },
+          {
+               "angle": 0,
+               "id": "map_creator_autoid_9",
+               "position": [
+                    -10.62254406565905,
+                    -6.978680562431936
+               ],
+               "ref": "main/objects/cultist.json"
+          },
+          {
+               "behavior": {
+                    "double_parameters": {
+                         "chase_duration": 10
+                    },
+                    "int_parameters": {},
+                    "logTransitions": false,
+                    "ref": "main/behaviors/hold-chase.json",
+                    "rulesType": "animate",
+                    "string_parameters": {},
+                    "stringlist_parameters": {}
+               },
+               "id": "map_creator_autoid_10",
+               "position": [
+                    1,
+                    0.5
+               ],
+               "ref": "main/objects/mage-2.json"
+          },
+          {
+               "angle": 0,
+               "id": "map_creator_autoid_11",
+               "position": [
+                    10.4534363967861,
+                    -7.215157201561755
+               ],
+               "ref": "main/objects/mage-3.json"
+          },
+          {
+               "id": "map_castle_metal_ledge_1",
+               "position": [
+                    1,
+                    -5
+               ],
+               "ref": "main/objects/metal_ledge.json"
+          },
+          {
+               "id": "map_castle_static_joint_1",
+               "position": [
+                    1,
+                    -5
+               ],
+               "ref": "main/objects/static_joint.json"
+          },
+          {
+               "behavior": {
+                    "double_parameters": {},
+                    "int_parameters": {},
+                    "logTransitions": false,
+                    "ref": "main/behaviors/loot.json",
+                    "string_parameters": {
+                         "loot": "main/items/demonic_bow.json"
+                    },
+                    "stringlist_parameters": {}
+               },
+               "id": "map_creator_autoid_12",
+               "position": [
+                    5,
+                    -5
+               ],
+               "ref": "main/objects/drop.json",
+               "render": {
+                    "method": {
+                         "dimensions": [
+                              0.7,
+                              0.7
+                         ],
+                         "facingRight": true,
+                         "image": "main/images/demonic_weapons/demonic_bows/Bow 1 Animation/Bow-1.png",
+                         "type": "single"
+                    }
+               }
+          },
+          {
+               "behavior": {
+                    "double_parameters": {},
+                    "int_parameters": {},
+                    "logTransitions": false,
+                    "ref": "main/behaviors/loot.json",
+                    "string_parameters": {
+                         "loot": "main/items/black_sword.json"
+                    },
+                    "stringlist_parameters": {}
+               },
+               "id": "map_creator_autoid_13",
+               "position": [
+                    10,
+                    -5
+               ],
+               "ref": "main/objects/drop.json",
+               "render": {
+                    "method": {
+                         "dimensions": [
+                              0.7,
+                              0.7
+                         ],
+                         "facingRight": true,
+                         "image": "main/images/black_sword.png",
+                         "type": "single"
+                    }
+               }
           }
-      }
-    }
-  ],
-
-  "creations": [
-    {
-      "ref": "main/objects/door.json",
-      "position": [0, -6],
-      "behavior": {
-        "ref": "main/behaviors/door.json",
-        "string_parameters": {
-          "to": "main/maps/encampment.json"
-        }
-      }
-    },
-
-    {
-      "ref": "main/objects/wooden_crate.json",
-      "position": [-6.2, -6.1]
-    },
-    {
-      "ref": "main/objects/wooden_crate.json",
-      "position": [-5.1, -6.1]
-    },
-    {
-      "ref": "main/objects/wooden_crate.json",
-      "position": [-5.1, -5.1]
-    },
-    {
-      "ref": "main/objects/wooden_crate.json",
-      "position": [-4, -4]
-    },
-    {
-      "ref": "main/objects/wooden_crate.json",
-      "position": [-4, -5.1]
-    },
-    {
-      "ref": "main/objects/wooden_crate.json",
-      "position": [-4, -6.1]
-    },
-
-
-    {
-      "ref": "main/objects/cultist.json",
-      "position": [-10, -9]
-    },
-    {
-      "ref": "main/objects/mage-2.json",
-      "position": [1, 0.5],
-      "behavior": {
-        "ref": "main/behaviors/hold-chase.json",
-        "double_parameters": {
-          "chase_duration": 10
-        },
-        "rulesType": "animate"
-      }
-    },
-    {
-      "ref": "main/objects/mage-3.json",
-      "position": [10, -9]
-    },
-
-    {
-      "ref": "main/objects/metal_ledge.json",
-      "position": [1, -5],
-      "id": "map_castle_metal_ledge_1"
-    },
-
-    {
-      "ref": "main/objects/static_joint.json",
-      "position": [1, -5],
-      "id": "map_castle_static_joint_1"
-    },
-
-    {
-      "ref": "main/objects/drop.json",
-      "position": [5, -5],
-      "behavior": {
-        "ref": "main/behaviors/loot.json",
-        "string_parameters": {
-          "loot": "main/items/demonic_bow.json"
-        }
-      },
-      "render": {
-        "method": {
-          "type": "single",
-          "image": "main/images/demonic_weapons/demonic_bows/Bow 1 Animation/Bow-1.png",
-          "dimensions": [0.7, 0.7]
-        }
-      }
-   },
-
-    {
-      "ref": "main/objects/drop.json",
-      "position": [10, -5],
-      "behavior": {
-        "ref": "main/behaviors/loot.json",
-        "string_parameters": {
-          "loot": "main/items/black_sword.json"
-        }
-      },
-      "render": {
-        "method": {
-          "type": "single",
-          "image": "main/images/black_sword.png",
-          "dimensions": [0.7, 0.7]
-        }
-      }
-    }
-  ],
-
-  "joints": [
-    {
-      "type": "revolute",
-      "bodyA": "map_castle_metal_ledge_1",
-      "localAnchorA": [0, 0],
-      "bodyB": "map_castle_static_joint_1",
-      "localAnchorB": [0, 0]
-    }
-  ]
+     ],
+     "dimensions": [
+          200,
+          100
+     ],
+     "joints": [
+          {
+               "bodyA": "map_castle_metal_ledge_1",
+               "bodyB": "map_castle_static_joint_1",
+               "localAnchorA": [
+                    0,
+                    0
+               ],
+               "localAnchorB": [
+                    0,
+                    0
+               ],
+               "type": "revolute"
+          }
+     ],
+     "music": "main/music/broken_souls.wav",
+     "name": "Castle",
+     "spawn": [
+          0,
+          -7
+     ],
+     "static": [
+          {
+               "body": {
+                    "categoryBits": [
+                         "wall"
+                    ],
+                    "fixtures": [
+                         {
+                              "friction": 0.5,
+                              "shape": {
+                                   "dimensions": [
+                                        30,
+                                        1
+                                   ],
+                                   "type": "box"
+                              }
+                         }
+                    ],
+                    "physicsEffects": [],
+                    "type": "static"
+               },
+               "id": "map_castle_invisible_wall",
+               "position": [
+                    0,
+                    -9.5
+               ],
+               "ref": "main/objects/invisible_wall.json",
+               "render_creator": {
+                    "color": [
+                         255,
+                         255,
+                         255,
+                         255
+                    ],
+                    "dimensions": [
+                         30,
+                         1
+                    ],
+                    "type": "outline_rect"
+               }
+          }
+     ]
 }

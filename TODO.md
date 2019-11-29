@@ -7,6 +7,13 @@
 
 1. Finish object editor
 
+# Concrete
+
+## Map editor
+
+- move position, not beginning point
+- render object background only on mouseover, also object info
+
 # Improvements
 
 ## Typed references

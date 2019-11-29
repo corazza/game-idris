@@ -200,7 +200,7 @@ export
         let positionData = noFlip position $ angle adding_data
         addObject map_creator id' (Just object_desc) Nothing positionData
 
-  -- HERE
+  -- TODO
   -- move position, not beginning point
   -- render object background only on mouseover, also object info
 

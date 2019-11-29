@@ -54,5 +54,24 @@ public export
 data Tool = Add ContentReference
           | Remove
           | AddRectWall
+          | AddChainWall
           | SetSpawn
           | Move
+
+export
+toolState : Tool -> Type
+toolState (Add x) = ()
+toolState Remove = ()
+toolState AddRectWall = Maybe Vector2D -- selectBegin
+toolState AddChainWall = List Vector2D
+toolState SetSpawn = ()
+toolState Move = Maybe ContentReference -- clickedOn
+
+export
+initialToolState : (tool : Tool) -> toolState tool
+initialToolState (Add x) = ()
+initialToolState Remove = ()
+initialToolState AddRectWall = Nothing
+initialToolState AddChainWall = empty
+initialToolState SetSpawn = ()
+initialToolState Move = Nothing
