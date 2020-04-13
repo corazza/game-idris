@@ -283,16 +283,24 @@ loop : (GameIO m, Dynamics m, Client m, Server m) =>
        ST m LoopResult [state ::: GameState Connected {m}]
 loop state = with ST do
   beforems <- ticks
+
   [pgame, client, dynamics, server, game_session_data] <- split state
+
   game_session_data' <- read game_session_data
+
   let passed = beforems - (lastms game_session_data')
+
   bodyData <- queryPDynamics dynamics objects
+
   Right commands <- iterate client bodyData | Left () => with ST do
       combine state [pgame, client, dynamics, server, game_session_data]
       pure Exit
+
   receiveClientCommands server commands
   runCommands dynamics $ catMaybes $ map fromCommand commands
+
   characterId <- querySessionData client characterId
+
   let time = passed + (carry game_session_data')
   (newCarry, serverCommands) <- iterateCarry dynamics server time characterId
   runServerCommands client serverCommands
@@ -302,8 +310,11 @@ loop state = with ST do
   sessionCommands <- getSessionCommands server
   gameCommands <- getGameCommands server
   combine state [pgame, client, dynamics, server, game_session_data]
+
   runGameCommands state gameCommands
+
   logout <- runSessionCommands state sessionCommands
+
   case logout of
        Left to => pure $ Relog to
        Right () => loop state
@@ -314,8 +325,10 @@ game : (GameIO m, Dynamics m, Client m, Server m) =>
 game state = with ST do
   map_ref <- queryPGame state {s=Disconnected} $ (map . character)
   characterId <- queryPGame state {s=Disconnected} $ characterId
+
   Right () <- startSession state map_ref | Left e => with ST do
     lift $ log $ "couldn't start session, error:\n" ++ e
+
   case !(loop state) of
     Exit => endSession state
     Relog to => with ST do
@@ -332,10 +345,14 @@ start = with ST do
       | Left e => lift (log e)
   Right client_settings <- lift $ loadClientSettings
       | Left e => lift (log e)
+
   let settings = MkGameSettings dynamics_settings server_settings client_settings
+
   Right timeline <- lift $ loadTimeline "saves/one.json"
       | Left e => lift (log e)
+
   let characterId = character timeline
+
   case getCharacter characterId timeline of
     Nothing => lift $ log $ "couldn't get character with id " ++ characterId
     Just character => with ST do

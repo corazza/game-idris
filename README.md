@@ -1,1 +1,4 @@
 # game-idris
+
+- [A game in a pure language (part 1): introduction and problems with Idris](https://flowing.systems/2020/01/13/a-game-in-a-pure-language-part-1-introduction-and-problems-with-idris.html)
+- [A game in a pure language (part 2): state](https://flowing.systems/2020/04/13/a-game-in-a-pure-language-part-2-state.html)
