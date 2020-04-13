@@ -1,0 +1,65 @@
+package creator
+
+pkgs = sdl2, contrib, containers, box2d
+
+--makefile = Makefile
+
+sourcedir = src
+
+modules = Data.AVL.DDict
+        , Data.AVL.SetRemove
+        , GameIO
+        , Serializer
+        , Exception
+        , JSONCache
+        , Commands
+        , Objects
+        , Timeline
+        , Timeline.Items
+        , Settings
+        , CreatorMain
+        , Descriptions
+        , Descriptions.Color
+        , Descriptions.MapDescription
+        , Descriptions.BitsDescription
+        , Descriptions.AnimationDescription
+        , Descriptions.NumericPropertyRender
+        , Descriptions.ObjectDescription
+        , Descriptions.JointDescription
+        , Descriptions.AbilityDescription
+        , Descriptions.ItemDescription
+        , Descriptions.ObjectDescription.BodyDescription
+        , Descriptions.ObjectDescription.ControlDescription
+        , Descriptions.ObjectDescription.RenderDescription
+        , Descriptions.ObjectDescription.RulesDescription
+        , Descriptions.ObjectDescription.RulesDescription.BehaviorDescription
+        , Descriptions.ObjectDescription.RulesDescription.RuleFlags
+        , Descriptions.SurfaceDescription
+        , Descriptions.FontDescription
+        , Client.PClient
+        , Client.SDL
+        , Client.SDL.PSDL
+        , Client.SDL.Points
+        , Client.Input
+        , Client.ClientCommands
+        , Client.Rendering
+        , Client.Rendering.RenderMethods
+        , Client.Rendering.Camera
+        , Client.Rendering.Transforms
+        , Client.Rendering.PRendering
+        , Client.Rendering.Info
+        , Client.Rendering.AnimationState
+        , Client.Rendering.Layers
+        , Client.Rendering.PositionData
+        , Client.UI
+        , Client.UI.PUI
+        , Client.UI.Inventory
+        , Client.UI.Character
+        , Editor
+        , Editor.PEditor
+        , Editor.MapEditor
+        , Editor.MapEditor.PMapEditor
+
+main = EditorMain
+
+executable = editor

@@ -34,10 +34,11 @@
                "ref": "main/objects/wooden_crate.json"
           },
           {
+               "angle": 0,
                "id": "map_creator_autoid_4",
                "position": [
-                    -5.1,
-                    -6.1
+                    -8.535618698255849,
+                    -3.59737398482906
                ],
                "ref": "main/objects/wooden_crate.json"
           },
@@ -50,10 +51,11 @@
                "ref": "main/objects/wooden_crate.json"
           },
           {
+               "angle": 0,
                "id": "map_creator_autoid_6",
                "position": [
-                    -4,
-                    -4
+                    -7.161799466531933,
+                    -2.648784515305405
                ],
                "ref": "main/objects/wooden_crate.json"
           },
@@ -77,12 +79,13 @@
                "angle": 0,
                "id": "map_creator_autoid_9",
                "position": [
-                    -10.62254406565905,
-                    -6.978680562431936
+                    -1.535682612805425,
+                    1.472673179866341
                ],
                "ref": "main/objects/cultist.json"
           },
           {
+               "angle": 0,
                "behavior": {
                     "double_parameters": {
                          "chase_duration": 10
@@ -96,8 +99,8 @@
                },
                "id": "map_creator_autoid_10",
                "position": [
-                    1,
-                    0.5
+                    -17.26918381421503,
+                    -4.676803381183565
                ],
                "ref": "main/objects/mage-2.json"
           },
@@ -183,6 +186,38 @@
                          "type": "single"
                     }
                }
+          },
+          {
+               "id": "map_creator_autoid_14",
+               "position": [
+                    15.0809880947124,
+                    -0.2609558506424093
+               ],
+               "ref": "main/objects/metal_ledge.json"
+          },
+          {
+               "id": "map_creator_autoid_15",
+               "position": [
+                    4.548373984829055,
+                    4.972641222591553
+               ],
+               "ref": "main/objects/metal_ledge.json"
+          },
+          {
+               "id": "map_creator_autoid_16",
+               "position": [
+                    -0.8487729969434676,
+                    0.9493134725429444
+               ],
+               "ref": "main/objects/metal_ledge.json"
+          },
+          {
+               "id": "map_creator_autoid_17",
+               "position": [
+                    -9.189818332410095,
+                    10.89314791168747
+               ],
+               "ref": "main/objects/metal_ledge.json"
           }
      ],
      "dimensions": [
@@ -212,6 +247,7 @@
      ],
      "static": [
           {
+               "angle": 0.1884955592153876,
                "body": {
                     "categoryBits": [
                          "wall"
@@ -233,8 +269,8 @@
                },
                "id": "map_castle_invisible_wall",
                "position": [
-                    0,
-                    -9.5
+                    2.487645137243183,
+                    -10.98982985077203
                ],
                "ref": "main/objects/invisible_wall.json",
                "render_creator": {

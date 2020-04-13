@@ -1,12 +1,3 @@
-# Hardening
-
-1. Try compiling on other computers, then on other Idris versions
-2. Stress-tests
-
-# Goals
-
-1. Finish object editor
-
 # Concrete
 
 ## Map editor
